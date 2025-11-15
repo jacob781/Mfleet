@@ -55,7 +55,7 @@ const Hero = () => {
   return (
     <section id="home" className="relative bg-mfleet-blue-dark">
       <div className="absolute inset-0">
-        <img className="w-full h-full object-cover" src="/images/hero_background.jpg" alt="Semi-truck on the road, representing Mfleet's services for the trucking industry" />
+        <img className="w-full h-full object-cover" src="./images/hero_background.jpg" alt="Semi-truck on the road, representing Mfleet's services for the trucking industry" />
         <div className="absolute inset-0 bg-mfleet-blue-dark bg-opacity-75"></div>
       </div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 lg:py-48 text-center">
