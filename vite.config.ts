@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
       allowedHosts: ["caf72269f12a.ngrok-free.app"]
     },
     plugins: [react()],
-    base: '/',
+    base: './',
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
