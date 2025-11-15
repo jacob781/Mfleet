@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const pricingData = [
   { service: "Applying for an IRP and IFTA accounts/plate", price: "Service Fee + $300+ government fee" },
@@ -36,6 +36,24 @@ const pricingData = [
 ];
 
 const PricingPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const scrollToContact = () => {
+    navigate('/');
+    // Small delay to ensure navigation completes before scrolling
+    setTimeout(() => {
+      const section = document.getElementById('contact');
+      if (section) {
+        const headerHeight = 80; // Height of the fixed header
+        const offsetTop = section.offsetTop - headerHeight;
+        window.scrollTo({
+          top: offsetTop,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+  };
+
   return (
     <div className="bg-gray-50 py-16 sm:py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -82,9 +100,9 @@ const PricingPage: React.FC = () => {
             </div>
           </div>
         </div>
-         <div className="mt-12 text-center text-gray-500">
-            <p>Please note: "Government fee" is separate from our service fee and is paid directly to the respective government agency.</p>
-            <p className="mt-2">For custom packages or questions, please <a href="/#contact" className="font-medium text-mfleet-blue hover:text-mfleet-blue-dark">contact us</a>.</p>
+        <div className="mt-12 text-center text-gray-500">
+          <p>Please note: "Government fee" is separate from our service fee and is paid directly to the respective government agency.</p>
+          <p className="mt-2">For custom packages or questions, please <button onClick={scrollToContact} className="font-medium text-mfleet-blue hover:text-mfleet-blue-dark underline cursor-pointer">contact us</button>.</p>
         </div>
       </div>
     </div>
