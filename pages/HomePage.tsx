@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const Hero = () => (
   <section id="home" className="relative bg-mfleet-blue-dark">
     <div className="absolute inset-0">
-      <img className="w-full h-full object-cover" src="https://images.unsplash.com/photo-1578553911343-a63d599b6b7a?q=80&w=1920&auto=format&fit=crop" alt="A semi-truck driving down a highway, seen from behind" />
+      <img className="w-full h-full object-cover" src="/images/hero_background.jpg" alt="Semi-truck on the road, representing Mfleet's services for the trucking industry" />
       <div className="absolute inset-0 bg-mfleet-blue-dark bg-opacity-75"></div>
     </div>
     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 lg:py-48 text-center">
@@ -107,43 +107,120 @@ const CtaSection = () => (
     </div>
   );
 
-const Contact = () => (
-  <section id="contact" className="py-20 bg-mfleet-blue-dark text-white">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center">
-        <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Contact Us
-        </h2>
-        <p className="mt-4 max-w-2xl mx-auto text-xl text-blue-100">
-          We're here to help. Reach out to us through any of the channels below.
-        </p>
+const Contact = () => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log({ name, email, message });
+    alert('Thank you for your message! We will get back to you soon.');
+    setName('');
+    setEmail('');
+    setMessage('');
+  };
+  
+  return (
+    <section id="contact" className="py-20 bg-mfleet-blue-dark text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Get In Touch
+          </h2>
+          <p className="mt-4 max-w-2xl mx-auto text-xl text-blue-100">
+            Have questions? We're here to help. Reach out to us or fill out the form below.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* Contact Form */}
+          <div className="bg-white rounded-2xl p-8 shadow-lg">
+            <h3 className="text-2xl font-bold text-mfleet-blue-dark mb-6">Send us a Message</h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-mfleet-gray">Full Name</label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    name="name"
+                    id="name"
+                    autoComplete="name"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="py-3 px-4 block w-full shadow-sm text-mfleet-gray-dark focus:ring-mfleet-blue focus:border-mfleet-blue border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-mfleet-gray">Email</label>
+                <div className="mt-1">
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="py-3 px-4 block w-full shadow-sm text-mfleet-gray-dark focus:ring-mfleet-blue focus:border-mfleet-blue border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-mfleet-gray">Message</label>
+                <div className="mt-1">
+                  <textarea
+                    id="message"
+                    name="message"
+                    rows={4}
+                    required
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    className="py-3 px-4 block w-full shadow-sm text-mfleet-gray-dark focus:ring-mfleet-blue focus:border-mfleet-blue border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-mfleet-blue-dark hover:bg-mfleet-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-mfleet-blue transition-colors duration-300"
+                >
+                  Send Message
+                </button>
+              </div>
+            </form>
+          </div>
+          
+          {/* Contact Info */}
+          <div className="space-y-8">
+            <div className="flex flex-col items-center text-center p-6 bg-mfleet-blue rounded-2xl">
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-white mb-4">
+                <svg className="w-8 h-8 text-mfleet-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+              </div>
+              <h3 className="text-xl font-bold">Phone</h3>
+              <p className="text-blue-200 mt-2 text-lg">425 286 8699</p>
+            </div>
+            <div className="flex flex-col items-center text-center p-6 bg-mfleet-blue rounded-2xl">
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-white mb-4">
+                <svg className="w-8 h-8 text-mfleet-blue" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.78l-1.44 6.84c-.14.68-.56 1.02-1.14.8l-3.34-2.46-1.6 1.54c-.18.18-.32.32-.64.32l.22-3.44 3.08-2.8c.14-.12-.04-.2-.22-.08l-3.8 2.4-3.32-1.04c-.66-.2-1.14-.64-.98-1.28l1.42-6.72c.16-.76.66-1.04 1.3-1.04.42 0 .8.14 1.12.32l9.42 5.24c.72.4.72 1.1.12 1.34z"/></svg>
+              </div>
+              <h3 className="text-xl font-bold">Telegram</h3>
+              <a href="https://t.me/mfleet" target="_blank" rel="noopener noreferrer" className="text-blue-200 mt-2 text-lg hover:text-white underline">@mfleet</a>
+            </div>
+            <div className="flex flex-col items-center text-center p-6 bg-mfleet-blue rounded-2xl">
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-white mb-4">
+               <svg className="w-8 h-8 text-mfleet-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+              </div>
+              <h3 className="text-xl font-bold">Email</h3>
+              <p className="text-blue-200 mt-2 text-lg">mfleetteam@gmail.com</p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
-          <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-mfleet-blue mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-            </div>
-            <h3 className="text-xl font-bold">Phone</h3>
-            <p className="text-blue-200 mt-2">425 286 8699</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-mfleet-blue mb-4">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.78l-1.44 6.84c-.14.68-.56 1.02-1.14.8l-3.34-2.46-1.6 1.54c-.18.18-.32.32-.64.32l.22-3.44 3.08-2.8c.14-.12-.04-.2-.22-.08l-3.8 2.4-3.32-1.04c-.66-.2-1.14-.64-.98-1.28l1.42-6.72c.16-.76.66-1.04 1.3-1.04.42 0 .8.14 1.12.32l9.42 5.24c.72.4.72 1.1.12 1.34z"/></svg>
-            </div>
-            <h3 className="text-xl font-bold">Telegram</h3>
-            <a href="https://t.me/mfleet" target="_blank" rel="noopener noreferrer" className="text-blue-200 mt-2 hover:text-white underline">@mfleet</a>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-mfleet-blue mb-4">
-             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-            </div>
-            <h3 className="text-xl font-bold">Email</h3>
-            <p className="text-blue-200 mt-2">mfleetteam@gmail.com</p>
-          </div>
-      </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 
 const HomePage: React.FC = () => {
