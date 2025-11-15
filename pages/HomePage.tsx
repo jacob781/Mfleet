@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const Hero = () => (
   <section id="home" className="relative bg-mfleet-blue-dark">
     <div className="absolute inset-0">
-      <img className="w-full h-full object-cover" src="https://i.ibb.co/mH4C15G/truck-hero.jpg" alt="A modern semi-truck driving on a highway at sunset with motion blur" />
+      <img className="w-full h-full object-cover" src="https://images.unsplash.com/photo-1578553911343-a63d599b6b7a?q=80&w=1920&auto=format&fit=crop" alt="A semi-truck driving down a highway, seen from behind" />
       <div className="absolute inset-0 bg-mfleet-blue-dark bg-opacity-75"></div>
     </div>
     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 lg:py-48 text-center">
