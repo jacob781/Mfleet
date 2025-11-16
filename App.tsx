@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
 import Header from './components/Header';
@@ -8,7 +7,7 @@ import Footer from './components/Footer';
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <div className="bg-white text-mfleet-gray-dark font-sans">
         <Header />
         <main>
@@ -19,7 +18,7 @@ const App: React.FC = () => {
         </main>
         <Footer />
       </div>
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 
