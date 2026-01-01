@@ -1,60 +1,33 @@
 import React, { useState } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
-
-// Function to handle smooth scrolling with offset
-const scrollToSection = (sectionId: string) => {
-  const section = document.getElementById(sectionId);
-  if (section) {
-    const headerHeight = 80; // Height of the fixed header
-    const offsetTop = section.offsetTop - headerHeight;
-    window.scrollTo({
-      top: offsetTop,
-      behavior: 'smooth'
-    });
-  }
-};
+import { NavLink, Link } from 'react-router-dom';
 
 const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
 
   const navLinkClasses = 'text-white hover:text-blue-200 transition-colors duration-300 py-2 px-3 rounded-md text-sm font-medium';
   const activeLinkClasses = 'bg-mfleet-blue-dark';
-
-  // Function to handle navigation to home page and scroll to section
-  const navigateToSection = (sectionId: string) => {
-    navigate('/');
-    // Small delay to ensure navigation completes before scrolling
-    setTimeout(() => {
-      scrollToSection(sectionId);
-    }, 100);
-  };
 
   return (
     <header className="bg-mfleet-blue-dark sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex-shrink-0">
-            <Link to="#" className="flex items-center space-x-2 text-white">
-              <img src="images/logo.png" alt="Mfleet Logo" className="h-28 w-auto drop-shadow-[0_2px_2px_rgba(255,255,255,0.5)]" />
+            <Link to="/#home" className="flex items-center space-x-2 text-white">
+              <img src="images/logo.png" alt="Mfleet Logo" className="h-16 w-auto drop-shadow-[0_2px_2px_rgba(255,255,255,0.5)]" />
             </Link>
           </div>
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
-              <NavLink to="/" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`} end>Home</NavLink>
-              <button
+              <NavLink to="/#home" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`} end>Home</NavLink>
+              <Link to="/#about" className={navLinkClasses}>About Us</Link>
+              <NavLink to="/services" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>Services</NavLink>
+
+              <Link
+                to="/#contact"
                 className={navLinkClasses}
-                onClick={() => navigateToSection('services')}
-              >
-                Services
-              </button>
-              <NavLink to="/pricing" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>Pricing</NavLink>
-              <button
-                className={navLinkClasses}
-                onClick={() => navigateToSection('contact')}
               >
                 Contact Us
-              </button>
+              </Link>
             </div>
           </div>
           <div className="hidden md:block">
@@ -88,26 +61,17 @@ const Header: React.FC = () => {
       {isOpen && (
         <div className="md:hidden" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <NavLink to="/" className={({ isActive }) => `block ${navLinkClasses} ${isActive ? activeLinkClasses : ''}`} onClick={() => setIsOpen(false)} end>Home</NavLink>
-            <button
+            <Link to="/#home" className={`block ${navLinkClasses}`} onClick={() => setIsOpen(false)}>Home</Link>
+            <Link to="/#about" className={`block ${navLinkClasses}`} onClick={() => setIsOpen(false)}>About Us</Link>
+            <NavLink to="/services" className={({ isActive }) => `block ${navLinkClasses} ${isActive ? activeLinkClasses : ''}`} onClick={() => setIsOpen(false)}>Services</NavLink>
+
+            <Link
+              to="/#contact"
               className={`block ${navLinkClasses}`}
-              onClick={() => {
-                navigateToSection('services');
-                setIsOpen(false);
-              }}
-            >
-              Services
-            </button>
-            <NavLink to="/pricing" className={({ isActive }) => `block ${navLinkClasses} ${isActive ? activeLinkClasses : ''}`} onClick={() => setIsOpen(false)}>Pricing</NavLink>
-            <button
-              className={`block ${navLinkClasses}`}
-              onClick={() => {
-                navigateToSection('contact');
-                setIsOpen(false);
-              }}
+              onClick={() => setIsOpen(false)}
             >
               Contact Us
-            </button>
+            </Link>
             <a href="https://t.me/mfleet" target="_blank" rel="noopener noreferrer" className="block text-center bg-white text-mfleet-blue-dark font-bold mt-2 py-2 px-4 rounded-full hover:bg-blue-100 transition-all duration-300 ease-in-out">
               eFile Now
             </a>

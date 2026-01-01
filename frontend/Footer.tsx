@@ -26,28 +26,21 @@ const Footer: React.FC = () => {
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-8 xl:col-span-1">
-            <img src="images/logo.png" alt="Mfleet Logo" className="h-32 w-auto drop-shadow-[0_2px_2px_rgba(255,255,255,0.5)]" />
+            <img src="images/logo.png" alt="Mfleet Logo" className="h-24 w-auto drop-shadow-[0_2px_2px_rgba(255,255,255,0.5)]" />
             <p className="text-gray-300 text-base">
               Your trusted partner in trucking compliance and consulting.
             </p>
           </div>
           <div className="mt-12 grid grid-cols-2 gap-8 xl:mt-0 xl:col-span-2">
             <div className="md:grid md:grid-cols-2 md:gap-8">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-200 tracking-wider uppercase">Services</h3>
-                <ul className="mt-4 space-y-4">
-                  <li><button onClick={() => navigateToSection('services')} className="text-base text-gray-300 hover:text-white text-left w-full">IFTA Filing</button></li>
-                  <li><button onClick={() => navigateToSection('services')} className="text-base text-gray-300 hover:text-white text-left w-full">Quarterly State Taxes</button></li>
-                  <li><button onClick={() => navigateToSection('services')} className="text-base text-gray-300 hover:text-white text-left w-full">Form 2290 HVUT Filing</button></li>
-                  <li><button onClick={() => navigateToSection('services')} className="text-base text-gray-300 hover:text-white text-left w-full">And more...</button></li>
-                </ul>
-              </div>
               <div className="mt-12 md:mt-0">
                 <h3 className="text-sm font-semibold text-gray-200 tracking-wider uppercase">Company</h3>
                 <ul className="mt-4 space-y-4">
                   <li><button onClick={() => navigateToSection('home')} className="text-base text-gray-300 hover:text-white text-left w-full">Home</button></li>
-                  <li><button onClick={() => navigateToSection('services')} className="text-base text-gray-300 hover:text-white text-left w-full">About Us</button></li>
-                  <li><button onClick={() => navigate('/pricing')} className="text-base text-gray-300 hover:text-white text-left w-full">Pricing</button></li>
+                  <li><button onClick={() => navigate('/services')} className="text-base text-gray-300 hover:text-white text-left w-full">Services</button></li>
+                  <li><button onClick={() => navigateToSection('home')} className="text-base text-gray-300 hover:text-white text-left w-full">About Us</button></li>
+                  <li><button onClick={() => navigate('/privacy-policy')} className="text-base text-gray-300 hover:text-white text-left w-full">Privacy Policy</button></li>
+
                 </ul>
               </div>
             </div>
@@ -65,7 +58,7 @@ const Footer: React.FC = () => {
                   </li>
                   <li className="flex items-center">
                     <svg className="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                    <a href="mailto:mfleetteam@gmail.com" className="text-gray-300 hover:text-white">mfleetteam@gmail.com</a>
+                    <a href="mailto:contact@mfleet.org" className="text-gray-300 hover:text-white">contact@mfleet.org</a>
                   </li>
                 </ul>
               </div>

@@ -8,14 +8,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
-      allowedHosts: ["caf72269f12a.ngrok-free.app"]
+      allowedHosts: ["386623c11560.ngrok-free.app", "localhost", "127.0.0.1", "0.0.0.0"],
     },
     plugins: [react()],
     base: '/',
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
