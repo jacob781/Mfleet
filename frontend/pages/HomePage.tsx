@@ -212,8 +212,8 @@ const Contact = () => {
     e.preventDefault();
     setStatus('submitting');
 
-    // Default to localhost:8000 if env var not set
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    // Use relative path in production, localhost in development
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
 
     try {
       const response = await fetch(`${apiUrl}/api/contact`, {
