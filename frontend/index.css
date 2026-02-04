@@ -1,33 +1,41 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-.animate-marquee {
-    animation: marquee 20s linear infinite;
-    will-change: transform;
+/* Custom theme configuration */
+@theme {
+    --color-mfleet-blue-light: #3b82f6;
+    --color-mfleet-blue: #1e40af;
+    --color-mfleet-blue-dark: #1e3a8a;
+    --color-mfleet-gray-light: #f3f4f6;
+    --color-mfleet-gray: #6b7280;
+    --color-mfleet-gray-dark: #111827;
+    --font-family-sans: 'Inter', sans-serif;
 }
 
-.animate-marquee-reverse {
-    animation: marquee-reverse 20s linear infinite;
-    will-change: transform;
-}
-
+/* Marquee animations */
 @keyframes marquee {
-    from {
-        transform: translateX(0);
+    0% {
+        transform: translateX(0%);
     }
 
-    to {
+    100% {
         transform: translateX(-50%);
     }
 }
 
 @keyframes marquee-reverse {
-    from {
+    0% {
         transform: translateX(-50%);
     }
 
-    to {
-        transform: translateX(0);
+    100% {
+        transform: translateX(0%);
     }
+}
+
+.animate-marquee {
+    animation: marquee var(--animation-duration, 40s) linear infinite;
+}
+
+.animate-marquee-reverse {
+    animation: marquee-reverse var(--animation-duration, 40s) linear infinite;
 }

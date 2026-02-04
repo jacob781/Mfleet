@@ -16,8 +16,8 @@ const Marquee: React.FC<MarqueeProps> = ({
     return (
         <div className={`relative flex overflow-hidden user-select-none group ${className}`}>
             <div
-                className={`flex whitespace-nowrap animate-marquee ${direction === 'right' ? 'animate-marquee-reverse' : ''} hover:[animation-play-state:paused]`}
-                style={{ animationDuration: `${speed}s` }}
+                className={`flex whitespace-nowrap ${direction === 'right' ? 'animate-marquee-reverse' : 'animate-marquee'} hover:[animation-play-state:paused]`}
+                style={{ '--animation-duration': `${speed}s` } as React.CSSProperties}
             >
                 {items.map((item, idx) => (
                     <div
