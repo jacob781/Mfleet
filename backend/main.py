@@ -1,5 +1,8 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, EmailStr
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel, EmailStr, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import smtplib
@@ -11,25 +14,30 @@ load_dotenv()
 
 app = FastAPI()
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Configure CORS
 origins = [
     "http://localhost:3000",
-    "http://localhost:5173", # Vite default
-    # Add your VPS domain here later, e.g., "https://yourdomain.com"
+    "http://localhost:5173",
+    "https://mfleet.org",
+    "https://www.mfleet.org"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For development/testing ease, restrict in production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 class ContactForm(BaseModel):
-    name: str
+    name: str = Field(..., max_length=150)
     email: EmailStr
-    message: str
+    message: str = Field(..., max_length=2500)
 
 def send_email(form_data: ContactForm):
     try:
@@ -73,7 +81,8 @@ def read_root():
     return {"message": "Mfleet Backend is running"}
 
 @app.post("/api/contact")
-async def send_contact_email(form_data: ContactForm):
+@limiter.limit("10/minute")
+async def send_contact_email(request: Request, form_data: ContactForm):
     print(f"--- New Contact Request ---")
     print(f"Name: {form_data.name}")
     print(f"Email: {form_data.email}")
