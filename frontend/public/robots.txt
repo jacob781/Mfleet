@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /pricing
 
 Sitemap: https://mfleet.org/sitemap.xml
