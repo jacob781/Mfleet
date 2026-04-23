@@ -8,99 +8,51 @@ interface ServiceItem {
   fee: string;
 }
 
-interface PricingTab {
-  id: string;
-  label: string;
-  services: ServiceItem[];
-}
-
-const PRICING_DATA: PricingTab[] = [
-  {
-    id: 'general',
-    label: 'General Services',
-    services: [
-      { service: 'Applying for FMCSA account', fee: '$300 + government fee' },
-      { service: 'Establishing a new business', fee: '$150 + government fee + $60 Annual report/Amendment' },
-      { service: 'Applying for an IRP account', fee: '$100 + government fee' },
-      { service: 'Applying for an IFTA account', fee: '$100 + government fee' },
-      { service: 'Same day getting a plate (WA State)', fee: '$400 + government fee' },
-      { service: 'Applying for an Oregon ODOT account', fee: '$60' },
-      { service: 'Adding unit to ODOT account', fee: '$30' },
-      { service: 'Applying for a Kentucky HUT account', fee: '$60' },
-      { service: 'Applying for New Mexico HUT account', fee: '$50' },
-      { service: 'Oregon Monthly report', fee: '$40 / up to 3 trucks' },
-      { service: 'Kentucky Quarterly report', fee: '$40 / up to 3 trucks' },
-      { service: 'New Mexico Quarterly report', fee: '$40 / up to 3 trucks' },
-      { service: 'New York Quarterly report', fee: '$40 / up to 3 trucks' },
-      { service: 'IFTA quarterly reports', fee: '$100 up to 3 vehicles · $30/unit over 3' },
-      { service: 'Corporation Annual report', fee: '$60' },
-      { service: 'UCR yearly license', fee: '$40 + government fee' },
-      { service: 'FMCSA annual MCS-150 form update', fee: '$50' },
-      { service: 'Clean truck permit', fee: '$50 + government fee' },
-      { service: 'BOC-3 filing', fee: '$30 + government fee' },
-      { service: 'Drug and Alcohol', fee: '$60 new account · $20 per driver + test fee' },
-      { service: 'Clearing House', fee: '$60 new account · $20 per driver' },
-      { service: 'Supervisor training course', fee: '$200 + course fee' },
-      { service: 'Lease agreement', fee: '$30' },
-      { service: 'MC certificate', fee: '$50' },
-      { service: 'HVUT Form 2290', fee: '$50 up to 3 vehicles' },
-      { service: 'CT permit', fee: '$50 new account + $50/month' },
-      { service: 'SCAC Code', fee: '$100 + government fee' },
-      { service: 'Driver Qualification files', fee: '$100' },
-      { service: 'Motor Vehicle records', fee: '$20 + government fee' },
-      { service: 'Safety Audit', fee: '$500 + filings' },
-      { service: 'Driver/Owner Statements', fee: 'Contact for pricing' },
-      { service: 'Beneficial Ownership Information (BOI) Reporting', fee: '$80' },
-      { service: 'Creating Prepass Account', fee: '$100' },
-      { service: 'Ordering Prepass', fee: '$30 per device' },
-      { service: 'FMCSA PIN', fee: '$50' },
-      { service: 'Creating Department of Revenue Account (DOR) Business License', fee: '$100' },
-    ],
-  },
-  {
-    id: 'safety',
-    label: 'Safety & Compliance',
-    services: [
-      { service: 'Applying for an IRP account', fee: '$100 + government fee' },
-      { service: 'Applying for an IFTA account', fee: '$100 + government fee' },
-      { service: 'Applying for an Oregon ODOT account', fee: '$60' },
-      { service: 'Adding unit to ODOT account', fee: '$30' },
-      { service: 'Applying for a Kentucky HUT account', fee: '$60' },
-      { service: 'Applying for New Mexico HUT account', fee: '$50' },
-      { service: 'Oregon Monthly report', fee: '$40 / up to 3 trucks' },
-      { service: 'Kentucky Quarterly report', fee: '$40 / up to 3 trucks' },
-      { service: 'New Mexico Quarterly report', fee: '$40 / up to 3 trucks' },
-      { service: 'New York Quarterly report', fee: '$40 / up to 3 trucks' },
-      { service: 'IFTA quarterly reports', fee: '$100 up to 3 vehicles · $30/unit over 3' },
-      { service: 'FMCSA yearly MCS-150 form update', fee: '$50' },
-      { service: 'Clean truck permit', fee: '$50 + government fee' },
-      { service: 'Drug and Alcohol', fee: '$60 new account · $20 per driver + test fee' },
-      { service: 'Clearing House', fee: '$60 new account · $20 per driver' },
-      { service: 'Lease agreement', fee: '$30' },
-      { service: 'HVUT Form 2290', fee: '$50 up to 3 vehicles' },
-      { service: 'CT permit', fee: '$50 new account + $50/month' },
-      { service: 'SCAC Code', fee: '$100 + government fee' },
-      { service: 'Driver Qualification files', fee: '$100' },
-      { service: 'Motor Vehicle records', fee: '$20 + government fee' },
-      { service: 'Safety Audit', fee: '$500 + filings' },
-      { service: 'Driver/Owner Statements', fee: 'Contact for pricing' },
-      { service: 'Beneficial Ownership Information (BOI) Reporting', fee: '$80' },
-      { service: 'Creating Prepass Account', fee: '$100' },
-      { service: 'Ordering Prepass', fee: '$30 per device' },
-      { service: 'FMCSA PIN', fee: '$50' },
-    ],
-  },
+const SERVICES: ServiceItem[] = [
+  { service: 'Applying for FMCSA account',                                  fee: '$300 + government fee' },
+  { service: 'Establishing a new business',                                 fee: '$150 + government fee + $60 Annual report/Amendment' },
+  { service: 'Applying for an IRP account',                                 fee: '$100 + government fee' },
+  { service: 'Applying for an IFTA account',                                fee: '$100 + government fee' },
+  { service: 'Same day getting a plate (WA State)',                         fee: '$400 + government fee' },
+  { service: 'Applying for an Oregon ODOT account',                         fee: '$60' },
+  { service: 'Adding unit to ODOT account',                                 fee: '$30' },
+  { service: 'Applying for a Kentucky HUT account',                         fee: '$60' },
+  { service: 'Applying for New Mexico HUT account',                         fee: '$50' },
+  { service: 'Oregon Monthly report',                                       fee: '$40 / up to 3 trucks' },
+  { service: 'Kentucky Quarterly report',                                   fee: '$40 / up to 3 trucks' },
+  { service: 'New Mexico Quarterly report',                                 fee: '$40 / up to 3 trucks' },
+  { service: 'New York Quarterly report',                                   fee: '$40 / up to 3 trucks' },
+  { service: 'IFTA quarterly reports',                                      fee: '$100 up to 3 vehicles · $30/unit over 3' },
+  { service: 'Corporation Annual report',                                   fee: '$60' },
+  { service: 'UCR yearly license',                                          fee: '$40 + government fee' },
+  { service: 'FMCSA annual MCS-150 form update',                            fee: '$50' },
+  { service: 'Clean truck permit',                                          fee: '$50 + government fee' },
+  { service: 'BOC-3 filing',                                                fee: '$30 + government fee' },
+  { service: 'Drug and Alcohol',                                            fee: '$60 new account · $20 per driver + test fee' },
+  { service: 'Clearing House',                                              fee: '$60 new account · $20 per driver' },
+  { service: 'Supervisor training course',                                  fee: '$200 + course fee' },
+  { service: 'Lease agreement',                                             fee: '$30' },
+  { service: 'MC certificate',                                              fee: '$50' },
+  { service: 'HVUT Form 2290',                                              fee: '$50 up to 3 vehicles' },
+  { service: 'CT permit',                                                   fee: '$50 new account + $50/month' },
+  { service: 'SCAC Code',                                                   fee: '$100 + government fee' },
+  { service: 'Driver Qualification files',                                  fee: '$100' },
+  { service: 'Motor Vehicle records',                                       fee: '$20 + government fee' },
+  { service: 'Safety Audit',                                                fee: '$500 + filings' },
+  { service: 'Driver/Owner Statements',                                     fee: 'Contact for pricing' },
+  { service: 'Beneficial Ownership Information (BOI) Reporting',            fee: '$80' },
+  { service: 'Creating Prepass Account',                                    fee: '$100' },
+  { service: 'Ordering Prepass',                                            fee: '$30 per device' },
+  { service: 'FMCSA PIN',                                                   fee: '$50' },
+  { service: 'Creating Department of Revenue Account (DOR) Business License', fee: '$100' },
 ];
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
 const PricingPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('general');
   const [search, setSearch] = useState('');
 
-  const currentTab = PRICING_DATA.find(t => t.id === activeTab)!;
-
-  const filteredServices = currentTab.services.filter(item =>
+  const filtered = SERVICES.filter(item =>
     item.service.toLowerCase().includes(search.toLowerCase()) ||
     item.fee.toLowerCase().includes(search.toLowerCase())
   );
@@ -148,36 +100,8 @@ const PricingPage: React.FC = () => {
         {/* ── Main Content ── */}
         <div className="max-w-5xl mx-auto px-6 py-12">
 
-          {/* Tabs + Search row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-
-            {/* Tab Switcher */}
-            <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/10 w-fit">
-              {PRICING_DATA.map(tab => (
-                <button
-                  key={tab.id}
-                  id={`pricing-tab-${tab.id}`}
-                  onClick={() => { setActiveTab(tab.id); setSearch(''); }}
-                  className={`
-                    relative px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 focus:outline-none
-                    ${activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                    }
-                  `}
-                >
-                  {tab.label}
-                  <span className={`
-                    ml-2 text-xs px-1.5 py-0.5 rounded-full font-normal
-                    ${activeTab === tab.id ? 'bg-blue-500/40 text-blue-100' : 'bg-white/10 text-gray-500'}
-                  `}>
-                    {tab.services.length}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Search */}
+          {/* Search row */}
+          <div className="flex justify-end mb-8">
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -188,7 +112,7 @@ const PricingPage: React.FC = () => {
                 placeholder="Search services..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/8 transition-all w-64"
+                className="pl-9 pr-8 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/60 transition-all w-64"
               />
               {search && (
                 <button
@@ -211,12 +135,12 @@ const PricingPage: React.FC = () => {
 
             {/* Rows */}
             <div className="divide-y divide-white/5">
-              {filteredServices.length === 0 ? (
+              {filtered.length === 0 ? (
                 <div className="px-6 py-16 text-center text-gray-600 text-sm">
                   No services match "<span className="text-gray-400">{search}</span>"
                 </div>
               ) : (
-                filteredServices.map((item, idx) => (
+                filtered.map((item, idx) => (
                   <div
                     key={idx}
                     className="grid grid-cols-[1fr_auto] items-center px-6 py-4 gap-6 group hover:bg-white/[0.03] transition-colors duration-150"
@@ -247,7 +171,7 @@ const PricingPage: React.FC = () => {
             {/* Table footer */}
             <div className="px-6 py-3 bg-white/[0.02] border-t border-white/10 flex items-center justify-between">
               <span className="text-xs text-gray-600">
-                {filteredServices.length} of {currentTab.services.length} services
+                {filtered.length} of {SERVICES.length} services
               </span>
               <span className="text-xs text-gray-600">
                 Prices subject to change — contact us for quotes
