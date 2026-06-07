@@ -1,0 +1,66 @@
+# ─── Secrets & local config ───────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Python (backend) ─────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ─── Databases (local dev) ────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── Node / Frontend ──────────────────────────────────────
+node_modules/
+dist/
+build/
+*.local
+.vite/
+
+# ─── Logs ─────────────────────────────────────────────────
+*.log
+build.log
+
+# ─── AI tooling (local, auto-regenerated) ─────────────────
+.codegraph/
+.mcp.json
+.claude/
+
+# ─── Source/reference data not read at runtime ────────────
+# Pricing is hardcoded in the frontend; this xlsx is just the source it
+# was transcribed from. Keep locally, no need to version in the app repo.
+backend/Mfleet_services.xlsx
+
+# ─── Internal planning / knowledge docs (local for now) ───
+project_brain.md
+action_plan_ru.md
+
+# ─── PDF generator: commit ONLY the files used to generate the PDF ──
+# Everything in pdf_generator/ is ignored by default (old modules, source
+# reference PDFs, test payloads/outputs, screenshots), then the live
+# generation chain is explicitly whitelisted back in.
+backend/pdf_generator/*
+!backend/pdf_generator/pdf_generator.py
+!backend/pdf_generator/main.typ
+!backend/pdf_generator/styles.typ
+!backend/pdf_generator/fw9.pdf
+!backend/pdf_generator/FINES_AND_FEES_SCHEDULE.pdf
+!backend/pdf_generator/pages/
+backend/pdf_generator/pages/*
+!backend/pdf_generator/pages/*.typ
+
+# ─── OS / Editor ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
