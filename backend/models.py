@@ -256,6 +256,13 @@ class DriverApplication(SQLModel, table=True):
     manager_config: dict = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False))
 
     pdf_path: Optional[str] = None
+    pdf_status: Optional[str] = None  # generating|ready|failed
+    pdf_error: Optional[str] = None
+
+    submitted_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
 
     created_at: Optional[datetime] = Field(
         default=None,
@@ -368,15 +375,6 @@ class DailyLog(BaseModel):
     hours: str
     relieved_time: str
 
-class WorkLogGroup(BaseModel):
-    day1: DailyLog
-    day2: DailyLog
-    day3: DailyLog
-    day4: DailyLog
-    day5: DailyLog
-    day6: DailyLog
-    day7: DailyLog
-
 class TruckSchema(BaseModel):
     make: str
     year: int
@@ -438,8 +436,8 @@ class ApplicationPayload(BaseModel):
     drug_alcohol_history: DrugAlcoholHistory
     employment_history: List[EmploymentItem]
     
-    # Logs
-    work_log: WorkLogGroup
+    # Logs — Typst iterates this as a list (see pages/p09_seven_day_log.typ)
+    seven_day_log: List[DailyLog]
     last_relieved_time: str
     last_relieved_date: str
     last_relieved_location: str

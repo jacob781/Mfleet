@@ -116,11 +116,14 @@ class ApplicationListItem(BaseModel):
     company_id: int
     driver_id: Optional[int] = None
     driver_is_owner: bool
+    pdf_status: Optional[str] = None
     created_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
 
 
 class ApplicationResponse(ApplicationListItem):
     manager_config: dict
+    pdf_error: Optional[str] = None
+    submitted_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     driver: Optional[DriverSummary] = None

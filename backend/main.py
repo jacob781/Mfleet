@@ -10,7 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 from rate_limit import limiter
-from routers import auth, applications, companies, drivers
+from routers import auth, applications, companies, drivers, driver_form
 
 load_dotenv()
 
@@ -23,6 +23,7 @@ app.include_router(auth.router)
 app.include_router(companies.router)
 app.include_router(drivers.router)
 app.include_router(applications.router)
+app.include_router(driver_form.router)
 
 # Configure CORS
 origins = [

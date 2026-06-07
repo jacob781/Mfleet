@@ -9,6 +9,7 @@ import os
 from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
@@ -54,6 +55,9 @@ def _to_response(app: DriverApplication, driver: Optional[Driver]) -> Applicatio
         company_id=app.company_id,
         driver_id=app.driver_id,
         driver_is_owner=app.driver_is_owner,
+        pdf_status=app.pdf_status,
+        pdf_error=app.pdf_error,
+        submitted_at=app.submitted_at,
         created_at=app.created_at,
         updated_at=app.updated_at,
         expires_at=app.expires_at,
@@ -128,6 +132,7 @@ def list_applications(
             company_id=a.company_id,
             driver_id=a.driver_id,
             driver_is_owner=a.driver_is_owner,
+            pdf_status=a.pdf_status,
             created_at=a.created_at,
             expires_at=a.expires_at,
         )
@@ -146,3 +151,24 @@ def get_application(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
     driver = session.get(Driver, application.driver_id) if application.driver_id else None
     return _to_response(application, driver)
+
+
+@router.get("/{application_id}/pdf")
+def download_pdf(
+    application_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> FileResponse:
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    if application.pdf_status != "ready" or not application.pdf_path or not os.path.exists(application.pdf_path):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"PDF not available (status: {application.pdf_status})",
+        )
+    return FileResponse(
+        application.pdf_path,
+        media_type="application/pdf",
+        filename=f"application_{application_id}.pdf",
+    )

@@ -19,6 +19,9 @@ env/
 *.sqlite
 *.sqlite3
 
+# ─── Generated application PDFs ───────────────────────────
+backend/generated_pdfs/
+
 # ─── Node / Frontend ──────────────────────────────────────
 node_modules/
 dist/
