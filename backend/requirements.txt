@@ -1,6 +1,31 @@
-fastapi
-uvicorn
-pydantic
-python-dotenv
-email-validator
-slowapi
+# ─── Web framework ────────────────────────────────────────
+fastapi==0.128.4
+uvicorn==0.40.0
+starlette==0.52.1
+
+# ─── Validation & data models ─────────────────────────────
+pydantic==2.12.5
+email-validator==2.3.0
+sqlmodel==0.0.38
+SQLAlchemy==2.0.50
+
+# ─── Database (PostgreSQL + migrations) ───────────────────
+psycopg[binary]==3.3.4
+alembic==1.18.4
+
+# ─── Security (auth + field encryption) ───────────────────
+bcrypt==5.0.0
+PyJWT==2.13.0
+cryptography==48.0.0
+
+# ─── Config ───────────────────────────────────────────────
+python-dotenv==1.2.1
+
+# ─── Rate limiting ────────────────────────────────────────
+slowapi==0.1.9
+
+# ─── PDF generation (Typst compiler must be on PATH) ──────
+PyMuPDF==1.27.2.3
+
+# ─── Pricing spreadsheet parsing ──────────────────────────
+openpyxl==3.1.5
