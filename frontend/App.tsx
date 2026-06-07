@@ -6,6 +6,7 @@ import ServicesPage from './pages/ServicesPage';
 import ScrollToHash from './components/ScrollToHash';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import PricingPage from './pages/PricingPage';
+import DriverPortal from './pages/DriverPortal';
 import Header from './Header';
 import Footer from './Footer';
 
@@ -17,6 +18,9 @@ const App: React.FC = () => {
         <Routes>
           {/* ── Private pricing page — standalone, no Header/Footer, no nav links ── */}
           <Route path="/pricing" element={<PricingPage />} />
+
+          {/* ── Driver application portal — standalone, mobile-first, token access ── */}
+          <Route path="/apply/:token" element={<DriverPortal />} />
 
           {/* ── Public pages with shared layout ── */}
           <Route path="/*" element={

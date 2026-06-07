@@ -46,6 +46,7 @@ backend/Mfleet_services.xlsx
 # ─── Internal planning / knowledge docs (local for now) ───
 project_brain.md
 action_plan_ru.md
+pdf_open_questions.md
 
 # ─── PDF generator: commit ONLY the files used to generate the PDF ──
 # Everything in pdf_generator/ is ignored by default (old modules, source
