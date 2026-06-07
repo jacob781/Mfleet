@@ -10,7 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 from rate_limit import limiter
-from routers import auth
+from routers import auth, applications, companies, drivers
 
 load_dotenv()
 
@@ -20,6 +20,9 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth.router)
+app.include_router(companies.router)
+app.include_router(drivers.router)
+app.include_router(applications.router)
 
 # Configure CORS
 origins = [

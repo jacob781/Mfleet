@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone, timedelta
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 
 from crypto import EncryptedString, EncryptedJSON
 
@@ -30,31 +30,61 @@ def _new_token() -> str:
 # ==============================================================================
 
 class ManagerConfig(BaseModel):
-    """Manager fills this when creating an application for a driver"""
+    """Full Typst PDF `config` contract. Stored as a snapshot in
+    DriverApplication.manager_config and fed to the Typst template.
+    Field names/types mirror pdf_generator/test_payload.json exactly."""
+
+    # Carrier identity — snapshot of the Company at application-creation time.
     company_name: str
-    company_dot: str
-    company_mc: str
+    company_dot: str = ""
+    company_mc: str = ""
     company_address: str
     company_city: str
     company_state: str
     company_zip: str
-    company_phone: str
-    company_email: EmailStr
+    company_phone: str = ""
+    company_email: Optional[str] = None
     company_fax: Optional[str] = None
-    
-    # Driver ownership mode
-    driver_is_owner: bool = True
-    
-    # Page 48 - Supplement B fees
-    commission_percentage: float = 88.0  # e.g., 88.0 for 88%
-    insurance_fee: float = 0.0           # Point 3
-    eld_device_fee: float = 0.0          # Point 4 (owner only)
-    tablet_fee: float = 0.0              # Point 5 (owner only)
-    prepass_fee: float = 0.0             # Point 6 (owner only)
-    admin_fee: float = 0.0               # Point 7 (owner only)
-    
-    # Penalties - configurable per-point charge
-    other_violations_fee_per_point: float = 35.0
+
+    # Eligibility thresholds.
+    min_age: int = 21
+    min_years_history: int = 1
+
+    # Security deposit & trailer maintenance.
+    deposit_amount: int = 0
+    deposit_weeks: int = 0
+    trailer_maintenance_monthly: int = 0
+
+    # Compensation (Supplement B). The active rate depends on compensation_type.
+    compensation_type: Literal["percentage", "weekly_flat", "per_mile", "hourly"] = "percentage"
+    percentage_rate: int = 0       # compensation_type == "percentage"
+    weekly_amount: float = 0       # compensation_type == "weekly_flat"
+    loaded_rate: float = 0         # compensation_type == "per_mile"
+    empty_rate: float = 0          # compensation_type == "per_mile"
+    hourly_rate: float = 0         # compensation_type == "hourly"
+
+    # Insurance.
+    include_auto_liability: bool = False
+    include_cargo: bool = False
+    insurance_cargo_liability: int = 0
+
+    # Owner-only weekly/monthly fees (Supplement B points 4-7).
+    eld_device_weekly: int = 0
+    tablet_weekly: int = 0
+    prepass_monthly: int = 0
+    administration_fee_weekly: int = 0
+
+    @model_validator(mode="after")
+    def _require_rate_for_type(self) -> "ManagerConfig":
+        if self.compensation_type == "percentage" and self.percentage_rate <= 0:
+            raise ValueError("percentage_rate must be > 0 for compensation_type='percentage'")
+        if self.compensation_type == "weekly_flat" and self.weekly_amount <= 0:
+            raise ValueError("weekly_amount must be > 0 for compensation_type='weekly_flat'")
+        if self.compensation_type == "hourly" and self.hourly_rate <= 0:
+            raise ValueError("hourly_rate must be > 0 for compensation_type='hourly'")
+        if self.compensation_type == "per_mile" and self.loaded_rate <= 0 and self.empty_rate <= 0:
+            raise ValueError("loaded_rate/empty_rate must be set for compensation_type='per_mile'")
+        return self
 
 
 class SignatureData(BaseModel):

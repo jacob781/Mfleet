@@ -1,0 +1,148 @@
+"""Applications router: a manager creates a document-flow request for a driver.
+
+On create, the carrier company's details are snapshotted into manager_config
+(JSONB) alongside the manager's settings, then validated against the full Typst
+contract (ManagerConfig). A unique access token + apply link is returned.
+"""
+
+import os
+from typing import Annotated, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
+from sqlmodel import Session, select
+
+from database import get_session
+from dependencies import get_current_user
+from models import Company, Driver, DriverApplication, ManagerConfig, User
+from schemas import (
+    ApplicationCreate,
+    ApplicationListItem,
+    ApplicationResponse,
+    DriverSummary,
+)
+
+router = APIRouter(prefix="/api/applications", tags=["Applications"])
+
+
+def _apply_url(token: str) -> str:
+    base = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
+    return f"{base}/apply/{token}"
+
+
+def _company_snapshot(company: Company) -> dict:
+    return {
+        "company_name": company.name,
+        "company_dot": company.dot_number or "",
+        "company_mc": company.mc_number or "",
+        "company_address": company.address_street,
+        "company_city": company.address_city,
+        "company_state": company.address_state,
+        "company_zip": company.address_zip,
+        "company_phone": company.phone or "",
+        "company_email": company.email,
+        "company_fax": company.fax,
+    }
+
+
+def _to_response(app: DriverApplication, driver: Optional[Driver]) -> ApplicationResponse:
+    return ApplicationResponse(
+        id=app.id,
+        access_token=app.access_token,
+        apply_url=_apply_url(app.access_token),
+        status=app.status,
+        company_id=app.company_id,
+        driver_id=app.driver_id,
+        driver_is_owner=app.driver_is_owner,
+        created_at=app.created_at,
+        updated_at=app.updated_at,
+        expires_at=app.expires_at,
+        manager_config=app.manager_config,
+        driver=DriverSummary.model_validate(driver) if driver else None,
+    )
+
+
+@router.post("", response_model=ApplicationResponse, status_code=status.HTTP_201_CREATED)
+def create_application(
+    body: ApplicationCreate,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ApplicationResponse:
+    company = session.get(Company, body.company_id)
+    if not company:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+    driver: Optional[Driver] = None
+    if body.driver_id is not None:
+        driver = session.get(Driver, body.driver_id)
+        if not driver:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Driver not found")
+        if driver.company_id != company.id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Driver does not belong to the selected company",
+            )
+
+    merged = {**_company_snapshot(company), **body.settings.model_dump()}
+    try:
+        config = ManagerConfig(**merged)
+    except ValidationError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": e["loc"], "msg": e["msg"]} for e in exc.errors()],
+        )
+
+    application = DriverApplication(
+        company_id=company.id,
+        created_by_id=current_user.id,
+        driver_id=body.driver_id,
+        driver_is_owner=body.driver_is_owner,
+        manager_config=config.model_dump(),
+        expires_at=body.expires_at,
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return _to_response(application, driver)
+
+
+@router.get("", response_model=List[ApplicationListItem])
+def list_applications(
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    company_id: Optional[int] = None,
+) -> List[ApplicationListItem]:
+    stmt = select(DriverApplication)
+    if status_filter:
+        stmt = stmt.where(DriverApplication.status == status_filter)
+    if company_id is not None:
+        stmt = stmt.where(DriverApplication.company_id == company_id)
+    apps = session.exec(stmt).all()
+    return [
+        ApplicationListItem(
+            id=a.id,
+            access_token=a.access_token,
+            apply_url=_apply_url(a.access_token),
+            status=a.status,
+            company_id=a.company_id,
+            driver_id=a.driver_id,
+            driver_is_owner=a.driver_is_owner,
+            created_at=a.created_at,
+            expires_at=a.expires_at,
+        )
+        for a in apps
+    ]
+
+
+@router.get("/{application_id}", response_model=ApplicationResponse)
+def get_application(
+    application_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> ApplicationResponse:
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    driver = session.get(Driver, application.driver_id) if application.driver_id else None
+    return _to_response(application, driver)
