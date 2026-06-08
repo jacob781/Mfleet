@@ -11,9 +11,12 @@ Usage:
 """
 
 import argparse
+import base64
 import json
+import shutil
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 
 try:
@@ -162,37 +165,71 @@ class PDFGenerator:
             print(f"PDF merge failed: {e}")
             return False
     
+    def _prepare_signatures(self, payload: dict) -> Path | None:
+        """Decode base64 signature images to temp PNGs inside base_dir and set
+        an `image_path` (relative to base_dir) so the Typst template can embed them.
+        Returns the temp dir for later cleanup, or None if there were no images."""
+        sigs = payload.get("signatures")
+        if not isinstance(sigs, dict):
+            return None
+        sig_dir: Path | None = None
+        for key, sig in sigs.items():
+            if not isinstance(sig, dict):
+                continue
+            b64 = sig.get("image_base64")
+            if not b64 or not isinstance(b64, str):
+                continue
+            if b64.strip().startswith("data:") and "," in b64:
+                b64 = b64.split(",", 1)[1]
+            try:
+                raw = base64.b64decode(b64)
+            except Exception:
+                continue
+            if sig_dir is None:
+                sig_dir = self.base_dir / f"_sig_tmp_{uuid.uuid4().hex}"
+                sig_dir.mkdir(parents=True, exist_ok=True)
+            safe = "".join(c for c in str(key) if c.isalnum() or c in "_-") or "sig"
+            fp = sig_dir / f"{safe}.png"
+            fp.write_bytes(raw)
+            sig["image_path"] = f"{sig_dir.name}/{fp.name}"
+        return sig_dir
+
     def generate(self, payload: dict, output_path: Path) -> bool:
         """Generate the complete PDF with all merges."""
-        
+
         is_owner = payload.get("is_owner", False)
-        
-        # Step 1: Compile Typst to temp file
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            temp_path = Path(tmp.name)
-        
-        print(f"Compiling Typst template...")
-        if not self.compile_typst(payload, temp_path):
-            return False
-        
-        print(f"Typst compiled: {temp_path}")
-        
-        # Step 2: Merge with external PDFs
-        print(f"Merging PDFs (is_owner={is_owner})...")
-        if not self.merge_pdfs(temp_path, output_path, is_owner):
-            return False
-        
-        # Cleanup
-        temp_path.unlink()
-        
-        print(f"Final PDF generated: {output_path}")
-        
-        # Get page count
-        doc = pymupdf.open(str(output_path))
-        print(f"Total pages: {len(doc)}")
-        doc.close()
-        
-        return True
+        sig_dir = self._prepare_signatures(payload)
+
+        try:
+            # Step 1: Compile Typst to temp file
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                temp_path = Path(tmp.name)
+
+            print(f"Compiling Typst template...")
+            if not self.compile_typst(payload, temp_path):
+                return False
+
+            print(f"Typst compiled: {temp_path}")
+
+            # Step 2: Merge with external PDFs
+            print(f"Merging PDFs (is_owner={is_owner})...")
+            if not self.merge_pdfs(temp_path, output_path, is_owner):
+                return False
+
+            # Cleanup
+            temp_path.unlink()
+
+            print(f"Final PDF generated: {output_path}")
+
+            # Get page count
+            doc = pymupdf.open(str(output_path))
+            print(f"Total pages: {len(doc)}")
+            doc.close()
+
+            return True
+        finally:
+            if sig_dir and sig_dir.exists():
+                shutil.rmtree(sig_dir, ignore_errors=True)
 
 
 def main():

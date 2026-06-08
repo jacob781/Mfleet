@@ -239,7 +239,7 @@
   let config = data.at("config", default: (:))
   let deposit-amount = config.at("deposit_amount", default: 2500)
   let deposit-weeks = config.at("deposit_weeks", default: 5)
-  let weekly-payment = calc.round(deposit-amount / deposit-weeks)
+  let weekly-payment = if deposit-weeks > 0 { calc.round(deposit-amount / deposit-weeks) } else { 0 }
   
   text(size: 9pt)[
     -Independent Contractor understands that he is liable for a deposit amounting in \$#deposit-amount this sum will be collected in a span of #deposit-weeks weeks at a sum of #weekly-payment\$.

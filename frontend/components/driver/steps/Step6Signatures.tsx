@@ -1,6 +1,6 @@
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import SignaturePad from '../SignaturePad';
+import SignatureInput from '../SignatureInput';
 import { SIGNATURE_SECTIONS } from '../../../lib/driverTypes';
 
 const Step6Signatures: React.FC<{ isOwner: boolean }> = ({ isOwner }) => {
@@ -21,7 +21,7 @@ const Step6Signatures: React.FC<{ isOwner: boolean }> = ({ isOwner }) => {
           rules={{ validate: (v: any) => (v && v.image_base64 ? true : 'Signature required') }}
           render={({ field, fieldState }) => (
             <div>
-              <SignaturePad
+              <SignatureInput
                 label={s.label}
                 signerFirstName={firstName}
                 value={field.value}

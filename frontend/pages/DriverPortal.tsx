@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Helmet } from 'react-helmet-async';
 
-import { emptyDriverForm, FormError, getForm, submitForm } from '../lib/driverApi';
+import { emptyDriverForm, FormError, getForm, getStatus, pdfUrl, submitForm } from '../lib/driverApi';
 import type { DriverFormValues } from '../lib/driverTypes';
 import { useAutosave } from '../lib/useAutosave';
 import WizardProgress from '../components/driver/WizardProgress';
@@ -12,11 +12,12 @@ import Step2Cdl from '../components/driver/steps/Step2Cdl';
 import Step3History from '../components/driver/steps/Step3History';
 import Step4Work from '../components/driver/steps/Step4Work';
 import Step5Finance from '../components/driver/steps/Step5Finance';
+import StepReview from '../components/driver/steps/StepReview';
 import Step6Signatures from '../components/driver/steps/Step6Signatures';
 
 type Screen = 'loading' | 'ready' | 'notfound' | 'expired' | 'submitted' | 'done' | 'error';
 
-const STEP_TITLES = ['Personal', 'License & Medical', 'History', 'Work & Logs', 'Agreements', 'Signatures'];
+const STEP_TITLES = ['Personal', 'License & Medical', 'History', 'Work & Logs', 'Agreements', 'Review', 'Signatures'];
 
 // Which top-level fields to validate when leaving each step.
 const STEP_FIELDS: string[][] = [
@@ -25,6 +26,7 @@ const STEP_FIELDS: string[][] = [
   [],
   [],
   ['w9', 'banking', '_policies_ack'],
+  [], // Review (read-only)
   ['signatures'],
 ];
 
@@ -36,7 +38,7 @@ const FIELD_TO_STEP: Record<string, number> = {
   accidents: 2, violations: 2, drug_alcohol_history: 2,
   employment_history: 3, seven_day_log: 3, last_relieved_time: 3, last_relieved_date: 3, last_relieved_location: 3,
   equipment: 4, ifta_choice: 4, w9: 4, banking: 4, policies: 4,
-  signatures: 5,
+  signatures: 6,
 };
 
 const CenteredCard: React.FC<{ title: string; children?: React.ReactNode }> = ({ title, children }) => (
@@ -56,6 +58,7 @@ const DriverPortal: React.FC = () => {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pdfState, setPdfState] = useState<'pending' | 'ready' | 'failed'>('pending');
 
   const methods = useForm<DriverFormValues>({ defaultValues: emptyDriverForm(), mode: 'onTouched' });
   const { status: saveStatus, saveNow } = useAutosave(token, methods);
@@ -83,6 +86,24 @@ const DriverPortal: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // Poll PDF status after submission so the driver can view their document.
+  useEffect(() => {
+    if (screen !== 'done') return;
+    let active = true;
+    let tries = 0;
+    const tick = async () => {
+      if (!active) return;
+      try {
+        const s = await getStatus(token);
+        if (s.pdf_status === 'ready') { setPdfState('ready'); return; }
+        if (s.pdf_status === 'failed') { setPdfState('failed'); return; }
+      } catch { /* keep polling */ }
+      if (++tries < 15) window.setTimeout(tick, 2000);
+    };
+    tick();
+    return () => { active = false; };
+  }, [screen, token]);
+
   const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const goNext = async () => {
@@ -97,6 +118,11 @@ const DriverPortal: React.FC = () => {
   const goBack = () => {
     void saveNow();
     setStep((s) => Math.max(s - 1, 0));
+    scrollTop();
+  };
+
+  const goToStep = (s: number) => {
+    setStep(s);
     scrollTop();
   };
 
@@ -139,7 +165,8 @@ const DriverPortal: React.FC = () => {
       case 2: return <Step3History />;
       case 3: return <Step4Work />;
       case 4: return <Step5Finance isOwner={isOwner} />;
-      case 5: return <Step6Signatures isOwner={isOwner} />;
+      case 5: return <StepReview goToStep={goToStep} isOwner={isOwner} />;
+      case 6: return <Step6Signatures isOwner={isOwner} />;
       default: return null;
     }
   }, [step, isOwner]);
@@ -151,7 +178,21 @@ const DriverPortal: React.FC = () => {
   if (screen === 'error') return <CenteredCard title="Something went wrong"><p className="text-gray-500">Please try again later.</p></CenteredCard>;
   if (screen === 'done') return (
     <CenteredCard title="Application submitted ✓">
-      <p className="text-gray-500">Thank you! Your application has been submitted for review.</p>
+      {pdfState === 'pending' && (
+        <p className="text-gray-500">Thank you! Preparing your document…</p>
+      )}
+      {pdfState === 'ready' && (
+        <>
+          <p className="text-gray-500 mb-4">Your application is complete. You can view or download your signed document below.</p>
+          <a href={pdfUrl(token)} target="_blank" rel="noopener noreferrer"
+            className="block min-h-12 leading-[3rem] rounded-lg bg-mfleet-blue text-white font-semibold mb-2">View document</a>
+          <a href={pdfUrl(token)} download
+            className="block min-h-12 leading-[3rem] rounded-lg border border-gray-300 text-mfleet-gray-dark font-medium">Download</a>
+        </>
+      )}
+      {pdfState === 'failed' && (
+        <p className="text-gray-500">Your application was submitted. Your document is being finalized — your manager will follow up.</p>
+      )}
     </CenteredCard>
   );
 

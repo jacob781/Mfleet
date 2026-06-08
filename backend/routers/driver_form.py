@@ -5,6 +5,7 @@ submit validates synchronously (driver sees field errors) and kicks off
 background PDF generation (status visible to the manager).
 """
 
+import os
 from datetime import date, datetime, timezone
 from typing import Annotated, Any, Dict
 
@@ -16,6 +17,7 @@ from fastapi import (
     Request,
     status,
 )
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
@@ -35,12 +37,17 @@ router = APIRouter(prefix="/api/form", tags=["Driver Form"])
 _FILLABLE_STATUSES = {"pending_driver", "draft"}
 
 
-def _load_fillable(token: str, session: Session) -> DriverApplication:
+def _load(token: str, session: Session) -> DriverApplication:
     app = session.exec(
         select(DriverApplication).where(DriverApplication.access_token == token)
     ).first()
     if app is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    return app
+
+
+def _load_fillable(token: str, session: Session) -> DriverApplication:
+    app = _load(token, session)
     if app.expires_at and app.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status.HTTP_410_GONE, detail="This link has expired")
     if app.status not in _FILLABLE_STATUSES:
@@ -165,3 +172,32 @@ def submit_form(
 
     background.add_task(generate_application_pdf, app.id)
     return {"status": app.status, "pdf_status": "generating"}
+
+
+@router.get("/{token}/status")
+@limiter.limit("120/minute")
+def form_status(
+    request: Request,
+    token: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict:
+    app = _load(token, session)
+    return {"status": app.status, "pdf_status": app.pdf_status}
+
+
+@router.get("/{token}/pdf")
+def form_pdf(
+    token: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> FileResponse:
+    app = _load(token, session)
+    if app.pdf_status != "ready" or not app.pdf_path or not os.path.exists(app.pdf_path):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Document not ready (status: {app.pdf_status})",
+        )
+    return FileResponse(
+        app.pdf_path,
+        media_type="application/pdf",
+        filename="driver_application.pdf",
+    )

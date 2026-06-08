@@ -46,6 +46,14 @@ export function submitForm(token: string, values: DriverFormValues): Promise<any
   }).then(parse);
 }
 
+export function getStatus(token: string): Promise<{ status: string; pdf_status: string | null }> {
+  return fetch(`${API_BASE}/api/form/${token}/status`).then(parse);
+}
+
+export function pdfUrl(token: string): string {
+  return `${API_BASE}/api/form/${token}/pdf`;
+}
+
 const emptyAddress = () => ({ street: '', city: '', state: '', zip: '', years: '' });
 const emptyExperienceItem = () => ({ type: '', dates: '', miles: '' });
 
