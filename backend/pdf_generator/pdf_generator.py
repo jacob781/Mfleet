@@ -192,6 +192,10 @@ class PDFGenerator:
             fp = sig_dir / f"{safe}.png"
             fp.write_bytes(raw)
             sig["image_path"] = f"{sig_dir.name}/{fp.name}"
+            # Drop the raw base64 now that it's a file: the template embeds via
+            # image_path, and leaving it in would bloat the Typst --input arg past
+            # the OS command-line limit (Errno 7: Argument list too long).
+            sig.pop("image_base64", None)
         return sig_dir
 
     def generate(self, payload: dict, output_path: Path) -> bool:
