@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ApiError, downloadPdf, getApplication } from '../../lib/adminApi';
+import { ApiError, downloadPdf, getApplication, regeneratePdf } from '../../lib/adminApi';
 import type { ApplicationResponse } from '../../lib/adminTypes';
 import { Button, Card, Spinner, StatusBadge } from '../../components/admin/ui';
 
@@ -33,6 +33,7 @@ const ApplicationDetailPage: React.FC = () => {
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -44,6 +45,30 @@ const ApplicationDetailPage: React.FC = () => {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // While a (re)generation is in flight, poll until it resolves.
+  useEffect(() => {
+    if (!id || app?.pdf_status !== 'generating') return;
+    const t = setTimeout(() => {
+      getApplication(Number(id)).then(setApp).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [id, app?.pdf_status, app]);
+
+  const handleRegenerate = async () => {
+    if (!app) return;
+    setRegenError(null);
+    try {
+      const updated = await regeneratePdf(app.id);
+      setApp(updated); // status becomes "generating" → polling effect takes over
+    } catch (e) {
+      setRegenError(
+        e instanceof ApiError && typeof e.detail === 'string'
+          ? e.detail
+          : 'Could not start regeneration.',
+      );
+    }
+  };
 
   const copyLink = async () => {
     if (!app) return;
@@ -154,14 +179,26 @@ const ApplicationDetailPage: React.FC = () => {
             <Button onClick={handleDownload} disabled={!pdfReady} className="w-full">
               Download PDF
             </Button>
-            {!pdfReady && (
+            {!pdfReady && !app.submitted_at && (
               <p className="mt-2 text-xs text-mfleet-gray">
                 Available once the driver submits and the document is generated.
               </p>
             )}
-            {downloadError && (
-              <p className="mt-2 text-xs text-red-600">{downloadError}</p>
+            {app.pdf_status === 'generating' && (
+              <p className="mt-2 text-xs text-mfleet-gray">Generating the document…</p>
             )}
+            {!!app.submitted_at && !pdfReady && app.pdf_status !== 'generating' && (
+              <div className="mt-2">
+                <Button variant="secondary" onClick={handleRegenerate} className="w-full">
+                  Regenerate PDF
+                </Button>
+                <p className="mt-1 text-xs text-mfleet-gray">
+                  Re-runs generation from the driver’s saved answers — no driver action needed.
+                </p>
+              </div>
+            )}
+            {downloadError && <p className="mt-2 text-xs text-red-600">{downloadError}</p>}
+            {regenError && <p className="mt-2 text-xs text-red-600">{regenError}</p>}
           </div>
         </Card>
       </div>

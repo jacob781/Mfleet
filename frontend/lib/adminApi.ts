@@ -142,6 +142,11 @@ export function createApplication(body: ApplicationCreate): Promise<ApplicationR
   return jsonRequest('/api/applications', 'POST', body);
 }
 
+// Re-run PDF generation from the driver's saved answers (no driver action needed).
+export function regeneratePdf(id: number): Promise<ApplicationResponse> {
+  return request(`/api/applications/${id}/regenerate-pdf`, { method: 'POST' });
+}
+
 // PDF endpoint is JWT-protected, so a plain <a href> can't carry the token.
 // Fetch as a blob with the Authorization header and trigger a download.
 export async function downloadPdf(id: number): Promise<void> {

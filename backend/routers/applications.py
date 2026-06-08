@@ -8,7 +8,7 @@ contract (ManagerConfig). A unique access token + apply link is returned.
 import os
 from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlmodel import Session, select
@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from database import get_session
 from dependencies import get_current_user
 from models import Company, Driver, DriverApplication, ManagerConfig, User
+from pdf_service import generate_application_pdf
 from schemas import (
     ApplicationCreate,
     ApplicationListItem,
@@ -149,6 +150,36 @@ def get_application(
     application = session.get(DriverApplication, application_id)
     if not application:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    driver = session.get(Driver, application.driver_id) if application.driver_id else None
+    return _to_response(application, driver)
+
+
+@router.post("/{application_id}/regenerate-pdf", response_model=ApplicationResponse)
+def regenerate_pdf(
+    application_id: int,
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> ApplicationResponse:
+    """Re-run PDF generation from the driver's already-saved answers.
+
+    Use when generation failed for a server-side reason (e.g. a template/tooling
+    issue) — the driver does NOT need to re-fill anything.
+    """
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    if application.answers is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="The driver has not submitted this application yet.",
+        )
+    application.pdf_status = "generating"
+    application.pdf_error = None
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    background_tasks.add_task(generate_application_pdf, application.id)
     driver = session.get(Driver, application.driver_id) if application.driver_id else None
     return _to_response(application, driver)
 

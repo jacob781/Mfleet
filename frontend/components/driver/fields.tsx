@@ -9,6 +9,34 @@ const inputCls =
   'w-full min-h-12 rounded-lg border border-gray-300 px-3 text-base bg-white ' +
   'focus:border-mfleet-blue focus:ring-1 focus:ring-mfleet-blue outline-none';
 
+// ── Input masks (phone, SSN) ────────────────────────────────────────────────
+const digitsOnly = (v: string) => v.replace(/\D/g, '');
+
+function maskPhone(v: string): string {
+  const d = digitsOnly(v).slice(0, 10);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
+function maskSsn(v: string): string {
+  const d = digitsOnly(v).slice(0, 9);
+  if (d.length <= 3) return d;
+  if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
+}
+
+type FormatKind = 'phone' | 'ssn';
+
+const FORMATTERS: Record<
+  FormatKind,
+  { mask: (v: string) => string; digits: number; placeholder: string; msg: string;
+    inputMode: React.HTMLAttributes<HTMLInputElement>['inputMode'] }
+> = {
+  phone: { mask: maskPhone, digits: 10, placeholder: '(555) 123-4567', msg: 'Enter a 10-digit phone number', inputMode: 'tel' },
+  ssn: { mask: maskSsn, digits: 9, placeholder: 'XXX-XX-XXXX', msg: 'Enter a 9-digit SSN', inputMode: 'numeric' },
+};
+
 interface BaseProps {
   name: string;
   label: string;
@@ -29,26 +57,40 @@ export const TextField: React.FC<
     placeholder?: string;
     valueAsNumber?: boolean;
     autoComplete?: string;
+    format?: FormatKind;
   }
-> = ({ name, label, required, type = 'text', inputMode, placeholder, valueAsNumber, autoComplete }) => {
+> = ({ name, label, required, type = 'text', inputMode, placeholder, valueAsNumber, autoComplete, format }) => {
   const { register, formState: { errors } } = useFormContext();
   const err = errorAt(errors, name);
+  const fmt = format ? FORMATTERS[format] : null;
   const rules: RegisterOptions = {
     required: required ? `${label} is required` : false,
     valueAsNumber: !!valueAsNumber,
+    ...(fmt
+      ? { validate: (v: string) => !v || digitsOnly(String(v)).length === fmt.digits || fmt.msg }
+      : {}),
   };
+  const reg = register(name, rules);
   return (
     <label className="block mb-4">
       <span className="block text-sm font-medium text-mfleet-gray-dark mb-1">
         {label}{required && <span className="text-red-600"> *</span>}
       </span>
       <input
-        {...register(name, rules)}
+        {...reg}
         type={type}
-        inputMode={inputMode}
-        placeholder={placeholder}
+        inputMode={inputMode ?? fmt?.inputMode}
+        placeholder={placeholder ?? fmt?.placeholder}
         autoComplete={autoComplete}
         className={inputCls}
+        {...(fmt
+          ? {
+              onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                e.target.value = fmt.mask(e.target.value);
+                void reg.onChange(e);
+              },
+            }
+          : {})}
       />
       {err && <span className="block text-sm text-red-600 mt-1">{String(err.message || 'Invalid')}</span>}
     </label>

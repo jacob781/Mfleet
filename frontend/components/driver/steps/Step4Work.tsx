@@ -26,7 +26,7 @@ const Step4Work: React.FC = () => {
               <TextField name={`employment_history.${i}.employer_city`} label="City" />
               <TextField name={`employment_history.${i}.employer_state`} label="State" />
               <TextField name={`employment_history.${i}.employer_zip`} label="ZIP" inputMode="numeric" />
-              <TextField name={`employment_history.${i}.employer_phone`} label="Phone" type="tel" inputMode="tel" />
+              <TextField name={`employment_history.${i}.employer_phone`} label="Phone" format="phone" />
               <TextField name={`employment_history.${i}.employer_fax`} label="Fax" />
               <TextField name={`employment_history.${i}.start_date`} label="Start date" type="date" />
               <TextField name={`employment_history.${i}.end_date`} label="End date" type="date" />

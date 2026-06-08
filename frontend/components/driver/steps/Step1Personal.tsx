@@ -8,9 +8,9 @@ const Step1Personal: React.FC = () => (
       <TextField name="first_name" label="First name" required autoComplete="given-name" />
       <TextField name="middle_name" label="Middle name" />
       <TextField name="last_name" label="Last name" required autoComplete="family-name" />
-      <TextField name="ssn" label="SSN" required inputMode="numeric" placeholder="XXX-XX-XXXX" />
+      <TextField name="ssn" label="SSN" required format="ssn" />
       <TextField name="dob" label="Date of birth" required type="date" />
-      <TextField name="phone" label="Phone" required type="tel" inputMode="tel" autoComplete="tel" />
+      <TextField name="phone" label="Phone" required format="phone" autoComplete="tel" />
       <TextField name="email" label="Email" required type="email" inputMode="email" autoComplete="email" />
     </FieldGroup>
 
@@ -41,7 +41,7 @@ const Step1Personal: React.FC = () => (
 
     <FieldGroup title="Emergency contact">
       <TextField name="emergency.name" label="Name" required />
-      <TextField name="emergency.phone" label="Phone" required type="tel" inputMode="tel" />
+      <TextField name="emergency.phone" label="Phone" required format="phone" />
       <TextField name="emergency.relation" label="Relationship" required />
     </FieldGroup>
   </div>
