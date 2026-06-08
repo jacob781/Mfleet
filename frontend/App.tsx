@@ -7,6 +7,7 @@ import ScrollToHash from './components/ScrollToHash';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import PricingPage from './pages/PricingPage';
 import DriverPortal from './pages/DriverPortal';
+import AdminApp from './pages/admin/AdminApp';
 import Header from './Header';
 import Footer from './Footer';
 
@@ -21,6 +22,9 @@ const App: React.FC = () => {
 
           {/* ── Driver application portal — standalone, mobile-first, token access ── */}
           <Route path="/apply/:token" element={<DriverPortal />} />
+
+          {/* ── Manager admin panel — standalone, own auth/shell ── */}
+          <Route path="/admin/*" element={<AdminApp />} />
 
           {/* ── Public pages with shared layout ── */}
           <Route path="/*" element={
