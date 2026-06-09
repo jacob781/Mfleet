@@ -350,7 +350,7 @@
       #v(0.3em)
       #config.at("company_address", default: "")
       #v(0.3em)
-      #config.at("company_city", default: "") + ", " + config.at("company_state", default: "") + " " + config.at("company_zip", default: "")
+      #(config.at("company_city", default: "") + ", " + config.at("company_state", default: "") + " " + config.at("company_zip", default: ""))
       #v(0.3em)
       Phone: #config.at("company_phone", default: "")
       #v(0.5em)

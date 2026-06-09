@@ -33,10 +33,16 @@
     text(size: 9pt, weight: "bold")[V.I.N Serial \#],
     text(size: 9pt, weight: "bold")[State],
     text(size: 9pt, weight: "bold")[License\#],
-    // Generate 20 rows
-    ..for i in range(20) {
+    // Driver-submitted equipment, then pad with blank rows up to 20.
+    ..for (i, eq) in data.equipment.enumerate() {
       (
         text(weight: "bold")[#str(i + 1)],
+        [#eq.make], [#str(eq.year)], [#eq.type], [#eq.vin], [#eq.state], [#eq.plate],
+      )
+    },
+    ..for i in range(calc.max(0, 20 - data.equipment.len())) {
+      (
+        text(weight: "bold")[#str(data.equipment.len() + i + 1)],
         [], [], [], [], [], []
       )
     }

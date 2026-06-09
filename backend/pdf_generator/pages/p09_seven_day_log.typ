@@ -86,7 +86,7 @@
   
   v(0.5em)
   
-  [On: \_\_\_\_ / \_\_\_\_ / \_\_\_\_ #h(1em) At: \_\_\_\_ / \_\_\_\_ #h(0.5em) AM/PM]
+  [On: #underlined(data.last_relieved_date, width: 1.5in) #h(1em) At: #underlined(data.last_relieved_time, width: 1.2in) #h(1em) Location: #underlined(data.last_relieved_location, width: 2in)]
   
   v(1.5em)
   

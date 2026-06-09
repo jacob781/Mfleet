@@ -117,7 +117,7 @@
   ]
   
   text(size: 9pt)[
-    As required by Illinois State Law Independent Contractor must provide at execution of this Lease Proof of Workman's Compensation Insurance, covering himself as a Independent Contractor if applicable, effective as of the date of this Lease Agreement.
+    As required by #data.config.company_state State Law Independent Contractor must provide at execution of this Lease Proof of Workman's Compensation Insurance, covering himself as a Independent Contractor if applicable, effective as of the date of this Lease Agreement.
   ]
   
   text(size: 9pt)[

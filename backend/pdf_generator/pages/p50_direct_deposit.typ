@@ -48,9 +48,9 @@
   grid(
     columns: (1.5in, 1fr),
     row-gutter: 1.5em,
-    [Bank Name:], [#underlined("", width: 4in)],
-    [Account Number:], [#underlined("", width: 4in)],
-    [Routing Number:], [#underlined("", width: 4in)],
+    [Bank Name:], [#data.banking.bank_name],
+    [Account Number:], [#data.banking.account_number],
+    [Routing Number:], [#data.banking.routing_number],
   )
   
   [(Direct Deposit, Electronic, Paper)]
@@ -67,7 +67,7 @@
     columns: (2in, 1fr),
     row-gutter: 1.5em,
     [Company (if any):], [#underlined("", width: 4in)],
-    [Independent Contractor name:], [#underlined("", width: 3.5in)],
+    [Independent Contractor name:], [#driver-name(data)],
   )
   
   v(1em)

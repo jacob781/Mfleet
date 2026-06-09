@@ -56,7 +56,7 @@
   
   text(weight: "bold")[4. Governing Law and Dispute Resolution]
   v(0.2em)
-  [4.1 This Policy shall be governed by and construed in accordance with the laws of *#underline[#data.config.company_address, #data.config.company_city, #data.config.company_state #data.config.company_zip]*.]
+  [4.1 This Policy shall be governed by and construed in accordance with the laws of the State of *#underline[#data.config.company_state]*.]
   v(0.2em)
   [4.2 Any disputes arising from the interpretation or application of this Policy shall be resolved through arbitration in accordance with the rules and procedures of Arbitration Association/Company's Dispute Resolution Process.]
   

@@ -83,7 +83,7 @@
   text(weight: "bold")[6. Governing Law]
   v(0.2em)
   text(size: 10pt)[
-    This waiver of workers' compensation benefits shall be governed by and construed in accordance with the laws of the state of *#underline[#data.config.company_address, #data.config.company_city, #data.config.company_state #data.config.company_zip]* without regard to its conflict of laws principles.
+    This waiver of workers' compensation benefits shall be governed by and construed in accordance with the laws of the state of *#underline[#data.config.company_state]* without regard to its conflict of laws principles.
   ]
   
   v(1.5em)
