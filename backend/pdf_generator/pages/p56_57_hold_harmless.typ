@@ -204,7 +204,7 @@
     columns: (0.8in, 1fr),
     row-gutter: 0.8em,
     [Name:], [#underlined(driver-name(data), width: 3in)],
-    [Signature:], [#underlined("", width: 3in)],
+    [Signature:], [#driver-signature(data, width: 3in)],
     [Date:], [#underlined("", width: 2in)],
   )
 }

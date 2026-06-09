@@ -92,7 +92,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [#underlined("", width: 3in)\ Applicant's Signature],
+    [#driver-signature(data, width: 3in)\ Applicant's Signature],
     [#underlined("", width: 1.5in)\ Date]
   )
   

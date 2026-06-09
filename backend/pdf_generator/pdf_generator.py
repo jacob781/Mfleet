@@ -25,6 +25,11 @@ except ImportError:
     print("PyMuPDF not installed. Run: pip install pymupdf")
     exit(1)
 
+try:
+    from PIL import Image  # signature autocrop (optional — degrades gracefully)
+except ImportError:
+    Image = None
+
 
 class PDFGenerator:
     def __init__(self, base_dir: Path = None):
@@ -192,12 +197,40 @@ class PDFGenerator:
             safe = "".join(c for c in str(key) if c.isalnum() or c in "_-") or "sig"
             fp = sig_dir / f"{safe}.png"
             fp.write_bytes(raw)
+            self._autocrop_signature(fp)
             sig["image_path"] = f"{sig_dir.name}/{fp.name}"
             # Drop the raw base64 now that it's a file: the template embeds via
             # image_path, and leaving it in would bloat the Typst --input arg past
             # the OS command-line limit (Errno 7: Argument list too long).
             sig.pop("image_base64", None)
         return sig_dir
+
+    @staticmethod
+    def _autocrop_signature(fp: Path) -> None:
+        """Trim the empty margins around a signature so it renders as the mark
+        itself, not a tiny stroke inside a huge transparent/white box. Handles
+        both drawn (transparent background) and uploaded/typed (opaque, usually
+        white background) images. Best-effort: never raises."""
+        if Image is None:
+            return
+        try:
+            img = Image.open(fp).convert("RGBA")
+            alpha = img.getchannel("A")
+            if alpha.getextrema()[0] < 255:
+                bbox = alpha.getbbox()                       # drawn: opaque strokes
+            else:
+                gray = img.convert("L")                      # opaque: dark ink on light bg
+                bbox = gray.point(lambda p: 255 if p < 200 else 0).getbbox()
+            if not bbox:
+                return
+            pad = 6
+            l, t, r, b = bbox
+            img.crop((
+                max(0, l - pad), max(0, t - pad),
+                min(img.width, r + pad), min(img.height, b + pad),
+            )).save(fp)
+        except Exception:
+            pass  # leave the original image untouched on any failure
 
     # W-9 federal tax classification box -> AcroField export state on fw9.pdf.
     _W9_CLASS_BOX = {"Individual": "1", "C Corp": "2", "S Corp": "3", "Partnership": "4"}

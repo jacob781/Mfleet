@@ -76,11 +76,11 @@
   )
   
   v(1em)
-  
+
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [Signature:#underlined("", width: 3in)],
+    [Signature:#driver-signature(data, width: 3in)],
     [Date#underlined("", width: 1.2in)]
   )
   
@@ -126,11 +126,11 @@
   [Independent Contractor Name#underlined(driver-name(data), width: 4in)]
   
   v(0.5em)
-  
+
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [Signature:#underlined("", width: 3in)],
+    [Signature:#driver-signature(data, width: 3in)],
     [Date#underlined("", width: 1.2in)]
   )
   

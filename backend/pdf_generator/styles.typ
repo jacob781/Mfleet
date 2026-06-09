@@ -76,14 +76,14 @@
   
   if sig != none {
     let img-path = sig.at("image_path", default: none)
-    block(spacing: 0.5em)[
+    block(spacing: 0.2em, breakable: false)[
       #if img-path != none {
-        image(img-path, height: 0.7in)
+        image(img-path, height: 0.32in, fit: "contain")
       } else {
         text(style: "italic")[#sig.signer_first_name]
       }
       #line(length: 3in, stroke: 0.5pt)
-      #v(0.2em)
+      #v(0.15em)
       #text(size: small-size)[(Signed #sig.timestamp_et, #sig.signer_first_name)]
     ]
   } else {
@@ -93,6 +93,20 @@
       Date: #line(length: 1.5in, stroke: 0.5pt)
     ]
   }
+}
+
+// Inline driver signature: a fixed-width underlined box holding the applicant's
+// signature image (or a blank line if not signed). Drop-in replacement for
+// `underlined("", width: X)` on a DRIVER signature line.
+#let driver-signature(data, width: 3in) = {
+  let sigs = data.at("signatures", default: (:))
+  let sig = if type(sigs) == dictionary { sigs.at("applicant", default: none) } else { none }
+  let img = if sig != none { sig.at("image_path", default: none) } else { none }
+  box(width: width, height: 0.34in, stroke: (bottom: 0.5pt), inset: (bottom: 1pt, left: 2pt))[
+    #if img != none {
+      align(left + bottom, image(img, width: 100%, height: 0.28in, fit: "contain"))
+    }
+  ]
 }
 
 // =============================================================================

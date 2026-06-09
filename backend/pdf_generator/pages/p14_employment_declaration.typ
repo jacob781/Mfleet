@@ -93,7 +93,7 @@
   grid(
     columns: (1fr, 1fr),
     gutter: 1em,
-    [Signature:#underlined("", width: 2.5in)],
+    [Signature:#driver-signature(data, width: 2.5in)],
     [Date:#underlined("", width: 1.5in)]
   )
 }

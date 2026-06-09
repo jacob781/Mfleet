@@ -313,7 +313,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [#underlined("", width: 4in)\ Signature of Applicant],
+    [#driver-signature(data, width: 4in)\ Signature of Applicant],
     [#underlined("", width: 1.2in)\ Date]
   )
 }

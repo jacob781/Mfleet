@@ -90,7 +90,7 @@
   
   v(1.5em)
   
-  [Independent Contractor Signature #underlined("", width: 4in)]
+  [Independent Contractor Signature #driver-signature(data, width: 4in)]
   
   v(1.5em)
   

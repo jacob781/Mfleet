@@ -17,22 +17,22 @@
   align(center)[
     #text(size: 24pt, weight: "bold")[#company-name(data)]
   ]
-  
-  v(1.5em)
-  
+
+  v(0.6em)
+
   // Title
   align(center)[
     #text(size: 14pt, weight: "bold")[#underline[Qualifications]]
   ]
-  
-  v(1em)
+
+  v(0.35em)
   
   // Equal opportunity statement
   text(size: 10pt)[
     In compliance with Federal and State equal employment opportunity laws, qualified applicants are considered for all positions without regard to race, color, religion, sex, national origin, age, marital status, or non-job related disability.
   ]
   
-  v(1em)
+  v(0.6em)
   
   // Minimum Qualifications
   text(size: 11pt, weight: "bold")[Minimum Qualifications:]
@@ -49,7 +49,7 @@
     [Successfully complete the starting classes for Contractors or Orientation for employees.],
   )
   
-  v(0.5em)
+  v(0.35em)
   
   // Safety Issues
   text(size: 11pt, weight: "bold")[Safety Issues:]
@@ -64,7 +64,7 @@
     [Must have no more than three moving violations and / or accidents during the last three years.],
   )
   
-  v(0.5em)
+  v(0.35em)
   
   // Documents
   text(size: 11pt, weight: "bold")[Documents:]
@@ -75,7 +75,7 @@
     [Have required documents to complete the US Department of Justice INS I-9 work form, or certified state copy of birth certificate or US passport and if not a US Citizen, all required valid work authorization documents.],
   )
   
-  v(0.5em)
+  v(0.35em)
   
   // Criminal History
   text(size: 11pt, weight: "bold")[Criminal History:]
@@ -90,18 +90,18 @@
     [Have not been incarcerated within last five years.],
   )
   
-  v(0.5em)
+  v(0.35em)
   
   text(size: 10pt)[
     (These qualifications are as of 12/1/18 and may be changed by *#underline[#company-name(data)]* without notification)
   ]
   
-  v(2em)
-  
+  v(0.8em)
+
   // Name and Signature
   [Name #underlined(driver-name(data), width: 4in)]
-  
-  v(1em)
-  
-  [Signature #signature-block(data, "qualifications")]
+
+  v(0.35em)
+
+  [Signature #signature-block(data, "applicant")]
 }

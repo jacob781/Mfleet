@@ -124,7 +124,7 @@
     columns: (1fr, 2fr),
     gutter: 1em,
     [#underlined("", width: 1.5in)\ DATE],
-    [#underlined("", width: 3in)\ APPLICANT'S SIGNATURE]
+    [#driver-signature(data, width: 3in)\ APPLICANT'S SIGNATURE]
   )
   
   v(1.5em)
@@ -140,6 +140,6 @@
     columns: (1fr, 2fr),
     gutter: 1em,
     [#underlined("", width: 1.5in)\ DATE],
-    [#underlined("", width: 3in)\ APPLICANT'S SIGNATURE]
+    [#driver-signature(data, width: 3in)\ APPLICANT'S SIGNATURE]
   )
 }

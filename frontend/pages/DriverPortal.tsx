@@ -128,7 +128,7 @@ const DriverPortal: React.FC = () => {
 
   const onSubmit = async () => {
     setSubmitError(null);
-    const ok = await methods.trigger(['signatures'] as any);
+    const ok = await methods.trigger(['signatures', '_signature_consent'] as any);
     if (!ok) return;
     setSubmitting(true);
     try {

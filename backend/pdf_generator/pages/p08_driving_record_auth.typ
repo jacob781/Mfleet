@@ -30,7 +30,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [Independent Contractor Signature #underlined("", width: 3in)],
+    [Independent Contractor Signature #driver-signature(data, width: 3in)],
     [Date:#underlined("", width: 1.2in)]
   )
   
@@ -80,7 +80,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [Independent Contractor Signature:#underlined("", width: 2.5in)],
+    [Independent Contractor Signature:#driver-signature(data, width: 2.5in)],
     [Date:#underlined("", width: 1.2in)]
   )
   

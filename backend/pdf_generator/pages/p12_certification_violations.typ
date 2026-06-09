@@ -80,6 +80,6 @@
     columns: (1fr, 2fr),
     gutter: 1em,
     [#underlined("", width: 1.5in)\ Date of Certification],
-    [#underlined("", width: 3in)\ Independent Contractor's Signature]
+    [#driver-signature(data, width: 3in)\ Independent Contractor's Signature]
   )
 }

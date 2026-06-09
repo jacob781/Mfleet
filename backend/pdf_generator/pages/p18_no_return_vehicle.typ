@@ -88,7 +88,7 @@
   
   v(0.5em)
   
-  [Independent Contractor's Signature:#underlined("", width: 3in)]
+  [Independent Contractor's Signature:#driver-signature(data, width: 3in)]
   v(0.3em)
   [Date:#underlined("", width: 1.5in)]
 }
