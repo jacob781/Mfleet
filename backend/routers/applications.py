@@ -21,6 +21,7 @@ from schemas import (
     ApplicationCreate,
     ApplicationListItem,
     ApplicationResponse,
+    ApplicationStatusUpdate,
     DriverSummary,
 )
 
@@ -150,6 +151,24 @@ def get_application(
     application = session.get(DriverApplication, application_id)
     if not application:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    driver = session.get(Driver, application.driver_id) if application.driver_id else None
+    return _to_response(application, driver)
+
+
+@router.patch("/{application_id}/status", response_model=ApplicationResponse)
+def update_status(
+    application_id: int,
+    body: ApplicationStatusUpdate,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> ApplicationResponse:
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    application.status = body.status
+    session.add(application)
+    session.commit()
+    session.refresh(application)
     driver = session.get(Driver, application.driver_id) if application.driver_id else None
     return _to_response(application, driver)
 

@@ -14,6 +14,7 @@ const LoginPage: React.FC = () => {
   const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -68,12 +69,23 @@ const LoginPage: React.FC = () => {
             />
           </Field>
           <Field label="Password" htmlFor="password" required error={errors.password?.message}>
-            <TextInput
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              {...register('password', { required: 'Required' })}
-            />
+            <div className="relative">
+              <TextInput
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                className="pr-16"
+                {...register('password', { required: 'Required' })}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-mfleet-blue hover:underline"
+                tabIndex={-1}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </Field>
 
           {formError && (

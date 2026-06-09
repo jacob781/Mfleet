@@ -15,7 +15,14 @@ from database import get_session
 from dependencies import get_current_admin, get_current_user
 from models import User
 from rate_limit import limiter
-from schemas import Token, UserCreate, UserResponse
+from schemas import (
+    AdminPasswordReset,
+    PasswordChange,
+    Token,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -78,3 +85,77 @@ def list_users(
     _admin: Annotated[User, Depends(get_current_admin)],
 ) -> List[User]:
     return list(session.exec(select(User)).all())
+
+
+def _active_admin_count(session: Session, exclude_id: int | None = None) -> int:
+    stmt = select(User).where(User.role == "admin", User.is_active == True)  # noqa: E712
+    admins = [u for u in session.exec(stmt).all() if u.id != exclude_id]
+    return len(admins)
+
+
+@router.patch("/users/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    body: UserUpdate,
+    session: Annotated[Session, Depends(get_session)],
+    admin: Annotated[User, Depends(get_current_admin)],
+) -> User:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    data = body.model_dump(exclude_unset=True)
+    # Guard: don't let the last active admin demote/deactivate themselves into lockout.
+    would_remove_admin = (data.get("role") == "manager") or (data.get("is_active") is False)
+    if user.role == "admin" and would_remove_admin and _active_admin_count(session, exclude_id=user.id) == 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Cannot remove the last active admin")
+    for key, value in data.items():
+        setattr(user, key, value)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    admin: Annotated[User, Depends(get_current_admin)],
+) -> None:
+    if user_id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="You cannot delete your own account")
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user.role == "admin" and _active_admin_count(session, exclude_id=user.id) == 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Cannot delete the last active admin")
+    session.delete(user)
+    session.commit()
+
+
+@router.post("/users/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+def admin_reset_password(
+    user_id: int,
+    body: AdminPasswordReset,
+    session: Annotated[Session, Depends(get_session)],
+    _admin: Annotated[User, Depends(get_current_admin)],
+) -> None:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.hashed_password = security.hash_password(body.new_password)
+    session.add(user)
+    session.commit()
+
+
+@router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+def change_my_password(
+    body: PasswordChange,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    if not security.verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+    current_user.hashed_password = security.hash_password(body.new_password)
+    session.add(current_user)
+    session.commit()

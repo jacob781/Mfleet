@@ -20,6 +20,14 @@ export interface UserCreate {
   role: 'admin' | 'manager';
 }
 
+export interface UserUpdate {
+  full_name?: string | null;
+  role?: 'admin' | 'manager';
+  is_active?: boolean;
+}
+
+export type ApplicationStatus = 'pending_driver' | 'pending_review' | 'approved' | 'rejected';
+
 // --- Companies -------------------------------------------------------------
 
 export interface CompanyCreate {

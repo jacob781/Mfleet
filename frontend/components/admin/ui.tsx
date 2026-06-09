@@ -120,7 +120,10 @@ const STATUS_STYLES: Record<string, string> = {
   pending_driver: 'bg-amber-100 text-amber-800',
   draft: 'bg-gray-100 text-gray-700',
   pending_review: 'bg-blue-100 text-blue-800',
+  approved: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
   ready: 'bg-green-100 text-green-800',
+  generating: 'bg-blue-100 text-blue-800',
   failed: 'bg-red-100 text-red-800',
   pending: 'bg-amber-100 text-amber-800',
 };

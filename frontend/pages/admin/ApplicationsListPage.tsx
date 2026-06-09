@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { listApplications, listCompanies } from '../../lib/adminApi';
-import type { ApplicationListItem, CompanyResponse } from '../../lib/adminTypes';
+import { Link, useNavigate } from 'react-router-dom';
+import { listApplications, listCompanies, listDrivers } from '../../lib/adminApi';
+import type { ApplicationListItem, CompanyResponse, DriverSummary } from '../../lib/adminTypes';
 import { Button, Card, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
 
 const STATUS_OPTIONS = [
@@ -9,6 +9,8 @@ const STATUS_OPTIONS = [
   { value: 'pending_driver', label: 'Pending driver' },
   { value: 'draft', label: 'Draft' },
   { value: 'pending_review', label: 'Pending review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
 ];
 
 function fmtDate(value: string | null): string {
@@ -17,16 +19,19 @@ function fmtDate(value: string | null): string {
 }
 
 const ApplicationsListPage: React.FC = () => {
+  const navigate = useNavigate();
   const [apps, setApps] = useState<ApplicationListItem[]>([]);
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
+  const [drivers, setDrivers] = useState<DriverSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
-  // Companies once (for name resolution + the filter dropdown).
+  // Companies + drivers once (for name resolution + the company filter).
   useEffect(() => {
     listCompanies().then(setCompanies).catch(() => setCompanies([]));
+    listDrivers().then(setDrivers).catch(() => setDrivers([]));
   }, []);
 
   useEffect(() => {
@@ -46,7 +51,14 @@ const ApplicationsListPage: React.FC = () => {
     return (id: number) => map.get(id) ?? `#${id}`;
   }, [companies]);
 
-  const copyLink = async (item: ApplicationListItem) => {
+  const driverName = useMemo(() => {
+    const map = new Map<number, string>();
+    drivers.forEach((d) => map.set(d.id, `${d.first_name} ${d.last_name}`.trim()));
+    return (id: number) => map.get(id) ?? `#${id}`;
+  }, [drivers]);
+
+  const copyLink = async (e: React.MouseEvent, item: ApplicationListItem) => {
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(item.apply_url);
       setCopiedId(item.id);
@@ -113,13 +125,17 @@ const ApplicationsListPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {apps.map((a) => (
-                <tr key={a.id} className="hover:bg-gray-50">
+                <tr
+                  key={a.id}
+                  onClick={() => navigate(`/admin/applications/${a.id}`)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td className="px-4 py-3 text-mfleet-gray">{a.id}</td>
                   <td className="px-4 py-3 font-medium text-mfleet-gray-dark">
                     {companyName(a.company_id)}
                   </td>
                   <td className="px-4 py-3 text-mfleet-gray">
-                    {a.driver_id ? `#${a.driver_id}` : <span className="italic">New driver</span>}
+                    {a.driver_id ? driverName(a.driver_id) : <span className="italic">New driver</span>}
                   </td>
                   <td className="px-4 py-3 text-mfleet-gray">
                     {a.driver_is_owner ? 'Owner' : 'Company'}
@@ -132,15 +148,10 @@ const ApplicationsListPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-mfleet-gray">{fmtDate(a.created_at)}</td>
                   <td className="px-4 py-3 text-mfleet-gray">{fmtDate(a.expires_at)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" onClick={() => copyLink(a)}>
-                        {copiedId === a.id ? 'Copied!' : 'Copy link'}
-                      </Button>
-                      <Link to={`/admin/applications/${a.id}`}>
-                        <Button variant="secondary">Open</Button>
-                      </Link>
-                    </div>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="ghost" onClick={(e) => copyLink(e, a)}>
+                      {copiedId === a.id ? 'Copied!' : 'Copy link'}
+                    </Button>
                   </td>
                 </tr>
               ))}

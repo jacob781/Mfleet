@@ -25,9 +25,9 @@
     columns: (1in, 1fr),
     row-gutter: 0.8em,
     [], [#underlined(company-name(data), width: 3in)],
-    [USDOT \#:], [#underlined("", width: 2in)],
-    [MC \#:], [#underlined("", width: 2in)],
-    [Address:], [#underlined("", width: 4in)],
+    [USDOT \#:], [#underlined(data.config.company_dot, width: 2in)],
+    [MC \#:], [#underlined(data.config.company_mc, width: 2in)],
+    [Address:], [#underlined(data.config.company_address + ", " + data.config.company_city + ", " + data.config.company_state + " " + data.config.company_zip, width: 4in)],
   )
   
   v(0.5em)
@@ -44,9 +44,9 @@
     columns: (1.5in, 1fr),
     row-gutter: 0.8em,
     [], [#underlined(driver-name(data), width: 3in)],
-    [Address:], [#underlined("", width: 4in)],
-    [Phone:], [#underlined("", width: 2in)],
-    [Independent Contractor's License/CDL \#:], [#underlined("", width: 2in)],
+    [Address:], [#underlined(data.address.street + ", " + data.address.city + ", " + data.address.state + " " + data.address.zip, width: 4in)],
+    [Phone:], [#underlined(data.phone, width: 2in)],
+    [Independent Contractor's License/CDL \#:], [#underlined(data.cdl.number, width: 2in)],
   )
   
   v(1em)

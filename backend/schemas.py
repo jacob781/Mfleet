@@ -28,6 +28,21 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    role: Optional[Literal["admin", "manager"]] = None
+    is_active: Optional[bool] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class AdminPasswordReset(BaseModel):
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 # --- Companies ---------------------------------------------------------------
 
 class CompanyCreate(BaseModel):
@@ -127,3 +142,7 @@ class ApplicationResponse(ApplicationListItem):
     submitted_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     driver: Optional[DriverSummary] = None
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: Literal["pending_driver", "pending_review", "approved", "rejected"]

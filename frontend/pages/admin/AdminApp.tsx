@@ -10,6 +10,7 @@ import ApplicationDetailPage from './ApplicationDetailPage';
 import CompaniesPage from './CompaniesPage';
 import DriversPage from './DriversPage';
 import UsersPage from './UsersPage';
+import AccountPage from './AccountPage';
 
 /**
  * Standalone manager admin section, mounted at /admin/* in App.tsx.
@@ -29,6 +30,7 @@ const AdminApp: React.FC = () => {
             <Route path="companies" element={<CompaniesPage />} />
             <Route path="drivers" element={<DriversPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="account" element={<AccountPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="applications" replace />} />

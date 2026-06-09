@@ -2,12 +2,14 @@ import type {
   ApplicationCreate,
   ApplicationListItem,
   ApplicationResponse,
+  ApplicationStatus,
   CompanyCreate,
   CompanyResponse,
   DriverSummary,
   Token,
   UserCreate,
   UserResponse,
+  UserUpdate,
 } from './adminTypes';
 
 const API_BASE =
@@ -104,6 +106,27 @@ export function createUser(body: UserCreate): Promise<UserResponse> {
   return jsonRequest('/api/auth/users', 'POST', body);
 }
 
+export function updateUser(id: number, body: UserUpdate): Promise<UserResponse> {
+  return jsonRequest(`/api/auth/users/${id}`, 'PATCH', body);
+}
+
+export function deleteUser(id: number): Promise<void> {
+  return request(`/api/auth/users/${id}`, { method: 'DELETE' }).then(() => undefined);
+}
+
+export function adminResetPassword(id: number, newPassword: string): Promise<void> {
+  return jsonRequest(`/api/auth/users/${id}/password`, 'POST', { new_password: newPassword }).then(
+    () => undefined,
+  );
+}
+
+export function changeMyPassword(currentPassword: string, newPassword: string): Promise<void> {
+  return jsonRequest('/api/auth/me/password', 'POST', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  }).then(() => undefined);
+}
+
 // --- Companies -------------------------------------------------------------
 
 export function listCompanies(): Promise<CompanyResponse[]> {
@@ -145,6 +168,13 @@ export function createApplication(body: ApplicationCreate): Promise<ApplicationR
 // Re-run PDF generation from the driver's saved answers (no driver action needed).
 export function regeneratePdf(id: number): Promise<ApplicationResponse> {
   return request(`/api/applications/${id}/regenerate-pdf`, { method: 'POST' });
+}
+
+export function updateApplicationStatus(
+  id: number,
+  status: ApplicationStatus,
+): Promise<ApplicationResponse> {
+  return jsonRequest(`/api/applications/${id}/status`, 'PATCH', { status });
 }
 
 // PDF endpoint is JWT-protected, so a plain <a href> can't carry the token.

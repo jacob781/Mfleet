@@ -13,6 +13,7 @@ const AdminLayout: React.FC = () => {
     { to: '/admin/drivers', label: 'Drivers' },
     // User management is admin-only.
     ...(user?.role === 'admin' ? [{ to: '/admin/users', label: 'Users' }] : []),
+    { to: '/admin/account', label: 'Account' },
   ];
 
   const handleLogout = () => {

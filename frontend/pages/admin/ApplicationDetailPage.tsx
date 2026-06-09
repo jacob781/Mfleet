@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ApiError, downloadPdf, getApplication, regeneratePdf } from '../../lib/adminApi';
-import type { ApplicationResponse } from '../../lib/adminTypes';
-import { Button, Card, Spinner, StatusBadge } from '../../components/admin/ui';
+import {
+  ApiError,
+  downloadPdf,
+  getApplication,
+  regeneratePdf,
+  updateApplicationStatus,
+} from '../../lib/adminApi';
+import type { ApplicationResponse, ApplicationStatus } from '../../lib/adminTypes';
+import { Button, Card, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
 
 function fmtDateTime(value: string | null): string {
   if (!value) return '—';
@@ -34,6 +40,7 @@ const ApplicationDetailPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [regenError, setRegenError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -66,6 +73,19 @@ const ApplicationDetailPage: React.FC = () => {
         e instanceof ApiError && typeof e.detail === 'string'
           ? e.detail
           : 'Could not start regeneration.',
+      );
+    }
+  };
+
+  const handleStatusChange = async (status: ApplicationStatus) => {
+    if (!app || status === app.status) return;
+    setStatusError(null);
+    try {
+      const updated = await updateApplicationStatus(app.id, status);
+      setApp(updated);
+    } catch (e) {
+      setStatusError(
+        e instanceof ApiError && typeof e.detail === 'string' ? e.detail : 'Could not update status.',
       );
     }
   };
@@ -161,6 +181,21 @@ const ApplicationDetailPage: React.FC = () => {
           <Row label="Created">{fmtDateTime(app.created_at)}</Row>
           <Row label="Submitted">{fmtDateTime(app.submitted_at)}</Row>
           <Row label="Expires">{fmtDateTime(app.expires_at)}</Row>
+          <div className="mt-4">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-mfleet-gray">
+              Update status
+            </label>
+            <SelectInput
+              value={app.status}
+              onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}
+            >
+              <option value="pending_driver">Pending driver</option>
+              <option value="pending_review">Pending review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </SelectInput>
+            {statusError && <p className="mt-1 text-xs text-red-600">{statusError}</p>}
+          </div>
         </Card>
 
         <Card className="p-6">
@@ -179,7 +214,7 @@ const ApplicationDetailPage: React.FC = () => {
             <Button onClick={handleDownload} disabled={!pdfReady} className="w-full">
               Download PDF
             </Button>
-            {!pdfReady && !app.submitted_at && (
+            {!app.submitted_at && (
               <p className="mt-2 text-xs text-mfleet-gray">
                 Available once the driver submits and the document is generated.
               </p>
@@ -187,7 +222,7 @@ const ApplicationDetailPage: React.FC = () => {
             {app.pdf_status === 'generating' && (
               <p className="mt-2 text-xs text-mfleet-gray">Generating the document…</p>
             )}
-            {!!app.submitted_at && !pdfReady && app.pdf_status !== 'generating' && (
+            {!!app.submitted_at && app.pdf_status !== 'generating' && (
               <div className="mt-2">
                 <Button variant="secondary" onClick={handleRegenerate} className="w-full">
                   Regenerate PDF
