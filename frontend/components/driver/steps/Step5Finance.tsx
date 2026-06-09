@@ -1,8 +1,14 @@
 import React from 'react';
+import { useWatch } from 'react-hook-form';
 import { CheckboxField, FieldGroup, SelectField, TextField } from '../fields';
 import FieldArrayList from '../FieldArrayList';
 
-const Step5Finance: React.FC<{ isOwner: boolean }> = ({ isOwner }) => (
+const Step5Finance: React.FC<{ isOwner: boolean }> = ({ isOwner }) => {
+  // The W-9 TIN is an SSN for individuals and an EIN otherwise — both 9 digits
+  // but formatted differently. Switch the mask on the selected tax class.
+  const w9Type = useWatch({ name: 'w9.type' });
+  const tinFormat = w9Type === 'Individual' ? 'ssn' : 'ein';
+  return (
   <div>
     {isOwner && (
       <FieldGroup title="Equipment (your truck)">
@@ -54,12 +60,12 @@ const Step5Finance: React.FC<{ isOwner: boolean }> = ({ isOwner }) => (
       <TextField name="w9.business_name" label="Business name (if different)" />
       <TextField name="w9.address" label="Address" required />
       <TextField name="w9.city_state_zip" label="City, State, ZIP" required />
-      <TextField name="w9.tin" label="Taxpayer ID (SSN/EIN)" required inputMode="numeric" />
+      <TextField name="w9.tin" label="Taxpayer ID (SSN/EIN)" required format={tinFormat} />
     </FieldGroup>
 
     <FieldGroup title="Direct deposit — banking">
       <TextField name="banking.bank_name" label="Bank name" required />
-      <TextField name="banking.routing_number" label="Routing number" required inputMode="numeric" />
+      <TextField name="banking.routing_number" label="Routing number" required format="routing" />
       <TextField name="banking.account_number" label="Account number" required inputMode="numeric" />
       <SelectField
         name="banking.account_type"
@@ -84,6 +90,7 @@ const Step5Finance: React.FC<{ isOwner: boolean }> = ({ isOwner }) => (
       />
     </FieldGroup>
   </div>
-);
+  );
+};
 
 export default Step5Finance;

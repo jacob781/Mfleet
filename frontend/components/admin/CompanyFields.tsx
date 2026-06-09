@@ -1,6 +1,7 @@
 import React from 'react';
 import type { UseFormRegister } from 'react-hook-form';
 import { Field, TextInput } from './ui';
+import { maskedRegister } from '../../lib/masks';
 
 interface CompanyFieldsProps {
   register: UseFormRegister<any>;
@@ -26,10 +27,10 @@ const CompanyFields: React.FC<CompanyFieldsProps> = ({ register, errors, prefix 
       </Field>
 
       <Field label="DOT number" error={err('dot_number')}>
-        <TextInput {...register(name('dot_number'))} placeholder="1234567" />
+        <TextInput {...maskedRegister(register, name('dot_number'), 'dot')} />
       </Field>
       <Field label="MC number" error={err('mc_number')}>
-        <TextInput {...register(name('mc_number'))} placeholder="MC-987654" />
+        <TextInput {...maskedRegister(register, name('mc_number'), 'mc')} />
       </Field>
 
       <Field label="Street address" required error={err('address_street')} className="sm:col-span-2">
@@ -41,21 +42,21 @@ const CompanyFields: React.FC<CompanyFieldsProps> = ({ register, errors, prefix 
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="State" required error={err('address_state')}>
-          <TextInput {...register(name('address_state'), { required: 'Required' })} placeholder="WA" />
+          <TextInput {...maskedRegister(register, name('address_state'), 'state', { required: 'Required' })} />
         </Field>
         <Field label="ZIP" required error={err('address_zip')}>
-          <TextInput {...register(name('address_zip'), { required: 'Required' })} placeholder="98101" />
+          <TextInput {...maskedRegister(register, name('address_zip'), 'zip', { required: 'Required' })} />
         </Field>
       </div>
 
       <Field label="Phone" error={err('phone')}>
-        <TextInput {...register(name('phone'))} placeholder="(555) 123-4567" />
+        <TextInput {...maskedRegister(register, name('phone'), 'phone')} />
       </Field>
       <Field label="Email" error={err('email')}>
         <TextInput type="email" {...register(name('email'))} placeholder="dispatch@acme.com" />
       </Field>
       <Field label="Fax" error={err('fax')}>
-        <TextInput {...register(name('fax'))} />
+        <TextInput {...maskedRegister(register, name('fax'), 'phone')} />
       </Field>
     </div>
   );
