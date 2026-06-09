@@ -1,7 +1,7 @@
 """API request/response DTOs (kept separate from the SQLModel tables)."""
 
-from datetime import datetime
-from typing import Literal, Optional
+from datetime import date, datetime
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -88,6 +88,21 @@ class DriverSummary(BaseModel):
     status: str
 
     model_config = {"from_attributes": True}
+
+
+class DriverApplicationBrief(BaseModel):
+    id: int
+    status: str
+    pdf_status: Optional[str] = None
+    driver_is_owner: bool
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class DriverDetail(DriverSummary):
+    dob: Optional[date] = None
+    applications: List[DriverApplicationBrief] = []
 
 
 # --- Applications ------------------------------------------------------------

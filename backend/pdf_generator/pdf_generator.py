@@ -61,7 +61,7 @@ class PDFGenerator:
             print("Typst not found. Please install Typst: https://typst.app/")
             return False
     
-    def merge_pdfs(self, base_pdf_path: Path, output_path: Path, is_owner: bool) -> bool:
+    def merge_pdfs(self, base_pdf_path: Path, output_path: Path, is_owner: bool, w9_path: Path | None = None) -> bool:
         """
         Merge the base PDF with external PDFs.
         
@@ -118,9 +118,10 @@ class PDFGenerator:
             for i in range(min(w9_insert_after + 1, len(base_doc))):
                 final_doc.insert_pdf(base_doc, from_page=i, to_page=i)
             
-            # Insert W-9 form
-            if self.w9_pdf.exists():
-                w9_doc = pymupdf.open(str(self.w9_pdf))
+            # Insert W-9 form (filled copy if provided, else the blank template)
+            w9_src = w9_path if (w9_path and w9_path.exists()) else self.w9_pdf
+            if w9_src.exists():
+                w9_doc = pymupdf.open(str(w9_src))
                 final_doc.insert_pdf(w9_doc)
                 w9_doc.close()
             
@@ -198,11 +199,67 @@ class PDFGenerator:
             sig.pop("image_base64", None)
         return sig_dir
 
+    # W-9 federal tax classification box -> AcroField export state on fw9.pdf.
+    _W9_CLASS_BOX = {"Individual": "1", "C Corp": "2", "S Corp": "3", "Partnership": "4"}
+
+    def _fill_w9(self, w9: dict | None) -> Path | None:
+        """Fill the IRS W-9 AcroForm (fw9.pdf) from the driver's W-9 data.
+        Returns a filled temp PDF path, or None to fall back to the blank form."""
+        if not w9 or not self.w9_pdf.exists():
+            return None
+        try:
+            doc = pymupdf.open(str(self.w9_pdf))
+        except Exception:
+            return None
+        page = doc[0]
+        tin_digits = "".join(ch for ch in str(w9.get("tin", "")) if ch.isdigit())
+        wtype = w9.get("type", "Individual")
+        class_box = self._W9_CLASS_BOX.get(wtype)
+        use_ssn = wtype == "Individual"
+        text_map = {
+            "f1_01[0]": w9.get("name", "") or "",
+            "f1_02[0]": w9.get("business_name", "") or "",
+            "f1_07[0]": w9.get("address", "") or "",
+            "f1_08[0]": w9.get("city_state_zip", "") or "",
+        }
+        for widget in page.widgets():
+            short = widget.field_name.split(".")[-1]
+            ftype = widget.field_type_string
+            if ftype == "Text":
+                if short in text_map:
+                    widget.field_value = text_map[short]
+                    widget.update()
+                elif use_ssn and len(tin_digits) == 9:
+                    part = {"f1_11[0]": tin_digits[0:3], "f1_12[0]": tin_digits[3:5], "f1_13[0]": tin_digits[5:9]}.get(short)
+                    if part is not None:
+                        widget.field_value = part
+                        widget.update()
+                elif not use_ssn and len(tin_digits) >= 9:
+                    part = {"f1_14[0]": tin_digits[0:2], "f1_15[0]": tin_digits[2:9]}.get(short)
+                    if part is not None:
+                        widget.field_value = part
+                        widget.update()
+            elif ftype == "CheckBox" and class_box and short.startswith("c1_1["):
+                if class_box in widget.button_states().get("normal", []):
+                    widget.field_value = class_box
+                    widget.update()
+        # Flatten form fields into static page content so the values always
+        # render (and can't be edited) after the W-9 is merged into the packet.
+        try:
+            doc.bake()
+        except Exception:
+            pass  # older PyMuPDF without bake(): widgets still carry values
+        out = self.base_dir / f"_w9_filled_{uuid.uuid4().hex}.pdf"
+        doc.save(str(out))
+        doc.close()
+        return out
+
     def generate(self, payload: dict, output_path: Path) -> bool:
         """Generate the complete PDF with all merges."""
 
         is_owner = payload.get("is_owner", False)
         sig_dir = self._prepare_signatures(payload)
+        w9_path = self._fill_w9(payload.get("w9"))
 
         try:
             # Step 1: Compile Typst to temp file
@@ -215,9 +272,9 @@ class PDFGenerator:
 
             print(f"Typst compiled: {temp_path}")
 
-            # Step 2: Merge with external PDFs
+            # Step 2: Merge with external PDFs (filled W-9 included)
             print(f"Merging PDFs (is_owner={is_owner})...")
-            if not self.merge_pdfs(temp_path, output_path, is_owner):
+            if not self.merge_pdfs(temp_path, output_path, is_owner, w9_path=w9_path):
                 return False
 
             # Cleanup
@@ -234,6 +291,8 @@ class PDFGenerator:
         finally:
             if sig_dir and sig_dir.exists():
                 shutil.rmtree(sig_dir, ignore_errors=True)
+            if w9_path and w9_path.exists():
+                w9_path.unlink()
 
 
 def main():

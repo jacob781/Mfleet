@@ -4,6 +4,8 @@ import {
   ApiError,
   downloadPdf,
   getApplication,
+  getApplicationAnswers,
+  getPdfObjectUrl,
   regeneratePdf,
   updateApplicationStatus,
 } from '../../lib/adminApi';
@@ -32,6 +34,37 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
   </div>
 );
 
+// Recursively render the driver's submitted answers (already sanitized server-side).
+const AnswersView: React.FC<{ data: unknown }> = ({ data }) => {
+  if (data === null || data === undefined || data === '') return <span className="text-gray-400">—</span>;
+  if (typeof data === 'boolean') return <span>{data ? 'Yes' : 'No'}</span>;
+  if (typeof data === 'string' || typeof data === 'number') return <span>{String(data)}</span>;
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <span className="text-gray-400">—</span>;
+    return (
+      <div className="flex flex-col gap-2">
+        {data.map((item, i) => (
+          <div key={i} className="rounded border border-gray-100 p-2">
+            <AnswersView data={item} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col">
+      {Object.entries(data as Record<string, unknown>).map(([k, v]) => (
+        <div key={k} className="flex justify-between gap-4 border-b border-gray-50 py-1 last:border-0">
+          <span className="text-xs text-mfleet-gray">{labelize(k)}</span>
+          <span className="max-w-[60%] text-right text-sm text-mfleet-gray-dark">
+            <AnswersView data={v} />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const ApplicationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [app, setApp] = useState<ApplicationResponse | null>(null);
@@ -41,6 +74,9 @@ const ApplicationDetailPage: React.FC = () => {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -61,6 +97,34 @@ const ApplicationDetailPage: React.FC = () => {
     }, 3000);
     return () => clearTimeout(t);
   }, [id, app?.pdf_status, app]);
+
+  // Load the driver's submitted answers (empty object if not submitted yet).
+  useEffect(() => {
+    if (!id) return;
+    getApplicationAnswers(Number(id))
+      .then((a) => setAnswers(a && Object.keys(a).length ? a : null))
+      .catch(() => setAnswers(null));
+  }, [id]);
+
+  // Revoke the preview object URL when it changes / on unmount.
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  const togglePreview = async () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+      return;
+    }
+    if (!app) return;
+    setPreviewError(null);
+    try {
+      setPreviewUrl(await getPdfObjectUrl(app.id));
+    } catch (e) {
+      setPreviewError(
+        e instanceof ApiError && typeof e.detail === 'string' ? e.detail : 'Cannot preview the PDF.',
+      );
+    }
+  };
 
   const handleRegenerate = async () => {
     if (!app) return;
@@ -214,6 +278,12 @@ const ApplicationDetailPage: React.FC = () => {
             <Button onClick={handleDownload} disabled={!pdfReady} className="w-full">
               Download PDF
             </Button>
+            {pdfReady && (
+              <Button variant="secondary" onClick={togglePreview} className="mt-2 w-full">
+                {previewUrl ? 'Hide preview' : 'Preview PDF'}
+              </Button>
+            )}
+            {previewError && <p className="mt-2 text-xs text-red-600">{previewError}</p>}
             {!app.submitted_at && (
               <p className="mt-2 text-xs text-mfleet-gray">
                 Available once the driver submits and the document is generated.
@@ -237,6 +307,24 @@ const ApplicationDetailPage: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* Inline PDF preview (no download) */}
+      {previewUrl && (
+        <Card className="overflow-hidden p-2">
+          <iframe title="PDF preview" src={previewUrl} className="h-[80vh] w-full rounded" />
+        </Card>
+      )}
+
+      {/* Driver-submitted form data */}
+      {answers && (
+        <Card className="p-6">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
+            Submitted by driver
+          </h2>
+          <p className="mb-3 text-xs text-mfleet-gray">SSN and banking details are masked.</p>
+          <AnswersView data={answers} />
+        </Card>
+      )}
 
       {/* Contract config snapshot */}
       <Card className="p-6">

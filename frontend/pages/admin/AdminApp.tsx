@@ -9,6 +9,7 @@ import ApplicationCreatePage from './ApplicationCreatePage';
 import ApplicationDetailPage from './ApplicationDetailPage';
 import CompaniesPage from './CompaniesPage';
 import DriversPage from './DriversPage';
+import DriverDetailPage from './DriverDetailPage';
 import UsersPage from './UsersPage';
 import AccountPage from './AccountPage';
 
@@ -29,6 +30,7 @@ const AdminApp: React.FC = () => {
             <Route path="applications/:id" element={<ApplicationDetailPage />} />
             <Route path="companies" element={<CompaniesPage />} />
             <Route path="drivers" element={<DriversPage />} />
+            <Route path="drivers/:id" element={<DriverDetailPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="account" element={<AccountPage />} />
           </Route>

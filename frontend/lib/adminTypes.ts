@@ -62,6 +62,19 @@ export interface DriverSummary {
 
 // --- Applications ----------------------------------------------------------
 
+export interface DriverApplicationBrief {
+  id: number;
+  status: string;
+  pdf_status: string | null;
+  driver_is_owner: boolean;
+  created_at: string | null;
+}
+
+export interface DriverDetail extends DriverSummary {
+  dob?: string | null;
+  applications: DriverApplicationBrief[];
+}
+
 export type CompensationType = 'percentage' | 'weekly_flat' | 'per_mile' | 'hourly';
 
 export interface ApplicationSettings {

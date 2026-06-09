@@ -5,6 +5,7 @@ On create, the carrier company's details are snapshotted into manager_config
 contract (ManagerConfig). A unique access token + apply link is returned.
 """
 
+import copy
 import os
 from typing import Annotated, List, Optional
 
@@ -201,6 +202,46 @@ def regenerate_pdf(
     background_tasks.add_task(generate_application_pdf, application.id)
     driver = session.get(Driver, application.driver_id) if application.driver_id else None
     return _to_response(application, driver)
+
+
+def _mask_tail(value, keep: int = 4, prefix: str = "••••") -> str:
+    s = str(value or "")
+    return prefix + s[-keep:] if len(s) > keep else s
+
+
+def _sanitize_answers(answers: dict) -> dict:
+    """Return the driver's submitted answers with sensitive fields masked and
+    raw signature images dropped — safe to show a logged-in manager."""
+    a = copy.deepcopy(answers or {})
+    if isinstance(a.get("ssn"), str):
+        a["ssn"] = _mask_tail(a["ssn"], 4, "•••-••-")
+    banking = a.get("banking")
+    if isinstance(banking, dict):
+        for k in ("account_number", "routing_number"):
+            if k in banking:
+                banking[k] = _mask_tail(banking[k])
+    w9 = a.get("w9")
+    if isinstance(w9, dict) and "tin" in w9:
+        w9["tin"] = _mask_tail(w9["tin"], 4, "•••••")
+    sigs = a.get("signatures")
+    if isinstance(sigs, dict):
+        # Keep only which sections were signed (drop base64 image data).
+        a["signatures"] = {k: True for k in sigs}
+    return a
+
+
+@router.get("/{application_id}/answers", response_model=dict)
+def get_application_answers(
+    application_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    if application.answers is None:
+        return {}
+    return _sanitize_answers(application.answers.answers or {})
 
 
 @router.get("/{application_id}/pdf")

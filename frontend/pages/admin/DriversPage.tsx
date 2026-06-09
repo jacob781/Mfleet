@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { listCompanies, listDrivers } from '../../lib/adminApi';
 import type { CompanyResponse, DriverSummary } from '../../lib/adminTypes';
 import { Card, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
 
 const DriversPage: React.FC = () => {
+  const navigate = useNavigate();
   const [drivers, setDrivers] = useState<DriverSummary[]>([]);
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,11 @@ const DriversPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {drivers.map((d) => (
-                <tr key={d.id} className="hover:bg-gray-50">
+                <tr
+                  key={d.id}
+                  onClick={() => navigate(`/admin/drivers/${d.id}`)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td className="px-4 py-3 font-medium text-mfleet-gray-dark">
                     {d.first_name} {d.middle_name ? `${d.middle_name} ` : ''}
                     {d.last_name}

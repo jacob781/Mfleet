@@ -5,6 +5,7 @@ import type {
   ApplicationStatus,
   CompanyCreate,
   CompanyResponse,
+  DriverDetail,
   DriverSummary,
   Token,
   UserCreate,
@@ -144,6 +145,10 @@ export function listDrivers(companyId?: number): Promise<DriverSummary[]> {
   return request(`/api/drivers${qs}`);
 }
 
+export function getDriver(id: number): Promise<DriverDetail> {
+  return request(`/api/drivers/${id}`);
+}
+
 // --- Applications ----------------------------------------------------------
 
 export function listApplications(filters: {
@@ -159,6 +164,21 @@ export function listApplications(filters: {
 
 export function getApplication(id: number): Promise<ApplicationResponse> {
   return request(`/api/applications/${id}`);
+}
+
+// Sanitized driver-submitted answers (SSN/banking masked, signatures stripped).
+export function getApplicationAnswers(id: number): Promise<Record<string, unknown>> {
+  return request(`/api/applications/${id}/answers`);
+}
+
+// Fetch the protected PDF as a blob and return an object URL (for inline preview).
+export async function getPdfObjectUrl(id: number): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/applications/${id}/pdf`, { headers: authHeaders() });
+  if (!res.ok) {
+    await parse(res); // throws ApiError with server detail
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }
 
 export function createApplication(body: ApplicationCreate): Promise<ApplicationResponse> {
