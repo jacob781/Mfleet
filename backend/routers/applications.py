@@ -61,6 +61,7 @@ def _to_response(app: DriverApplication, driver: Optional[Driver]) -> Applicatio
         pdf_status=app.pdf_status,
         pdf_error=app.pdf_error,
         submitted_at=app.submitted_at,
+        pdf_generated_at=app.pdf_generated_at,
         created_at=app.created_at,
         updated_at=app.updated_at,
         expires_at=app.expires_at,

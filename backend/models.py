@@ -263,6 +263,11 @@ class DriverApplication(SQLModel, table=True):
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
     )
+    # When the current PDF was last (re)generated successfully.
+    pdf_generated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
 
     created_at: Optional[datetime] = Field(
         default=None,

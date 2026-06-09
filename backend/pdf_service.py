@@ -1,6 +1,7 @@
 """Assemble the Typst payload and generate the application PDF (background task)."""
 
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlmodel import Session
@@ -44,6 +45,7 @@ def generate_application_pdf(application_id: int) -> None:
             app.pdf_status = "ready"
             app.pdf_path = str(out)
             app.pdf_error = None
+            app.pdf_generated_at = datetime.now(timezone.utc)
         except Exception as exc:  # noqa: BLE001 - record any failure for the manager
             app.pdf_status = "failed"
             app.pdf_error = str(exc)[:1000]

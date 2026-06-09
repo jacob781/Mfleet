@@ -123,6 +123,7 @@ export interface ApplicationResponse extends ApplicationListItem {
   manager_config: Record<string, unknown>;
   pdf_error: string | null;
   submitted_at: string | null;
+  pdf_generated_at: string | null;
   updated_at: string | null;
   driver: DriverSummary | null;
 }

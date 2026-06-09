@@ -155,6 +155,7 @@ class ApplicationResponse(ApplicationListItem):
     manager_config: dict
     pdf_error: Optional[str] = None
     submitted_at: Optional[datetime] = None
+    pdf_generated_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     driver: Optional[DriverSummary] = None
 

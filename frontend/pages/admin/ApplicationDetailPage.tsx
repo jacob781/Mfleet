@@ -77,6 +77,7 @@ const ApplicationDetailPage: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, unknown> | null>(null);
+  const [showAnswers, setShowAnswers] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -269,6 +270,7 @@ const ApplicationDetailPage: React.FC = () => {
           <Row label="PDF status">
             <StatusBadge value={app.pdf_status} />
           </Row>
+          <Row label="PDF generated">{fmtDateTime(app.pdf_generated_at)}</Row>
           {app.pdf_error && (
             <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
               {app.pdf_error}
@@ -315,14 +317,32 @@ const ApplicationDetailPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Driver-submitted form data */}
+      {/* Driver-submitted form data (collapsed by default — it's long) */}
       {answers && (
         <Card className="p-6">
-          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
-            Submitted by driver
-          </h2>
-          <p className="mb-3 text-xs text-mfleet-gray">SSN and banking details are masked.</p>
-          <AnswersView data={answers} />
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
+              Submitted by driver
+            </h2>
+            <Button variant="ghost" onClick={() => setShowAnswers((v) => !v)}>
+              {showAnswers ? 'Hide' : 'Show'}
+            </Button>
+          </div>
+          {showAnswers && (
+            <div className="mt-3">
+              <p className="mb-3 text-xs text-mfleet-gray">SSN and banking details are masked.</p>
+              <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+                {Object.entries(answers).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-4 border-b border-gray-100 py-1.5">
+                    <span className="text-xs text-mfleet-gray">{labelize(k)}</span>
+                    <span className="max-w-[65%] text-right text-sm text-mfleet-gray-dark">
+                      <AnswersView data={v} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
