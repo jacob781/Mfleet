@@ -98,9 +98,7 @@
 // Inline driver signature: a fixed-width underlined box holding the applicant's
 // signature image (or a blank line if not signed). Drop-in replacement for
 // `underlined("", width: X)` on a DRIVER signature line.
-#let driver-signature(data, width: 3in) = {
-  let sigs = data.at("signatures", default: (:))
-  let sig = if type(sigs) == dictionary { sigs.at("applicant", default: none) } else { none }
+#let _signature-box(sig, width) = {
   let img = if sig != none { sig.at("image_path", default: none) } else { none }
   let ts = if sig != none { sig.at("timestamp_et", default: none) } else { none }
   box(width: width)[
@@ -115,6 +113,17 @@
     }
   ]
 }
+
+#let _sig-at(data, key) = {
+  let sigs = data.at("signatures", default: (:))
+  if type(sigs) == dictionary { sigs.at(key, default: none) } else { none }
+}
+
+// Driver's signature (applicant) — on every driver signature line.
+#let driver-signature(data, width: 3in) = _signature-box(_sig-at(data, "applicant"), width)
+
+// Manager / company counter-signature — on the carrier/company representative lines.
+#let carrier-signature(data, width: 3in) = _signature-box(_sig-at(data, "carrier"), width)
 
 // =============================================================================
 // TABLE STYLES

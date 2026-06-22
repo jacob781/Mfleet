@@ -162,3 +162,11 @@ class ApplicationResponse(ApplicationListItem):
 
 class ApplicationStatusUpdate(BaseModel):
     status: Literal["pending_driver", "pending_review", "approved", "rejected"]
+
+
+class CounterSignRequest(BaseModel):
+    """Manager's counter-signature captured on the application detail page."""
+    image_base64: str
+    signer_first_name: str = ""
+    timestamp_et: str = ""
+    date: str = ""

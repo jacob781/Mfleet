@@ -23,6 +23,10 @@ def build_payload(application: DriverApplication, answers: dict) -> dict:
     assembled = {**answers, "config": application.manager_config}
     payload = ApplicationPayload(**assembled).model_dump(mode="json")
     payload["is_owner"] = application.driver_is_owner  # Typst reads a flat top-level key
+    # Manager counter-signature goes on the company/carrier signature lines.
+    manager_sig = getattr(application, "manager_signature", None)
+    if manager_sig:
+        payload.setdefault("signatures", {})["carrier"] = manager_sig
     return payload
 
 

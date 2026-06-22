@@ -269,6 +269,15 @@ class DriverApplication(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=True),
     )
 
+    # Manager counter-signature (company/carrier side), applied on approval.
+    manager_signature: Optional[dict] = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
+    manager_signed_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+
     created_at: Optional[datetime] = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),

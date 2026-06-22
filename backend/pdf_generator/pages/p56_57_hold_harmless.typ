@@ -190,7 +190,7 @@
     row-gutter: 0.8em,
     [Name:], [#underlined("", width: 2.5in)],
     [Title:], [#underlined("", width: 2.5in)],
-    [Signature:], [#underlined("", width: 2.5in)],
+    [Signature:], [#carrier-signature(data, width: 2.5in)],
     [Date:], [#underlined("", width: 2in)],
   )
   

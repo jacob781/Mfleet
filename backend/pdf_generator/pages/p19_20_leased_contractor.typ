@@ -143,7 +143,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [Signature:#underlined("", width: 3in)],
+    [Signature:#carrier-signature(data, width: 3in)],
     [Date#underlined("", width: 1.2in)]
   )
 }

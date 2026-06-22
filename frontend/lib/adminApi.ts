@@ -197,6 +197,15 @@ export function updateApplicationStatus(
   return jsonRequest(`/api/applications/${id}/status`, 'PATCH', { status });
 }
 
+// Manager counter-signature: applies the company/carrier signature, regenerates
+// the PDF with both signatures, and approves the application.
+export function counterSign(
+  id: number,
+  sig: { image_base64: string; signer_first_name: string; timestamp_et: string; date: string },
+): Promise<ApplicationResponse> {
+  return jsonRequest(`/api/applications/${id}/countersign`, 'POST', sig);
+}
+
 // PDF endpoint is JWT-protected, so a plain <a href> can't carry the token.
 // Fetch as a blob with the Authorization header and trigger a download.
 export async function downloadPdf(id: number): Promise<void> {

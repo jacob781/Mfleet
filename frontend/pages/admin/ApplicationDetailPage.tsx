@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ApiError,
+  counterSign,
   downloadPdf,
   getApplication,
   getApplicationAnswers,
@@ -10,6 +11,9 @@ import {
   updateApplicationStatus,
 } from '../../lib/adminApi';
 import type { ApplicationResponse, ApplicationStatus } from '../../lib/adminTypes';
+import type { SignatureData } from '../../lib/driverTypes';
+import { useAuth } from '../../lib/auth';
+import SignatureInput from '../../components/driver/SignatureInput';
 import { Button, Card, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
 
 function fmtDateTime(value: string | null): string {
@@ -142,6 +146,10 @@ const ApplicationDetailPage: React.FC = () => {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, unknown> | null>(null);
   const [showAnswers, setShowAnswers] = useState(false);
+  const { user } = useAuth();
+  const [mgrSig, setMgrSig] = useState<SignatureData | null>(null);
+  const [signing, setSigning] = useState(false);
+  const [signError, setSignError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -227,6 +235,30 @@ const ApplicationDetailPage: React.FC = () => {
       setTimeout(() => setCopied(false), 1500);
     } catch {
       /* ignore */
+    }
+  };
+
+  const handleCounterSign = async () => {
+    if (!app || !mgrSig?.image_base64) return;
+    setSignError(null);
+    setSigning(true);
+    try {
+      const updated = await counterSign(app.id, {
+        image_base64: mgrSig.image_base64,
+        signer_first_name: mgrSig.signer_first_name || user?.full_name || '',
+        timestamp_et: mgrSig.timestamp_et || '',
+        date: mgrSig.date || '',
+      });
+      setApp(updated);
+      setMgrSig(null);
+    } catch (e) {
+      setSignError(
+        e instanceof ApiError && typeof e.detail === 'string'
+          ? e.detail
+          : 'Could not counter-sign. Please try again.',
+      );
+    } finally {
+      setSigning(false);
     }
   };
 
@@ -378,6 +410,29 @@ const ApplicationDetailPage: React.FC = () => {
       {previewUrl && (
         <Card className="overflow-hidden p-2">
           <iframe title="PDF preview" src={previewUrl} className="h-[80vh] w-full rounded" />
+        </Card>
+      )}
+
+      {/* Manager counter-signature — shown once the driver has submitted */}
+      {app.status === 'pending_review' && (
+        <Card className="p-6">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
+            Counter-sign &amp; approve
+          </h2>
+          <p className="mb-4 text-xs text-mfleet-gray">
+            Sign as the company / carrier representative. This applies your signature to the carrier
+            lines, regenerates the document with both signatures, and marks the application approved.
+          </p>
+          <SignatureInput
+            label="Company representative signature"
+            signerFirstName={user?.full_name || ''}
+            value={mgrSig || undefined}
+            onChange={(s) => setMgrSig(s)}
+          />
+          <Button onClick={handleCounterSign} disabled={!mgrSig?.image_base64 || signing}>
+            {signing ? 'Signing…' : 'Counter-sign & approve'}
+          </Button>
+          {signError && <p className="mt-2 text-sm text-red-600">{signError}</p>}
         </Card>
       )}
 

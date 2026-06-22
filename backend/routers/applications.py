@@ -7,6 +7,7 @@ contract (ManagerConfig). A unique access token + apply link is returned.
 
 import copy
 import os
+from datetime import datetime, timezone
 from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -23,6 +24,7 @@ from schemas import (
     ApplicationListItem,
     ApplicationResponse,
     ApplicationStatusUpdate,
+    CounterSignRequest,
     DriverSummary,
 )
 
@@ -171,6 +173,42 @@ def update_status(
     session.add(application)
     session.commit()
     session.refresh(application)
+    driver = session.get(Driver, application.driver_id) if application.driver_id else None
+    return _to_response(application, driver)
+
+
+@router.post("/{application_id}/countersign", response_model=ApplicationResponse)
+def countersign(
+    application_id: int,
+    body: CounterSignRequest,
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> ApplicationResponse:
+    """Manager counter-signs (company/carrier side): stores the signature,
+    approves the application, and regenerates the PDF with BOTH signatures."""
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    if application.answers is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="The driver has not submitted this application yet.",
+        )
+    application.manager_signature = {
+        "image_base64": body.image_base64,
+        "signer_first_name": body.signer_first_name,
+        "timestamp_et": body.timestamp_et,
+        "date": body.date,
+    }
+    application.manager_signed_at = datetime.now(timezone.utc)
+    application.status = "approved"
+    application.pdf_status = "generating"
+    application.pdf_error = None
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    background_tasks.add_task(generate_application_pdf, application.id)
     driver = session.get(Driver, application.driver_id) if application.driver_id else None
     return _to_response(application, driver)
 
