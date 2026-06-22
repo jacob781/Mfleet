@@ -167,7 +167,7 @@ const ApplicationCreatePage: React.FC = () => {
   const copyLink = async () => {
     if (!created) return;
     try {
-      await navigator.clipboard.writeText(created.apply_url);
+      await navigator.clipboard.writeText(`${window.location.origin}/apply/${created.access_token}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -193,7 +193,7 @@ const ApplicationCreatePage: React.FC = () => {
           <div className="mt-6 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
             <input
               readOnly
-              value={created.apply_url}
+              value={`${window.location.origin}/apply/${created.access_token}`}
               className="flex-1 bg-transparent px-2 text-sm text-mfleet-gray-dark outline-none"
             />
             <Button onClick={copyLink}>{copied ? 'Copied!' : 'Copy link'}</Button>

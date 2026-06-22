@@ -60,7 +60,7 @@ const ApplicationsListPage: React.FC = () => {
   const copyLink = async (e: React.MouseEvent, item: ApplicationListItem) => {
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(item.apply_url);
+      await navigator.clipboard.writeText(`${window.location.origin}/apply/${item.access_token}`);
       setCopiedId(item.id);
       setTimeout(() => setCopiedId((c) => (c === item.id ? null : c)), 1500);
     } catch {

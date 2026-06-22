@@ -65,6 +65,70 @@ const AnswersView: React.FC<{ data: unknown }> = ({ data }) => {
   );
 };
 
+// Horizontal, scrollable row of record cards (any list-like section).
+const RecordCarousel: React.FC<{ cards: Array<{ label: string; data: unknown }> }> = ({ cards }) => (
+  <div className="flex gap-3 overflow-x-auto pb-2">
+    {cards.map((c, i) => (
+      <div key={i} className="min-w-[230px] max-w-[270px] shrink-0 rounded-lg border border-gray-200 p-3">
+        <div className="mb-1 text-[11px] font-semibold text-mfleet-gray">{c.label}</div>
+        <AnswersView data={c.data} />
+      </div>
+    ))}
+  </div>
+);
+
+// 7-day record of duty: one compact tile per day, laid out in a single row.
+const SevenDayTiles: React.FC<{ rows: Array<Record<string, unknown>> }> = ({ rows }) => (
+  <div className="overflow-x-auto pb-1">
+    <div className="grid min-w-[560px] grid-cols-7 gap-2">
+      {rows.map((r, i) => (
+        <div key={i} className="rounded-lg border border-gray-200 p-2 text-center">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-mfleet-gray">Day {i + 1}</div>
+          <div className="mt-0.5 text-sm font-medium text-mfleet-gray-dark">{(r?.date as string) || '—'}</div>
+          <div className="mt-1.5 text-[10px] uppercase text-mfleet-gray">Hours</div>
+          <div className="text-sm text-mfleet-gray-dark">{(r?.hours as string) ?? '—'}</div>
+          <div className="mt-1.5 text-[10px] uppercase text-mfleet-gray">Relieved</div>
+          <div className="text-sm text-mfleet-gray-dark">{(r?.relieved_time as string) || '—'}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Flat object rendered as a compact 2-column key/value grid.
+const KeyValueGrid: React.FC<{ data: Record<string, unknown> }> = ({ data }) => (
+  <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+    {Object.entries(data).map(([k, v]) => (
+      <div key={k} className="flex justify-between gap-4 border-b border-gray-50 py-1 last:border-0">
+        <span className="text-xs text-mfleet-gray">{labelize(k)}</span>
+        <span className="max-w-[60%] text-right text-sm text-mfleet-gray-dark">
+          <AnswersView data={v} />
+        </span>
+      </div>
+    ))}
+  </div>
+);
+
+// Renders one section's body: tiles for the 7-day log, a carousel for any
+// list (and the experience group), or a key/value grid for a plain object.
+const SectionBody: React.FC<{ name: string; value: unknown }> = ({ name, value }) => {
+  if (name === 'seven_day_log' && Array.isArray(value) && value.length > 0) {
+    return <SevenDayTiles rows={value as Array<Record<string, unknown>>} />;
+  }
+  if (name === 'experience' && value && typeof value === 'object' && !Array.isArray(value)) {
+    const cards = Object.entries(value as Record<string, unknown>).map(([sk, sv]) => ({ label: labelize(sk), data: sv }));
+    return <RecordCarousel cards={cards} />;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-gray-400">—</span>;
+    if (value[0] !== null && typeof value[0] === 'object') {
+      return <RecordCarousel cards={value.map((item, i) => ({ label: `#${i + 1}`, data: item }))} />;
+    }
+    return <AnswersView data={value} />;
+  }
+  return <KeyValueGrid data={value as Record<string, unknown>} />;
+};
+
 const ApplicationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [app, setApp] = useState<ApplicationResponse | null>(null);
@@ -158,7 +222,7 @@ const ApplicationDetailPage: React.FC = () => {
   const copyLink = async () => {
     if (!app) return;
     try {
-      await navigator.clipboard.writeText(app.apply_url);
+      await navigator.clipboard.writeText(`${window.location.origin}/apply/${app.access_token}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -223,7 +287,7 @@ const ApplicationDetailPage: React.FC = () => {
         <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
           <input
             readOnly
-            value={app.apply_url}
+            value={`${window.location.origin}/apply/${app.access_token}`}
             className="flex-1 bg-transparent px-2 text-sm text-mfleet-gray-dark outline-none"
           />
           <Button onClick={copyLink}>{copied ? 'Copied!' : 'Copy'}</Button>
@@ -331,16 +395,38 @@ const ApplicationDetailPage: React.FC = () => {
           {showAnswers && (
             <div className="mt-3">
               <p className="mb-3 text-xs text-mfleet-gray">SSN and banking details are masked.</p>
-              <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-                {Object.entries(answers).map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-4 border-b border-gray-100 py-1.5">
-                    <span className="text-xs text-mfleet-gray">{labelize(k)}</span>
-                    <span className="max-w-[65%] text-right text-sm text-mfleet-gray-dark">
-                      <AnswersView data={v} />
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {(() => {
+                const entries = Object.entries(answers);
+                const isSection = (v: unknown) => v !== null && typeof v === 'object';
+                const scalars = entries.filter(([, v]) => !isSection(v));
+                const sections = entries.filter(([, v]) => isSection(v));
+                return (
+                  <>
+                    {scalars.length > 0 && (
+                      <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+                        {scalars.map(([k, v]) => (
+                          <div key={k} className="flex justify-between gap-4 border-b border-gray-100 py-1.5">
+                            <span className="text-xs text-mfleet-gray">{labelize(k)}</span>
+                            <span className="max-w-[65%] text-right text-sm text-mfleet-gray-dark">
+                              <AnswersView data={v} />
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {sections.map(([k, v]) => (
+                      <section key={k} className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+                        <h3 className="border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-mfleet-gray-dark">
+                          {labelize(k)}
+                        </h3>
+                        <div className="p-3">
+                          <SectionBody name={k} value={v} />
+                        </div>
+                      </section>
+                    ))}
+                  </>
+                );
+              })()}
             </div>
           )}
         </Card>
