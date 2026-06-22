@@ -54,6 +54,24 @@ export function pdfUrl(token: string): string {
   return `${API_BASE}/api/form/${token}/pdf`;
 }
 
+// Fetch the full assembled contract preview as a blob object URL (token access).
+// Throws FormError (422 when fields are still incomplete).
+export async function getPreviewObjectUrl(token: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/form/${token}/preview`);
+  if (!res.ok) {
+    const text = await res.text();
+    let detail: any = text;
+    try {
+      detail = text ? JSON.parse(text).detail : null;
+    } catch {
+      /* keep raw text */
+    }
+    throw new FormError(res.status, detail);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 const emptyAddress = () => ({ street: '', city: '', state: '', zip: '', years: '' });
 const emptyExperienceItem = () => ({ type: '', dates: '', miles: '' });
 

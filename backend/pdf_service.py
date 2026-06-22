@@ -1,6 +1,7 @@
 """Assemble the Typst payload and generate the application PDF (background task)."""
 
 import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +24,25 @@ def build_payload(application: DriverApplication, answers: dict) -> dict:
     payload = ApplicationPayload(**assembled).model_dump(mode="json")
     payload["is_owner"] = application.driver_is_owner  # Typst reads a flat top-level key
     return payload
+
+
+def generate_preview_pdf(application: DriverApplication, answers: dict) -> Path:
+    """Generate a one-off preview PDF from the current draft answers into a temp
+    file, WITHOUT touching the application's stored pdf status/path. The caller
+    must delete the returned file after serving it. Raises pydantic
+    ValidationError if the answers are still incomplete."""
+    # Always preview the UNSIGNED contract (blank signature lines) — even if a
+    # signature was already captured (e.g. a re-opened application): the point is
+    # to show what the driver is about to sign before they sign it.
+    preview_answers = {k: v for k, v in answers.items() if k != "signatures"}
+    payload = build_payload(application, preview_answers)  # validates; signatures empty
+    fd, tmp = tempfile.mkstemp(suffix=".pdf", prefix="preview_")
+    os.close(fd)
+    out = Path(tmp)
+    if not PDFGenerator().generate(payload, out):
+        out.unlink(missing_ok=True)
+        raise RuntimeError("Typst compilation or PDF merge failed")
+    return out
 
 
 def generate_application_pdf(application_id: int) -> None:

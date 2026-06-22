@@ -166,10 +166,10 @@ const DriverPortal: React.FC = () => {
       case 3: return <Step4Work />;
       case 4: return <Step5Finance isOwner={isOwner} />;
       case 5: return <StepReview goToStep={goToStep} isOwner={isOwner} />;
-      case 6: return <Step6Signatures isOwner={isOwner} />;
+      case 6: return <Step6Signatures isOwner={isOwner} token={token} />;
       default: return null;
     }
-  }, [step, isOwner]);
+  }, [step, isOwner, token]);
 
   if (screen === 'loading') return <CenteredCard title="Loading…" />;
   if (screen === 'notfound') return <CenteredCard title="Link not found"><p className="text-gray-500">This application link is invalid.</p></CenteredCard>;

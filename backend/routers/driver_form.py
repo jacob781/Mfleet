@@ -20,6 +20,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlmodel import Session, select
+from starlette.background import BackgroundTask
 
 from database import get_session
 from models import (
@@ -29,7 +30,7 @@ from models import (
     DriverAnswers,
     DriverApplication,
 )
-from pdf_service import generate_application_pdf
+from pdf_service import generate_application_pdf, generate_preview_pdf
 from rate_limit import limiter
 
 router = APIRouter(prefix="/api/form", tags=["Driver Form"])
@@ -55,6 +56,31 @@ def _load_fillable(token: str, session: Session) -> DriverApplication:
             status.HTTP_409_CONFLICT, detail="This application has already been submitted"
         )
     return app
+
+
+def _upsert_compliance(session: Session, driver_id: int, doc_type: str, expiry) -> None:
+    """Create or update the single compliance doc of this type for the driver,
+    so re-submitting a corrected form updates the row instead of duplicating it."""
+    existing = session.exec(
+        select(ComplianceDocument).where(
+            ComplianceDocument.driver_id == driver_id,
+            ComplianceDocument.document_type == doc_type,
+        )
+    ).first()
+    if existing is not None:
+        existing.expiry_date = expiry
+        existing.status = "Valid"
+        session.add(existing)
+    else:
+        session.add(
+            ComplianceDocument(
+                driver_id=driver_id,
+                document_type=doc_type,
+                issue_date=date.today(),
+                expiry_date=expiry,
+                status="Valid",
+            )
+        )
 
 
 @router.get("/{token}")
@@ -126,7 +152,7 @@ def submit_form(
         row.answers = answers
     session.add(row)
 
-    # Create the driver from the answers if this was a "new driver" application.
+    # Create the driver on first submit; on re-submit update it with any corrections.
     if app.driver_id is None:
         driver = Driver(
             company_id=app.company_id,
@@ -143,26 +169,22 @@ def submit_form(
         session.commit()
         session.refresh(driver)
         app.driver_id = driver.id
+    else:
+        driver = session.get(Driver, app.driver_id)
+        if driver is not None:
+            driver.first_name = validated.first_name
+            driver.middle_name = validated.middle_name or None
+            driver.last_name = validated.last_name
+            driver.email = validated.email
+            driver.phone = validated.phone
+            driver.ssn = validated.ssn
+            driver.dob = validated.dob
+            session.add(driver)
 
-    # Compliance documents drive future expiry alerts (Stage 3).
-    session.add(
-        ComplianceDocument(
-            driver_id=app.driver_id,
-            document_type="CDL",
-            issue_date=date.today(),
-            expiry_date=validated.cdl.expiration,
-            status="Valid",
-        )
-    )
-    session.add(
-        ComplianceDocument(
-            driver_id=app.driver_id,
-            document_type="Medical Cert",
-            issue_date=date.today(),
-            expiry_date=validated.medical.expiration_date,
-            status="Valid",
-        )
-    )
+    # Compliance documents drive future expiry alerts (Stage 3) — one row per
+    # type per driver, updated (not duplicated) on re-submit.
+    _upsert_compliance(session, app.driver_id, "CDL", validated.cdl.expiration)
+    _upsert_compliance(session, app.driver_id, "Medical Cert", validated.medical.expiration_date)
 
     app.status = "pending_review"
     app.submitted_at = datetime.now(timezone.utc)
@@ -172,6 +194,38 @@ def submit_form(
 
     background.add_task(generate_application_pdf, app.id)
     return {"status": app.status, "pdf_status": "generating"}
+
+
+@router.get("/{token}/preview")
+@limiter.limit("10/minute")
+def form_preview(
+    request: Request,
+    token: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> FileResponse:
+    """Render the full assembled contract from the current draft so the driver
+    can see exactly what they're about to sign (signature lines blank). Does not
+    submit or change the application's stored PDF."""
+    app = _load_fillable(token, session)
+    answers = app.answers.answers if app.answers else {}
+    try:
+        path = generate_preview_pdf(app, answers)
+    except ValidationError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": e["loc"], "msg": e["msg"]} for e in exc.errors()],
+        )
+    except Exception as exc:  # noqa: BLE001 - surface generation failure to the driver
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Preview generation failed: {exc}",
+        )
+    return FileResponse(
+        str(path),
+        media_type="application/pdf",
+        filename="preview.pdf",
+        background=BackgroundTask(path.unlink, missing_ok=True),
+    )
 
 
 @router.get("/{token}/status")
