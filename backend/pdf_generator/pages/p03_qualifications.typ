@@ -103,5 +103,5 @@
 
   v(0.35em)
 
-  [Signature #signature-block(data, "applicant")]
+  [Signature #driver-signature(data, width: 3in)]
 }

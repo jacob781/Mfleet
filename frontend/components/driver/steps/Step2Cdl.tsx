@@ -17,7 +17,7 @@ const Step2Cdl: React.FC = () => {
   return (
     <div>
       <FieldGroup title="Commercial Driver's License (CDL)">
-        <TextField name="cdl.state" label="Issuing state" required />
+        <TextField name="cdl.state" label="Issuing state" required format="state" />
         <TextField name="cdl.number" label="License number" required />
         <TextField name="cdl.type" label="Class / type" required placeholder="e.g. Class A" />
         <TextField name="cdl.expiration" label="Expiration date" required type="date" />

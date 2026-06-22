@@ -24,7 +24,7 @@ const Step4Work: React.FC = () => {
               <TextField name={`employment_history.${i}.employer_name`} label="Employer name" />
               <TextField name={`employment_history.${i}.employer_address`} label="Address" />
               <TextField name={`employment_history.${i}.employer_city`} label="City" />
-              <TextField name={`employment_history.${i}.employer_state`} label="State" />
+              <TextField name={`employment_history.${i}.employer_state`} label="State" format="state" />
               <TextField name={`employment_history.${i}.employer_zip`} label="ZIP" inputMode="numeric" />
               <TextField name={`employment_history.${i}.employer_phone`} label="Phone" format="phone" />
               <TextField name={`employment_history.${i}.employer_fax`} label="Fax" />
@@ -45,7 +45,7 @@ const Step4Work: React.FC = () => {
         {log.map((_: unknown, i: number) => (
           <div key={i} className="rounded-lg border border-gray-200 p-3 mb-3">
             <span className="text-sm font-medium text-gray-500">Day {i + 1}</span>
-            <TextField name={`seven_day_log.${i}.date`} label="Date" type="date" />
+            <TextField name={`seven_day_log.${i}.date`} label="Date" format="mmdd" />
             <TextField name={`seven_day_log.${i}.hours`} label="Total hours on duty" inputMode="numeric" />
             <TextField name={`seven_day_log.${i}.relieved_time`} label="Time relieved" placeholder="e.g. 6:00 PM" />
           </div>

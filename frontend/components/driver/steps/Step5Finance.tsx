@@ -23,7 +23,7 @@ const Step5Finance: React.FC<{ isOwner: boolean }> = ({ isOwner }) => {
               <TextField name={`equipment.${i}.year`} label="Year" type="number" inputMode="numeric" valueAsNumber />
               <TextField name={`equipment.${i}.type`} label="Type" placeholder="e.g. Tractor" />
               <TextField name={`equipment.${i}.vin`} label="VIN" />
-              <TextField name={`equipment.${i}.state`} label="Registered state" />
+              <TextField name={`equipment.${i}.state`} label="Registered state" format="state" />
               <TextField name={`equipment.${i}.plate`} label="Plate number" />
             </>
           )}

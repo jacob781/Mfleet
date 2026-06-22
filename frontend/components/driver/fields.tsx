@@ -11,7 +11,7 @@ const inputCls =
   'focus:border-mfleet-blue focus:ring-1 focus:ring-mfleet-blue outline-none';
 
 // Driver-form input masks (shared with admin forms via lib/masks.ts).
-type FormatKind = 'phone' | 'ssn' | 'ein' | 'routing';
+type FormatKind = 'phone' | 'ssn' | 'ein' | 'routing' | 'state' | 'mmdd';
 
 interface BaseProps {
   name: string;

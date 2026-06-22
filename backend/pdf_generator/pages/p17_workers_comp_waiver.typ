@@ -86,8 +86,8 @@
     This waiver of workers' compensation benefits shall be governed by and construed in accordance with the laws of the state of *#underline[#data.config.company_state]* without regard to its conflict of laws principles.
   ]
   
-  v(1.5em)
-  
+  v(0.5em)
+
   [Signatures:]
   
   v(0.3em)
@@ -99,8 +99,8 @@
     [Date:#underlined("", width: 1.2in)]
   )
   
-  v(0.8em)
-  
+  v(0.3em)
+
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,

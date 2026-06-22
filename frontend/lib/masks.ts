@@ -37,6 +37,11 @@ export function maskState(v: string): string {
   return lettersOnly(v).slice(0, 2).toUpperCase();
 }
 
+export function maskMmdd(v: string): string {
+  const d = digitsOnly(v).slice(0, 4);
+  return d.length <= 2 ? d : `${d.slice(0, 2)}/${d.slice(2)}`;
+}
+
 const maskDigitsMax = (n: number) => (v: string) => digitsOnly(v).slice(0, n);
 
 export interface MaskSpec {
@@ -69,6 +74,17 @@ export const MASKS = {
   dot: { mask: maskDigitsMax(8), validate: rangeDigits(1, 8, 'DOT number is up to 8 digits'), placeholder: '1234567', inputMode: 'numeric' },
   mc: { mask: maskDigitsMax(8), validate: rangeDigits(1, 8, 'MC number is up to 8 digits'), placeholder: '987654', inputMode: 'numeric' },
   routing: { mask: maskDigitsMax(9), validate: exactDigits(9, 'Routing number is 9 digits'), placeholder: '123456789', inputMode: 'numeric' },
+  mmdd: {
+    mask: maskMmdd,
+    validate: (v: string) => {
+      if (!v) return true;
+      const d = digitsOnly(v);
+      if (d.length !== 4) return 'Enter date as MM/DD';
+      const mm = +d.slice(0, 2), dd = +d.slice(2);
+      return (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) || 'Invalid date';
+    },
+    placeholder: 'MM/DD', inputMode: 'numeric',
+  },
 } satisfies Record<string, MaskSpec>;
 
 export type MaskKind = keyof typeof MASKS;

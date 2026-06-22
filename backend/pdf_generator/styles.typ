@@ -102,9 +102,16 @@
   let sigs = data.at("signatures", default: (:))
   let sig = if type(sigs) == dictionary { sigs.at("applicant", default: none) } else { none }
   let img = if sig != none { sig.at("image_path", default: none) } else { none }
-  box(width: width, height: 0.34in, stroke: (bottom: 0.5pt), inset: (bottom: 1pt, left: 2pt))[
-    #if img != none {
-      align(left + bottom, image(img, width: 100%, height: 0.28in, fit: "contain"))
+  let ts = if sig != none { sig.at("timestamp_et", default: none) } else { none }
+  box(width: width)[
+    #box(width: 100%, height: 0.34in, stroke: (bottom: 0.5pt), inset: (bottom: 1pt, left: 2pt))[
+      #if img != none {
+        align(left + bottom, image(img, width: 100%, height: 0.28in, fit: "contain"))
+      }
+    ]
+    #if ts != none {
+      linebreak()
+      text(size: 7pt, fill: luma(110))[(Signed #ts)]
     }
   ]
 }
