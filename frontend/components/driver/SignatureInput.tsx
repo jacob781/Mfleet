@@ -2,7 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import SignaturePadLib from 'signature_pad';
 import type { SignatureData } from '../../lib/driverTypes';
 
-const SIGNATURE_FONTS = ['Dancing Script', 'Great Vibes', 'Sacramento', 'Caveat'];
+const SIGNATURE_FONTS = [
+  'Alex Brush', 'Allura', 'Great Vibes', 'Mr Dafoe',
+  'Parisienne', 'Dancing Script', 'Sacramento', 'Caveat',
+];
 
 function nowEastern(): { timestamp_et: string; date: string } {
   const tz = 'America/New_York';
@@ -180,7 +183,7 @@ const SignatureInput: React.FC<Props> = ({ label, signerFirstName, value, onChan
       )}
 
       {value?.image_base64
-        ? <span className="block text-xs text-green-600 mt-1">Signed {value.timestamp_et}</span>
+        ? <span className="block text-xs text-green-600 mt-1">Signature ready</span>
         : <span className="block text-xs text-gray-400 mt-1">Draw, type, or upload your signature</span>}
     </div>
   );
