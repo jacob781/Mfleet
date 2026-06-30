@@ -3,9 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import {
   ApiError,
   counterSign,
+  downloadApplicationDocument,
   downloadPdf,
   getApplication,
   getApplicationAnswers,
+  getApplicationDocumentObjectUrl,
   getPdfObjectUrl,
   regeneratePdf,
   updateApplicationStatus,
@@ -14,11 +16,11 @@ import type { ApplicationResponse, ApplicationStatus } from '../../lib/adminType
 import type { SignatureData } from '../../lib/driverTypes';
 import { useAuth } from '../../lib/auth';
 import SignatureInput from '../../components/driver/SignatureInput';
-import { Button, Card, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
+import { Button, Card, CopyButton, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
 
 function fmtDateTime(value: string | null): string {
   if (!value) return '—';
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString('en-US');
 }
 
 function fmtConfigValue(value: unknown): string {
@@ -113,9 +115,54 @@ const KeyValueGrid: React.FC<{ data: Record<string, unknown> }> = ({ data }) => 
   </div>
 );
 
-// Renders one section's body: tiles for the 7-day log, a carousel for any
-// list (and the experience group), or a key/value grid for a plain object.
-const SectionBody: React.FC<{ name: string; value: unknown }> = ({ name, value }) => {
+const DOC_LABELS: Record<string, string> = {
+  medical_cert: "Medical examiner's certificate",
+  cdl: 'Driver license (CDL)',
+  annual_inspection: 'DOT annual inspection report',
+  registration: 'Registration (cab card)',
+};
+
+// Driver-uploaded documents: View opens the file in a new tab, Download saves it.
+// The path stored in the answers is never shown — only the two actions.
+const DocumentsSection: React.FC<{ appId: number; docs: Record<string, unknown> }> = ({ appId, docs }) => {
+  const view = (docType: string) => {
+    // Open the tab synchronously (inside the click) so the popup blocker allows it.
+    const tab = window.open('', '_blank');
+    getApplicationDocumentObjectUrl(appId, docType)
+      .then((url) => { if (tab) tab.location.href = url; })
+      .catch(() => tab?.close());
+  };
+  const keys = Object.keys(docs).filter((k) => docs[k]);
+  if (keys.length === 0) return <span className="text-gray-400">—</span>;
+  return (
+    <div className="flex flex-col gap-2">
+      {keys.map((dt) => (
+        <div key={dt} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+          <span className="text-sm text-mfleet-gray-dark">{DOC_LABELS[dt] ?? labelize(dt)}</span>
+          <span className="flex gap-3">
+            <button type="button" onClick={() => view(dt)} className="text-sm font-medium text-mfleet-blue underline">
+              View
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadApplicationDocument(appId, dt, dt)}
+              className="text-sm font-medium text-mfleet-blue underline"
+            >
+              Download
+            </button>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Renders one section's body: documents as buttons, tiles for the 7-day log, a
+// carousel for any list (and the experience group), or a key/value grid otherwise.
+const SectionBody: React.FC<{ name: string; value: unknown; appId: number }> = ({ name, value, appId }) => {
+  if (name === 'documents' && value && typeof value === 'object' && !Array.isArray(value)) {
+    return <DocumentsSection appId={appId} docs={value as Record<string, unknown>} />;
+  }
   if (name === 'seven_day_log' && Array.isArray(value) && value.length > 0) {
     return <SevenDayTiles rows={value as Array<Record<string, unknown>>} />;
   }
@@ -311,6 +358,22 @@ const ApplicationDetailPage: React.FC = () => {
         </Link>
       </div>
 
+      {/* Notes/flags derived from the driver's answers — things the manager should act on. */}
+      {(() => {
+        const notes: string[] = [];
+        if (answers?.ifta_choice === 'own') {
+          notes.push('Driver chose to file their OWN quarterly fuel-tax (IFTA) returns.');
+        }
+        return notes.length ? (
+          <div className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3">
+            <p className="text-sm font-semibold text-orange-800">Notes</p>
+            <ul className="mt-1 list-disc pl-5 text-sm text-orange-800">
+              {notes.map((n, i) => <li key={i}>{n}</li>)}
+            </ul>
+          </div>
+        ) : null;
+      })()}
+
       {/* Apply link */}
       <Card className="p-6">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
@@ -332,12 +395,20 @@ const ApplicationDetailPage: React.FC = () => {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
             Overview
           </h2>
-          <Row label="Company">{companyName}</Row>
+          <Row label="Company">
+            {companyName}
+            <CopyButton text={companyName} />
+          </Row>
           <Row label="Type">{app.driver_is_owner ? 'Owner-operator' : 'Company driver'}</Row>
           <Row label="Driver">
-            {app.driver
-              ? `${app.driver.first_name} ${app.driver.last_name}`
-              : 'New (driver fills in)'}
+            {app.driver ? (
+              <>
+                {app.driver.first_name} {app.driver.last_name}
+                <CopyButton text={`${app.driver.first_name} ${app.driver.last_name}`} />
+              </>
+            ) : (
+              'New (driver fills in)'
+            )}
           </Row>
           <Row label="Created">{fmtDateTime(app.created_at)}</Row>
           <Row label="Submitted">{fmtDateTime(app.submitted_at)}</Row>
@@ -475,7 +546,7 @@ const ApplicationDetailPage: React.FC = () => {
                           {labelize(k)}
                         </h3>
                         <div className="p-3">
-                          <SectionBody name={k} value={v} />
+                          <SectionBody name={k} value={v} appId={app.id} />
                         </div>
                       </section>
                     ))}
@@ -493,17 +564,22 @@ const ApplicationDetailPage: React.FC = () => {
           Contract settings
         </h2>
         <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-          {Object.entries(cfg).map(([key, value]) => (
-            <div
-              key={key}
-              className="flex justify-between gap-4 border-b border-gray-100 py-2"
-            >
-              <dt className="text-sm text-mfleet-gray">{labelize(key)}</dt>
-              <dd className="text-right text-sm font-medium text-mfleet-gray-dark">
-                {fmtConfigValue(value)}
-              </dd>
-            </div>
-          ))}
+          {/* Skip object snapshots (fine_schedule / fees_schedule) — they'd render as
+              "[object Object]". Their include_* booleans already show whether they apply,
+              and the tables are viewable/editable on the Companies page. */}
+          {Object.entries(cfg)
+            .filter(([, value]) => typeof value !== 'object' || value === null)
+            .map(([key, value]) => (
+              <div
+                key={key}
+                className="flex justify-between gap-4 border-b border-gray-100 py-2"
+              >
+                <dt className="text-sm text-mfleet-gray">{labelize(key)}</dt>
+                <dd className="text-right text-sm font-medium text-mfleet-gray-dark">
+                  {fmtConfigValue(value)}
+                </dd>
+              </div>
+            ))}
         </dl>
       </Card>
     </div>

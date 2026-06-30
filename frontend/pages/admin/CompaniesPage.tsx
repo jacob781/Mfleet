@@ -1,20 +1,65 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { createCompany, listCompanies } from '../../lib/adminApi';
+import { createCompany, listCompanies, updateCompany } from '../../lib/adminApi';
 import {
   emptyCompany,
   normalizeCompany,
   type CompanyCreate,
   type CompanyResponse,
+  type FineSchedule,
+  type FeesSchedule,
 } from '../../lib/adminTypes';
 import CompanyFields from '../../components/admin/CompanyFields';
-import { Button, Card, Spinner } from '../../components/admin/ui';
+import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
+import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
+import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, Spinner } from '../../components/admin/ui';
 
 const CompaniesPage: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [editingFines, setEditingFines] = useState<CompanyResponse | null>(null);
+  const [savingFines, setSavingFines] = useState(false);
+  const fineDraft = useRef<FineSchedule | null>(null);
+
+  const openFines = (c: CompanyResponse) => {
+    fineDraft.current = c.fine_schedule ? JSON.parse(JSON.stringify(c.fine_schedule)) : null;
+    setEditingFines(c);
+  };
+
+  const saveFines = async () => {
+    if (!editingFines || !fineDraft.current) return;
+    setSavingFines(true);
+    try {
+      await updateCompany(editingFines.id, { fine_schedule: fineDraft.current });
+      setEditingFines(null);
+      refresh();
+    } finally {
+      setSavingFines(false);
+    }
+  };
+
+  const [editingFees, setEditingFees] = useState<CompanyResponse | null>(null);
+  const [savingFees, setSavingFees] = useState(false);
+  const feesDraft = useRef<FeesSchedule | null>(null);
+
+  const openFees = (c: CompanyResponse) => {
+    feesDraft.current = c.fees_schedule ? JSON.parse(JSON.stringify(c.fees_schedule)) : null;
+    setEditingFees(c);
+  };
+
+  const saveFees = async () => {
+    if (!editingFees || !feesDraft.current) return;
+    setSavingFees(true);
+    try {
+      await updateCompany(editingFees.id, { fees_schedule: feesDraft.current });
+      setEditingFees(null);
+      refresh();
+    } finally {
+      setSavingFees(false);
+    }
+  };
 
   const {
     register,
@@ -22,6 +67,43 @@ const CompaniesPage: React.FC = () => {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<CompanyCreate>({ defaultValues: emptyCompany() });
+
+  // Separate form instance for the edit drawer.
+  const editForm = useForm<CompanyCreate>({ defaultValues: emptyCompany() });
+  const [viewing, setViewing] = useState<CompanyResponse | null>(null);
+  const [drawerEditing, setDrawerEditing] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const openViewCompany = (c: CompanyResponse) => {
+    setViewing(c);
+    setDrawerEditing(false);
+    setEditError(null);
+  };
+
+  const closeDrawer = () => {
+    setViewing(null);
+    setDrawerEditing(false);
+  };
+
+  const toggleDrawerEdit = () => {
+    if (!drawerEditing && viewing) {
+      editForm.reset({ ...emptyCompany(), ...viewing });
+      setEditError(null);
+    }
+    setDrawerEditing((v) => !v);
+  };
+
+  const onEditSubmit = editForm.handleSubmit(async (data) => {
+    if (!viewing) return;
+    setEditError(null);
+    try {
+      await updateCompany(viewing.id, normalizeCompany(data));
+      closeDrawer();
+      refresh();
+    } catch {
+      setEditError('Could not save the company. Check the fields and try again.');
+    }
+  });
 
   const refresh = () => {
     setLoading(true);
@@ -74,6 +156,48 @@ const CompaniesPage: React.FC = () => {
         </Card>
       )}
 
+      {editingFines && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-mfleet-gray-dark">
+              Fine schedule — {editingFines.name}
+            </h2>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setEditingFines(null)}>Cancel</Button>
+              <Button onClick={saveFines} disabled={savingFines}>
+                {savingFines ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
+              </Button>
+            </div>
+          </div>
+          {fineDraft.current ? (
+            <FineScheduleEditor key={editingFines.id} draft={fineDraft.current} />
+          ) : (
+            <p className="text-sm text-mfleet-gray">This company has no fine schedule yet.</p>
+          )}
+        </Card>
+      )}
+
+      {editingFees && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-mfleet-gray-dark">
+              Fines &amp; fees schedule — {editingFees.name}
+            </h2>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setEditingFees(null)}>Cancel</Button>
+              <Button onClick={saveFees} disabled={savingFees}>
+                {savingFees ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
+              </Button>
+            </div>
+          </div>
+          {feesDraft.current ? (
+            <FeesScheduleEditor key={editingFees.id} draft={feesDraft.current} />
+          ) : (
+            <p className="text-sm text-mfleet-gray">This company has no fees schedule yet.</p>
+          )}
+        </Card>
+      )}
+
       <Card className="overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16">
@@ -92,26 +216,116 @@ const CompaniesPage: React.FC = () => {
                 <th className="px-4 py-3">MC</th>
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Phone</th>
+                <th className="px-4 py-3">Fines</th>
+                <th className="px-4 py-3">Fees</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {companies.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-mfleet-gray-dark">{c.name}</td>
-                  <td className="px-4 py-3 text-mfleet-gray">{c.dot_number || '—'}</td>
-                  <td className="px-4 py-3 text-mfleet-gray">{c.mc_number || '—'}</td>
+                <tr
+                  key={c.id}
+                  onClick={() => openViewCompany(c)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
+                  <td className="px-4 py-3 font-medium text-mfleet-gray-dark">
+                    {c.name}
+                    <CopyButton text={c.name} />
+                  </td>
+                  <td className="px-4 py-3 text-mfleet-gray">
+                    {c.dot_number || '—'}
+                    {c.dot_number && <CopyButton text={c.dot_number} />}
+                  </td>
+                  <td className="px-4 py-3 text-mfleet-gray">
+                    {c.mc_number || '—'}
+                    {c.mc_number && <CopyButton text={c.mc_number} />}
+                  </td>
                   <td className="px-4 py-3 text-mfleet-gray">
                     {c.address_city}, {c.address_state}
                   </td>
-                  <td className="px-4 py-3 text-mfleet-gray">{c.phone || '—'}</td>
+                  <td className="px-4 py-3 text-mfleet-gray">
+                    {c.phone || '—'}
+                    {c.phone && <CopyButton text={c.phone} />}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openFines(c);
+                      }}
+                      className="text-sm font-medium text-mfleet-blue underline"
+                    >
+                      Edit fines
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openFees(c);
+                      }}
+                      className="text-sm font-medium text-mfleet-blue underline"
+                    >
+                      Edit fees
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </Card>
+
+      <Drawer
+        open={!!viewing}
+        onClose={closeDrawer}
+        title={viewing ? viewing.name : ''}
+        headerRight={<EditButton editing={drawerEditing} onClick={toggleDrawerEdit} />}
+      >
+        {viewing && (
+          drawerEditing ? (
+            /* ── Edit mode ─────────────────────────────────────── */
+            <form onSubmit={onEditSubmit} className="flex flex-col gap-4">
+              <CompanyFields register={editForm.register} errors={editForm.formState.errors} />
+              {editError && (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={toggleDrawerEdit}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editForm.formState.isSubmitting}>
+                  {editForm.formState.isSubmitting ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            /* ── View mode ─────────────────────────────────────── */
+            <div className="flex flex-col gap-3">
+              <ReadOnlyField label="Company name" value={viewing.name} />
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="DOT number" value={viewing.dot_number} />
+                <ReadOnlyField label="MC number" value={viewing.mc_number} />
+              </div>
+              <ReadOnlyField label="Street address" value={viewing.address_street} />
+              <div className="grid grid-cols-3 gap-3">
+                <ReadOnlyField label="City" value={viewing.address_city} />
+                <ReadOnlyField label="State" value={viewing.address_state} />
+                <ReadOnlyField label="ZIP" value={viewing.address_zip} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="Phone" value={viewing.phone} />
+                <ReadOnlyField label="Email" value={viewing.email} />
+              </div>
+              <ReadOnlyField label="Fax" value={viewing.fax} />
+            </div>
+          )
+        )}
+      </Drawer>
     </div>
   );
 };
 
 export default CompaniesPage;
+
