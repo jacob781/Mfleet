@@ -18,7 +18,7 @@ const Step1Personal: React.FC = () => (
       <TextField name="address.street" label="Street" required autoComplete="address-line1" />
       <TextField name="address.city" label="City" required autoComplete="address-level2" />
       <TextField name="address.state" label="State" required format="state" autoComplete="address-level1" />
-      <TextField name="address.zip" label="ZIP" required inputMode="numeric" autoComplete="postal-code" />
+      <TextField name="address.zip" label="ZIP" required format="zip" autoComplete="postal-code" />
     </FieldGroup>
 
     <FieldGroup title="Address history (last 3 years)">
@@ -32,7 +32,7 @@ const Step1Personal: React.FC = () => (
             <TextField name={`residency_history.${i}.street`} label="Street" />
             <TextField name={`residency_history.${i}.city`} label="City" />
             <TextField name={`residency_history.${i}.state`} label="State" format="state" />
-            <TextField name={`residency_history.${i}.zip`} label="ZIP" inputMode="numeric" />
+            <TextField name={`residency_history.${i}.zip`} label="ZIP" format="zip" />
             <TextField name={`residency_history.${i}.years`} label="Years at this address" placeholder="e.g. 2019–2021" />
           </>
         )}

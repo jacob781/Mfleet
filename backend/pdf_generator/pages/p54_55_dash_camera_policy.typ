@@ -35,7 +35,7 @@
   
   v(0.5em)
   
-  text(size: 10pt, weight: "bold")[1. \*\*Dash Camera Requirement\*\*]
+  text(size: 10pt, weight: "bold")[1. Dash Camera Requirement]
   
   v(0.3em)
   
@@ -51,7 +51,7 @@
   
   v(0.5em)
   
-  text(size: 10pt, weight: "bold")[2. \*\*Recording and Storage\*\*]
+  text(size: 10pt, weight: "bold")[2. Recording and Storage]
   
   v(0.3em)
   
@@ -73,7 +73,7 @@
   
   v(0.5em)
   
-  text(size: 10pt, weight: "bold")[3. \*\*Privacy and Confidentiality\*\*]
+  text(size: 10pt, weight: "bold")[3. Privacy and Confidentiality]
   
   v(0.3em)
   
@@ -96,7 +96,7 @@
   // Page 55 (continued)
   pagebreak()
   
-  text(size: 10pt, weight: "bold")[4. \*\*Compliance and Enforcement\*\*]
+  text(size: 10pt, weight: "bold")[4. Compliance and Enforcement]
   
   v(0.3em)
   
@@ -112,7 +112,7 @@
   
   v(0.5em)
   
-  text(size: 10pt, weight: "bold")[5. \*\*Installation and Maintenance\*\*]
+  text(size: 10pt, weight: "bold")[5. Installation and Maintenance]
   
   v(0.3em)
   
@@ -128,7 +128,7 @@
   
   v(0.5em)
   
-  text(size: 10pt, weight: "bold")[6. \*\*Incident Reporting\*\*]
+  text(size: 10pt, weight: "bold")[6. Incident Reporting]
   
   v(0.3em)
   
@@ -148,7 +148,7 @@
   
   v(2em)
   
-  [Independent Contractor Name: #underlined("", width: 4in)]
+  [Independent Contractor Name: #underlined(driver-name(data), width: 4in)]
   
   v(1.5em)
   
@@ -156,5 +156,5 @@
   
   v(1.5em)
   
-  [Date: #underlined("", width: 2in)]
+  [Date: #underlined(fill-date(data), width: 2in)]
 }

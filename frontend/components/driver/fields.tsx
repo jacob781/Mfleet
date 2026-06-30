@@ -6,12 +6,12 @@ function errorAt(errors: any, name: string): any {
   return name.split('.').reduce((acc, key) => (acc == null ? acc : acc[key]), errors);
 }
 
-const inputCls =
+export const inputCls =
   'w-full min-h-12 rounded-lg border border-gray-300 px-3 text-base bg-white ' +
   'focus:border-mfleet-blue focus:ring-1 focus:ring-mfleet-blue outline-none';
 
 // Driver-form input masks (shared with admin forms via lib/masks.ts).
-type FormatKind = 'phone' | 'ssn' | 'ein' | 'routing' | 'state' | 'mmdd';
+type FormatKind = 'phone' | 'ssn' | 'ein' | 'routing' | 'state' | 'mmdd' | 'zip' | 'account';
 
 interface BaseProps {
   name: string;

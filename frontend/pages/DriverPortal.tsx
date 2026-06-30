@@ -4,20 +4,22 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { Helmet } from 'react-helmet-async';
 
 import { emptyDriverForm, FormError, getForm, getStatus, pdfUrl, submitForm } from '../lib/driverApi';
-import type { DriverFormValues } from '../lib/driverTypes';
+import type { DriverFormValues, FormMeta } from '../lib/driverTypes';
 import { useAutosave } from '../lib/useAutosave';
 import WizardProgress from '../components/driver/WizardProgress';
 import Step1Personal from '../components/driver/steps/Step1Personal';
 import Step2Cdl from '../components/driver/steps/Step2Cdl';
 import Step3History from '../components/driver/steps/Step3History';
 import Step4Work from '../components/driver/steps/Step4Work';
+import StepEmploymentGaps from '../components/driver/steps/StepEmploymentGaps';
 import Step5Finance from '../components/driver/steps/Step5Finance';
 import StepReview from '../components/driver/steps/StepReview';
+import StepDocuments from '../components/driver/steps/StepDocuments';
 import Step6Signatures from '../components/driver/steps/Step6Signatures';
 
 type Screen = 'loading' | 'ready' | 'notfound' | 'expired' | 'submitted' | 'done' | 'error';
 
-const STEP_TITLES = ['Personal', 'License & Medical', 'History', 'Work & Logs', 'Agreements', 'Review', 'Signatures'];
+const STEP_TITLES = ['Personal', 'License & Medical', 'History', 'Work & Logs', 'Employment', 'Agreements', 'Review', 'Documents', 'Signatures'];
 
 // Which top-level fields to validate when leaving each step.
 const STEP_FIELDS: string[][] = [
@@ -25,8 +27,10 @@ const STEP_FIELDS: string[][] = [
   ['cdl', 'medical', 'experience', 'license_history'],
   [],
   [],
+  [], // Employment gaps (explanations + attestations are optional)
   ['w9', 'banking', '_policies_ack'],
   [], // Review (read-only)
+  ['_fines_ack'], // Documents: fines acceptance gates Next (uploads are soft-required)
   ['signatures'],
 ];
 
@@ -37,8 +41,9 @@ const FIELD_TO_STEP: Record<string, number> = {
   cdl: 1, medical: 1, experience: 1, license_history: 1,
   accidents: 2, violations: 2, drug_alcohol_history: 2,
   employment_history: 3, seven_day_log: 3, last_relieved_time: 3, last_relieved_date: 3, last_relieved_location: 3,
-  equipment: 4, ifta_choice: 4, w9: 4, banking: 4, policies: 4,
-  signatures: 6,
+  employment_declaration: 4,
+  equipment: 5, ifta_choice: 5, w9: 5, banking: 5, policies: 5,
+  signatures: 8,
 };
 
 const CenteredCard: React.FC<{ title: string; children?: React.ReactNode }> = ({ title, children }) => (
@@ -55,6 +60,8 @@ const DriverPortal: React.FC = () => {
   const [screen, setScreen] = useState<Screen>('loading');
   const [isOwner, setIsOwner] = useState(true);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [penalties, setPenalties] = useState<Pick<FormMeta, 'include_penalties' | 'include_fees' | 'fine_schedule' | 'fees_schedule'> | null>(null);
+  const [compensation, setCompensation] = useState<FormMeta['compensation']>(null);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -70,6 +77,13 @@ const DriverPortal: React.FC = () => {
         if (!active) return;
         setIsOwner(meta.driver_is_owner);
         setCompanyName(meta.company_name);
+        setPenalties({
+          include_penalties: meta.include_penalties,
+          include_fees: meta.include_fees,
+          fine_schedule: meta.fine_schedule,
+          fees_schedule: meta.fees_schedule,
+        });
+        setCompensation(meta.compensation ?? null);
         methods.reset({ ...emptyDriverForm(), ...(meta.answers as Partial<DriverFormValues>) });
         setScreen('ready');
       })
@@ -164,12 +178,14 @@ const DriverPortal: React.FC = () => {
       case 1: return <Step2Cdl />;
       case 2: return <Step3History />;
       case 3: return <Step4Work />;
-      case 4: return <Step5Finance isOwner={isOwner} />;
-      case 5: return <StepReview goToStep={goToStep} isOwner={isOwner} />;
-      case 6: return <Step6Signatures isOwner={isOwner} token={token} />;
+      case 4: return <StepEmploymentGaps token={token} />;
+      case 5: return <Step5Finance isOwner={isOwner} compensation={compensation} />;
+      case 6: return <StepReview goToStep={goToStep} isOwner={isOwner} />;
+      case 7: return <StepDocuments isOwner={isOwner} token={token} penalties={penalties} />;
+      case 8: return <Step6Signatures isOwner={isOwner} token={token} />;
       default: return null;
     }
-  }, [step, isOwner, token]);
+  }, [step, isOwner, token, penalties, compensation]);
 
   if (screen === 'loading') return <CenteredCard title="Loading…" />;
   if (screen === 'notfound') return <CenteredCard title="Link not found"><p className="text-gray-500">This application link is invalid.</p></CenteredCard>;

@@ -74,6 +74,7 @@ export const MASKS = {
   dot: { mask: maskDigitsMax(8), validate: rangeDigits(1, 8, 'DOT number is up to 8 digits'), placeholder: '1234567', inputMode: 'numeric' },
   mc: { mask: maskDigitsMax(8), validate: rangeDigits(1, 8, 'MC number is up to 8 digits'), placeholder: '987654', inputMode: 'numeric' },
   routing: { mask: maskDigitsMax(9), validate: exactDigits(9, 'Routing number is 9 digits'), placeholder: '123456789', inputMode: 'numeric' },
+  account: { mask: maskDigitsMax(17), validate: rangeDigits(4, 17, 'Enter a 4–17 digit account number'), placeholder: '', inputMode: 'numeric' },
   mmdd: {
     mask: maskMmdd,
     validate: (v: string) => {

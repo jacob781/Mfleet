@@ -22,6 +22,9 @@ env/
 # ─── Generated application PDFs ───────────────────────────
 backend/generated_pdfs/
 
+# ─── Driver-uploaded documents (PII; never commit) ────────
+backend/uploads/
+
 # ─── Node / Frontend ──────────────────────────────────────
 node_modules/
 dist/

@@ -123,7 +123,7 @@
   grid(
     columns: (1fr, 2fr),
     gutter: 1em,
-    [#underlined("", width: 1.5in)\ DATE],
+    [#underlined(fill-date(data), width: 1.5in)\ DATE],
     [#driver-signature(data, width: 3in)\ APPLICANT'S SIGNATURE]
   )
   
@@ -139,7 +139,7 @@
   grid(
     columns: (1fr, 2fr),
     gutter: 1em,
-    [#underlined("", width: 1.5in)\ DATE],
+    [#underlined(fill-date(data), width: 1.5in)\ DATE],
     [#driver-signature(data, width: 3in)\ APPLICANT'S SIGNATURE]
   )
 }

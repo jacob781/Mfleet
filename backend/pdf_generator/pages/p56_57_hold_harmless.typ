@@ -13,7 +13,7 @@
   
   v(1em)
   
-  [This Hold Harmless Agreement ("Agreement") is made and entered into on this #underlined("", width: 1.5in), by and between:]
+  [This Hold Harmless Agreement ("Agreement") is made and entered into on this #underlined(agreement-date(data), width: 1.5in), by and between:]
   
   v(1em)
   
@@ -24,7 +24,7 @@
   grid(
     columns: (1in, 1fr),
     row-gutter: 0.8em,
-    [], [#underlined(company-name(data), width: 3in)],
+    [Name:], [#underlined(company-name(data), width: 3in)],
     [USDOT \#:], [#underlined(data.config.company_dot, width: 2in)],
     [MC \#:], [#underlined(data.config.company_mc, width: 2in)],
     [Address:], [#underlined(data.config.company_address + ", " + data.config.company_city + ", " + data.config.company_state + " " + data.config.company_zip, width: 4in)],
@@ -40,10 +40,13 @@
   
   v(0.5em)
   
+  // Label column wide enough to keep the long CDL label to ~2 lines; values
+  // bottom-aligned so a one-line value sits on the last line of a wrapping label.
   grid(
-    columns: (1.5in, 1fr),
+    columns: (2.2in, 1fr),
     row-gutter: 0.8em,
-    [], [#underlined(driver-name(data), width: 3in)],
+    align: (x, _) => if x == 0 { left + top } else { left + bottom },
+    [Name:], [#underlined(driver-name(data), width: 3in)],
     [Address:], [#underlined(data.address.street + ", " + data.address.city + ", " + data.address.state + " " + data.address.zip, width: 4in)],
     [Phone:], [#underlined(data.phone, width: 2in)],
     [Independent Contractor's License/CDL \#:], [#underlined(data.cdl.number, width: 2in)],
@@ -188,10 +191,10 @@
   grid(
     columns: (0.7in, 1fr),
     row-gutter: 0.8em,
-    [Name:], [#underlined("", width: 2.5in)],
-    [Title:], [#underlined("", width: 2.5in)],
+    [Name:], [#underlined(company-name(data), width: 2.5in)],
+    [Title:], [#underlined(carrier-title, width: 2.5in)],
     [Signature:], [#carrier-signature(data, width: 2.5in)],
-    [Date:], [#underlined("", width: 2in)],
+    [Date:], [#underlined(carrier-date(data), width: 2in)],
   )
   
   v(1em)
@@ -205,6 +208,6 @@
     row-gutter: 0.8em,
     [Name:], [#underlined(driver-name(data), width: 3in)],
     [Signature:], [#driver-signature(data, width: 3in)],
-    [Date:], [#underlined("", width: 2in)],
+    [Date:], [#underlined(fill-date(data), width: 2in)],
   )
 }

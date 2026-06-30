@@ -55,8 +55,18 @@
     text(weight: "bold")[Offense],
     text(weight: "bold")[Location],
     text(weight: "bold")[Type of Vehicle Operated],
-    ..for i in range(11) {
-      ([],[], [], [])
+    // Fill from the driver's reported violations; pad to 11 rows for a stable page.
+    ..{
+      let vs = data.at("violations", default: ())
+      let cells = ()
+      for v in vs {
+        cells += ([#format-date(v.date)], [#v.charge], [#v.location], [#v.at("vehicle_type", default: "")])
+      }
+      let pad = if vs.len() < 11 { 11 - vs.len() } else { 0 }
+      for _ in range(pad) {
+        cells += ([], [], [], [])
+      }
+      cells
     }
   )
   
@@ -79,7 +89,7 @@
   grid(
     columns: (1fr, 2fr),
     gutter: 1em,
-    [#underlined("", width: 1.5in)\ Date of Certification],
+    [#underlined(fill-date(data), width: 1.5in)\ Date of Certification],
     [#driver-signature(data, width: 3in)\ Independent Contractor's Signature]
   )
 }

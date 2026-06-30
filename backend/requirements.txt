@@ -33,3 +33,4 @@ Pillow==12.2.0
 
 # ─── Pricing spreadsheet parsing ──────────────────────────
 openpyxl==3.1.5
+pillow-heif==1.4.0

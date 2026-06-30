@@ -15,7 +15,7 @@
   v(1em)
   
   text(size: 10pt)[
-    This Confidentiality and Non-Disclosure Agreement ("Agreement") is made and entered into on this day #underlined(format-date(data.application_date), width: 1in), (the "Effective Date"), by and between:
+    This Confidentiality and Non-Disclosure Agreement ("Agreement") is made and entered into on this day #underlined(agreement-date(data), width: 1in), (the "Effective Date"), by and between:
   ]
   
   v(0.5em)
@@ -142,8 +142,9 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [By:#underlined("", width: 2.5in)\ (Authorized Representative)],
-    [Date:#underlined("", width: 1.2in)]
+    align: bottom,
+    [By:#carrier-signature(data, width: 2.5in)\ #text(size: 8pt)[#company-name(data), #carrier-title]],
+    [Date:#underlined(carrier-date(data), width: 1.2in)]
   )
   
   v(1.5em)
@@ -157,7 +158,8 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Signature:#driver-signature(data, width: 2.5in)],
-    [Date:#underlined("", width: 1.2in)]
+    [Date:#underlined(fill-date(data), width: 1.2in)]
   )
 }

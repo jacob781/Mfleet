@@ -32,11 +32,13 @@ except ImportError:
 
 
 class PDFGenerator:
+    # Unique marker rendered by main.typ on the throwaway page where the W-9 goes.
+    W9_ANCHOR = "W9INSERTANCHORPAGE"
+
     def __init__(self, base_dir: Path = None):
         self.base_dir = base_dir or Path(__file__).parent
         self.main_typ = self.base_dir / "main.typ"
         self.w9_pdf = self.base_dir / "fw9.pdf"
-        self.fines_pdf = self.base_dir / "FINES_AND_FEES_SCHEDULE.pdf"
     
     def compile_typst(self, payload: dict, output_path: Path) -> bool:
         """Compile the Typst template with the given payload."""
@@ -66,107 +68,49 @@ class PDFGenerator:
             print("Typst not found. Please install Typst: https://typst.app/")
             return False
     
-    def merge_pdfs(self, base_pdf_path: Path, output_path: Path, is_owner: bool, w9_path: Path | None = None) -> bool:
-        """
-        Merge the base PDF with external PDFs.
-        
-        Document structure:
-        - Pages 1-33: Core application (always present)
-        - Pages 34-47: Lease Agreement (OWNER ONLY)
-        - Page 48: Supplement B
-        - Page 49: W-9 form (6 pages from fw9.pdf)
-        - Pages 50+: Direct Deposit, Penalties (replace with FINES_AND_FEES_SCHEDULE.pdf), 
-                     Dash Camera, Hold Harmless, Incident Protocol
+    def merge_pdfs(self, base_pdf_path: Path, output_path: Path, is_owner: bool = False, w9_path: Path | None = None) -> bool:
+        """Splice the IRS W-9 PDF into the Typst output at the anchor page.
+
+        main.typ renders a throwaway page carrying the unique W9_ANCHOR marker
+        exactly where the 6-page W-9 belongs. We find that page, drop it, and
+        insert the (filled or blank) W-9 in its place. This is robust to
+        owner/non-owner and to optional pages — no hardcoded page offsets.
+        (`is_owner` is retained for signature compatibility but no longer used.)
         """
         try:
             base_doc = pymupdf.open(str(base_pdf_path))
             final_doc = pymupdf.open()
-            
-            # Calculate insertion points based on owner status
-            if is_owner:
-                # Owner mode: Pages 34-47 (Lease) + 48 (Supplement B) present
-                # After Supplement B, insert W-9
-                supplement_b_end = -1  # Will find it
-                
-                # For owner: Supplement B is after Lease Agreement
-                # In our structure, we need to find where to insert W-9
-                # Since we're inserting after all generated content, 
-                # we insert W-9 after supplement B
-                
-                # For now, we'll append in the correct order:
-                # 1. All generated pages up to and including page 50 (Direct Deposit)
-                # 2. Then insert W-9 (this is page 49 in the final doc)
-                # 3. Then continue with remaining pages
-                
-                # Simpler approach: Insert W-9 before Direct Deposit
-                # In our Typst output order:
-                # - Lease Agreement (8 pages for owner)
-                # - Supplement B (1 page)
-                # - Direct Deposit (1 page)
-                # - Penalties (3 pages) <- Replace with FINES_AND_FEES_SCHEDULE.pdf
-                
-                # Owner mode has 65 pages, non-owner has 57
-                # Let's calculate the insertion point
-                
-                # Base pages before Sprint 5 = 44 pages
-                # Lease Agreement = 8 pages (owner only)
-                # Supplement B = 1 page
-                # So W-9 goes after page 44 + 8 + 1 = 53 for owner
-                
-                w9_insert_after = 52  # 0-indexed, after Supplement B
-            else:
-                # Non-owner: No Lease Agreement
-                # Supplement B is right after page 44
-                w9_insert_after = 44  # 0-indexed
-            
-            # Insert all pages up to W-9 insertion point
-            for i in range(min(w9_insert_after + 1, len(base_doc))):
-                final_doc.insert_pdf(base_doc, from_page=i, to_page=i)
-            
-            # Insert W-9 form (filled copy if provided, else the blank template)
             w9_src = w9_path if (w9_path and w9_path.exists()) else self.w9_pdf
-            if w9_src.exists():
-                w9_doc = pymupdf.open(str(w9_src))
-                final_doc.insert_pdf(w9_doc)
-                w9_doc.close()
-            
-            # Find and handle penalties section
-            # We need to skip the Typst-generated penalties pages and use FINES_AND_FEES_SCHEDULE.pdf instead
-            # For now, insert remaining pages from base PDF
-            # NOTE: In future, we'll replace the penalties section
-            
-            remaining_start = w9_insert_after + 1
-            if remaining_start < len(base_doc):
-                # Skip the penalties pages (3 pages) and insert the PDF version instead
-                # Direct Deposit is 1 page after W-9 insertion point
-                # Penalties is the next 3 pages
-                
-                # Insert Direct Deposit page
-                direct_deposit_page = remaining_start
-                if direct_deposit_page < len(base_doc):
-                    final_doc.insert_pdf(base_doc, from_page=direct_deposit_page, to_page=direct_deposit_page)
-                
-                # Insert Fines/Fees PDF instead of Typst penalties
-                if self.fines_pdf.exists():
-                    fines_doc = pymupdf.open(str(self.fines_pdf))
-                    final_doc.insert_pdf(fines_doc)
-                    fines_doc.close()
-                
-                # Skip the 3 Typst penalties pages and insert remaining
-                skip_penalties = 3
-                after_penalties = direct_deposit_page + 1 + skip_penalties
-                if after_penalties < len(base_doc):
-                    for i in range(after_penalties, len(base_doc)):
-                        final_doc.insert_pdf(base_doc, from_page=i, to_page=i)
-            
-            # Save the final document
+
+            def _insert_w9() -> None:
+                if w9_src.exists():
+                    w9_doc = pymupdf.open(str(w9_src))
+                    final_doc.insert_pdf(w9_doc)
+                    w9_doc.close()
+
+            anchor_idx = None
+            for i in range(len(base_doc)):
+                if base_doc[i].search_for(self.W9_ANCHOR):
+                    anchor_idx = i
+                    break
+
+            for i in range(len(base_doc)):
+                if i == anchor_idx:
+                    _insert_w9()          # replace the anchor page with the W-9
+                    continue
+                final_doc.insert_pdf(base_doc, from_page=i, to_page=i)
+
+            if anchor_idx is None:
+                # Anchor missing (template drift): append the W-9 rather than
+                # silently dropping a required federal form.
+                print("WARNING: W-9 anchor page not found; appending W-9 at end")
+                _insert_w9()
+
             final_doc.save(str(output_path))
-            
             base_doc.close()
             final_doc.close()
-            
             return True
-            
+
         except Exception as e:
             print(f"PDF merge failed: {e}")
             return False
@@ -232,12 +176,30 @@ class PDFGenerator:
         except Exception:
             pass  # leave the original image untouched on any failure
 
-    # W-9 federal tax classification box -> AcroField export state on fw9.pdf.
-    _W9_CLASS_BOX = {"Individual": "1", "C Corp": "2", "S Corp": "3", "Partnership": "4"}
+    @staticmethod
+    def _draw_check(page, rect) -> None:
+        """Draw a checkmark inside a form box. Radio/checkbox widgets bake to a filled
+        dot; overlaying a tick makes the selected option read as a checkbox. Coordinates
+        are PyMuPDF page space (origin top-left, y grows downward)."""
+        x0, y0, x1, y1 = rect.x0, rect.y0, rect.x1, rect.y1
+        w, h = x1 - x0, y1 - y0
+        p1 = (x0 + 0.20 * w, y0 + 0.52 * h)   # mid-left
+        p2 = (x0 + 0.42 * w, y0 + 0.74 * h)   # bottom vertex
+        p3 = (x0 + 0.82 * w, y0 + 0.24 * h)   # upper-right
+        width = max(0.8, min(w, h) * 0.12)
+        page.draw_line(p1, p2, color=(0, 0, 0), width=width)
+        page.draw_line(p2, p3, color=(0, 0, 0), width=width)
 
-    def _fill_w9(self, w9: dict | None) -> Path | None:
+    # W-9 federal tax classification -> the tax_classification radio export value
+    # on fw9.pdf (the form was rebuilt by hand; these are the new field names).
+    _W9_CLASS = {"Individual": "individual", "C Corp": "c_corp",
+                 "S Corp": "s_corp", "Partnership": "partnership",
+                 "LLC": "llc", "Trust/estate": "trust_estate", "Other": "other"}
+
+    def _fill_w9(self, payload: dict) -> Path | None:
         """Fill the IRS W-9 AcroForm (fw9.pdf) from the driver's W-9 data.
         Returns a filled temp PDF path, or None to fall back to the blank form."""
+        w9 = payload.get("w9")
         if not w9 or not self.w9_pdf.exists():
             return None
         try:
@@ -246,36 +208,78 @@ class PDFGenerator:
             return None
         page = doc[0]
         tin_digits = "".join(ch for ch in str(w9.get("tin", "")) if ch.isdigit())
-        wtype = w9.get("type", "Individual")
-        class_box = self._W9_CLASS_BOX.get(wtype)
-        use_ssn = wtype == "Individual"
+        use_ssn = w9.get("type", "Individual") == "Individual"
+        class_export = self._W9_CLASS.get(w9.get("type", "Individual"))
+
+        # W-9 signature box: prefer the handwritten image (already decoded to a PNG
+        # by _prepare_signatures), else type the legal name. Date from the sig stamp.
+        # Fall back to the driver's main (applicant) signature when no dedicated W-9
+        # signature was captured, so the W-9 matches the rest of the packet.
+        sigs = payload.get("signatures") or {}
+        w9_sig = sigs.get("w9") or sigs.get("applicant") or {}
+        img_rel = w9_sig.get("image_path")
+        sig_img = self.base_dir / img_rel if img_rel else None
+        sig_date = w9_sig.get("date") or payload.get("application_date", "") or ""
+
+        # TIN: 9 single-digit boxes, left-to-right. SSN boxes are ssn1..ssn9,
+        # EIN boxes are "Employer identification number 1".."9".
+        digit_box = {}
+        if len(tin_digits) >= 9:
+            prefix = "ssn" if use_ssn else "Employer identification number "
+            for i in range(9):
+                digit_box[f"{prefix}{i + 1}"] = tin_digits[i]
+
         text_map = {
-            "f1_01[0]": w9.get("name", "") or "",
-            "f1_02[0]": w9.get("business_name", "") or "",
-            "f1_07[0]": w9.get("address", "") or "",
-            "f1_08[0]": w9.get("city_state_zip", "") or "",
+            "name": w9.get("name", "") or "",
+            "business name": w9.get("business_name", "") or "",
+            "address": w9.get("address", "") or "",
+            "city, state, and zip code": w9.get("city_state_zip", "") or "",
+            "LLC classification": w9.get("llc_classification", "") or "",
+            "Other (see instructions)_1": w9.get("other_classification", "") or "",
+            "Exempt payee code (if any)": w9.get("exempt_payee_code", "") or "",
+            "fatca_exemption_code": w9.get("fatca_exemption_code", "") or "",
+            "Date": sig_date,
         }
+        sig_widget = None
+        class_rect = None  # box of the selected tax-classification option (see below)
         for widget in page.widgets():
-            short = widget.field_name.split(".")[-1]
+            name = widget.field_name
             ftype = widget.field_type_string
-            if ftype == "Text":
-                if short in text_map:
-                    widget.field_value = text_map[short]
-                    widget.update()
-                elif use_ssn and len(tin_digits) == 9:
-                    part = {"f1_11[0]": tin_digits[0:3], "f1_12[0]": tin_digits[3:5], "f1_13[0]": tin_digits[5:9]}.get(short)
-                    if part is not None:
-                        widget.field_value = part
-                        widget.update()
-                elif not use_ssn and len(tin_digits) >= 9:
-                    part = {"f1_14[0]": tin_digits[0:2], "f1_15[0]": tin_digits[2:9]}.get(short)
-                    if part is not None:
-                        widget.field_value = part
-                        widget.update()
-            elif ftype == "CheckBox" and class_box and short.startswith("c1_1["):
-                if class_box in widget.button_states().get("normal", []):
-                    widget.field_value = class_box
-                    widget.update()
+            if name == "Signature":
+                sig_widget = widget
+            elif ftype == "Text" and name in text_map:
+                widget.field_value = text_map[name]
+                widget.update()
+            elif ftype == "Text" and name in digit_box:
+                widget.field_value = digit_box[name]
+                widget.update()
+            elif name == "tax_classification" and class_export and \
+                    class_export in (widget.button_states().get("normal") or []):
+                # Don't toggle the radio "on": its baked appearance is a filled dot.
+                # Capture the box and draw a checkmark over it instead (below), so the
+                # flattened W-9 reads as a ticked checkbox. Grouping is irrelevant here
+                # because the code always selects exactly one option.
+                class_rect = widget.rect
+
+        # Signature: overlay the image on its box (and drop the widget so no empty
+        # field remains), or fall back to the typed legal name.
+        if sig_widget is not None:
+            if sig_img and sig_img.exists():
+                rect = sig_widget.rect
+                page.delete_widget(sig_widget)
+                try:
+                    page.insert_image(rect, filename=str(sig_img), keep_proportion=True)
+                except Exception:
+                    pass
+            else:
+                sig_widget.field_value = w9.get("name", "") or w9_sig.get("signer_first_name", "")
+                sig_widget.update()
+
+        # Tick the selected tax classification with a drawn checkmark (the empty box
+        # border still renders from the radio's off-appearance after baking).
+        if class_rect is not None:
+            self._draw_check(page, class_rect)
+
         # Flatten form fields into static page content so the values always
         # render (and can't be edited) after the W-9 is merged into the packet.
         try:
@@ -287,12 +291,37 @@ class PDFGenerator:
         doc.close()
         return out
 
+    def _append_documents(self, output_path: Path, documents: dict | None) -> None:
+        """Append driver-uploaded documents (already resolved to absolute paths) to the
+        end of the assembled contract — images become a page, PDFs are inserted whole.
+        Best-effort: a broken/missing file is skipped, never fails the whole packet."""
+        if not documents:
+            return
+        try:
+            final = pymupdf.open(str(output_path))
+        except Exception:
+            return
+        appended = False
+        for doc_type, path in documents.items():
+            try:
+                src = pymupdf.open(path)
+                if not src.is_pdf:                       # image -> 1-page PDF
+                    src = pymupdf.open("pdf", src.convert_to_pdf())
+                final.insert_pdf(src)
+                src.close()
+                appended = True
+            except Exception as e:
+                print(f"skip uploaded document {doc_type}: {e}")
+        if appended:
+            final.save(str(output_path), incremental=True, encryption=pymupdf.PDF_ENCRYPT_KEEP)
+        final.close()
+
     def generate(self, payload: dict, output_path: Path) -> bool:
         """Generate the complete PDF with all merges."""
 
         is_owner = payload.get("is_owner", False)
         sig_dir = self._prepare_signatures(payload)
-        w9_path = self._fill_w9(payload.get("w9"))
+        w9_path = self._fill_w9(payload)
 
         try:
             # Step 1: Compile Typst to temp file
@@ -309,6 +338,9 @@ class PDFGenerator:
             print(f"Merging PDFs (is_owner={is_owner})...")
             if not self.merge_pdfs(temp_path, output_path, is_owner, w9_path=w9_path):
                 return False
+
+            # Step 3: Append driver-uploaded documents (medical cert, license, …).
+            self._append_documents(output_path, payload.get("documents"))
 
             # Cleanup
             temp_path.unlink()

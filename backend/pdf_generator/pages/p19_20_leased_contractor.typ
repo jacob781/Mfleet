@@ -27,7 +27,7 @@
   
   v(1em)
   
-  line(length: 4in, stroke: 0.5pt)
+  align(center)[#underlined(driver-name(data), width: 4in)]
   align(center)[(Independent Contractor)]
   
   v(0.5em)
@@ -81,7 +81,7 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Signature:#driver-signature(data, width: 3in)],
-    [Date#underlined("", width: 1.2in)]
+    [Date#underlined(fill-date(data), width: 1.2in)]
   )
   
   // Page 2
@@ -118,7 +118,7 @@
   v(0.8em)
   
   text(size: 10pt)[
-    This agreement shall be governed by the laws of the State of Illinois, both as to interpretation and performance other than injunctive or equitable relief, the parties agree that all matters will be submitted to binding arbitration, and action brought by either of the parties arising out of this agreement shall be commenced and maintained within the jurisdiction of the State of Illinois. The parties agree and consent and do not object that service of process by regular mail or certified mail (whether or not signed for) at the last known address or personal service on either of the parties outside of the State of Illinois shall be sufficient to give The State of Illinois and any court or arbitration panel personal jurisdiction over either of either of the parties. In the state of Illinois, each party shall appoint one arbitration and arbitrators so appointed shall select a natural arbitrator. The determination of a majority of arbitrators shall be binding on the parties, shall not be appeasable, and judgment on the award/decision rendered may be entered in any Illinois or other court having jurisdiction over the matter/parties. Each party is responsible for its own cost and expenses (including, but not limited to attorney fees and one half of the fees and expenses of the neutral arbitrator) incurred in enforcing its rights under the arbitration process. The arbitrators are not empowered to award damages in excess of compensatory damages. Independent Contractor has had adequate time to review and read this acknowledgement and is signing it voluntarily without force or correction. Independent Contractor further agrees that he/she is familiar with the English language and has read and understood this contract. If any one or more of the provisions contained in the Agreement but the Agreement will be enforceable to the extent applicable. Failure to read this Agreement does not prevent its enforcement.
+    This agreement shall be governed by the laws of the State of #data.config.company_state, both as to interpretation and performance other than injunctive or equitable relief, the parties agree that all matters will be submitted to binding arbitration, and action brought by either of the parties arising out of this agreement shall be commenced and maintained within the jurisdiction of the State of #data.config.company_state. The parties agree and consent and do not object that service of process by regular mail or certified mail (whether or not signed for) at the last known address or personal service on either of the parties outside of the State of #data.config.company_state shall be sufficient to give The State of #data.config.company_state and any court or arbitration panel personal jurisdiction over either of either of the parties. In the state of #data.config.company_state, each party shall appoint one arbitration and arbitrators so appointed shall select a natural arbitrator. The determination of a majority of arbitrators shall be binding on the parties, shall not be appeasable, and judgment on the award/decision rendered may be entered in any #data.config.company_state or other court having jurisdiction over the matter/parties. Each party is responsible for its own cost and expenses (including, but not limited to attorney fees and one half of the fees and expenses of the neutral arbitrator) incurred in enforcing its rights under the arbitration process. The arbitrators are not empowered to award damages in excess of compensatory damages. Independent Contractor has had adequate time to review and read this acknowledgement and is signing it voluntarily without force or correction. Independent Contractor further agrees that he/she is familiar with the English language and has read and understood this contract. If any one or more of the provisions contained in the Agreement but the Agreement will be enforceable to the extent applicable. Failure to read this Agreement does not prevent its enforcement.
   ]
   
   v(1.5em)
@@ -131,19 +131,10 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Signature:#driver-signature(data, width: 3in)],
-    [Date#underlined("", width: 1.2in)]
+    [Date#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(1em)
   
-  [Company Representative:]
-  
-  v(0.3em)
-  
-  grid(
-    columns: (2fr, 1fr),
-    gutter: 1em,
-    [Signature:#carrier-signature(data, width: 3in)],
-    [Date#underlined("", width: 1.2in)]
-  )
+  company-sign-block(data, label: "Company Representative")
 }

@@ -79,7 +79,7 @@
     accident-rows.push([])
     accident-rows.push([])
     accident-rows.push([])
-    accident-rows.push([YES #h(0.5em) NO])
+    accident-rows.push([])
   }
   
   table(

@@ -14,21 +14,30 @@ const Step6Signatures: React.FC<{ isOwner: boolean; token: string }> = ({ token 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewIssues, setPreviewIssues] = useState<string[]>([]);
 
   // Release the blob URL when it changes / on unmount.
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   const loadPreview = async () => {
     setPreviewError(null);
+    setPreviewIssues([]);
     setLoadingPreview(true);
     try {
       setPreviewUrl(await getPreviewObjectUrl(token));
     } catch (e) {
-      setPreviewError(
-        e instanceof FormError && e.status === 422
-          ? 'Please complete all previous steps before previewing your document.'
-          : 'Could not load the document. Please try again.',
-      );
+      if (e instanceof FormError && e.status === 422 && Array.isArray(e.detail)) {
+        // Surface exactly which fields are incomplete/invalid so the driver can fix them.
+        setPreviewIssues(
+          e.detail.map((d: any) => {
+            const loc = (d.loc || []).filter((x: any) => x !== 'body').join(' › ');
+            return loc ? `${loc} — ${d.msg}` : d.msg;
+          }),
+        );
+        setPreviewError('Some fields are incomplete or invalid. Fix these, then preview:');
+      } else {
+        setPreviewError('Could not load the document. Please try again.');
+      }
     } finally {
       setLoadingPreview(false);
     }
@@ -69,6 +78,11 @@ const Step6Signatures: React.FC<{ isOwner: boolean; token: string }> = ({ token 
           </div>
         )}
         {previewError && <p className="mt-2 text-sm text-red-600">{previewError}</p>}
+        {previewIssues.length > 0 && (
+          <ul className="mt-1 list-disc pl-5 text-sm text-red-600">
+            {previewIssues.map((issue, i) => <li key={i}>{issue}</li>)}
+          </ul>
+        )}
       </div>
 
       <p className="mb-4 text-sm text-gray-500">

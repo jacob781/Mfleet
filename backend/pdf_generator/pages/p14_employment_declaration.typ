@@ -17,34 +17,37 @@
   text(size: 10pt)[
     I understand that I must provide my complete employment history for the past 3 years, and all CDL required employment for the 7 years preceding that. Any gaps in employment longer than 1 month are explained as follows:
   ]
-  
+
   v(0.5em)
-  
-  align(center)[
-    From:#underlined("", width: 1.5in) to:#underlined("", width: 1.5in)
-  ]
-  
+
+  // Gaps are auto-detected from employment_history (in pdf_service.employment_gaps).
+  let gaps = data.at("employment_gaps", default: ())
+  let decl = data.at("employment_declaration", default: (:))
+  let mark = (b) => if b { "X" } else { "" }
+
+  if gaps.len() == 0 {
+    align(center)[#text(style: "italic")[No employment gaps longer than one month.]]
+  } else {
+    for g in gaps {
+      align(center)[From:#underlined(format-date(g.at("from")), width: 1.5in) to:#underlined(format-date(g.at("to")), width: 1.5in)]
+      v(0.2em)
+      let ex = g.at("explanation", default: "")
+      pad(left: 1.5em)[*Activity:* #if ex != "" { ex } else { underlined("", width: 3in) }]
+      v(0.5em)
+    }
+  }
+
   v(0.5em)
-  
-  text(weight: "bold")[During this time, I was engaged in the following activity:]
-  
-  v(0.3em)
-  
-  [•]
-  v(0.3em)
-  [•]
-  
-  v(0.5em)
-  
+
   text(weight: "bold")[In addition:]
-  
+
   v(0.3em)
-  
-  [#underlined("", width: 0.5in) *I was not employed by any company or individual*]
-  
+
+  [#underlined(mark(decl.at("not_employed_affirm", default: false)), width: 0.5in) *I was not employed by any company or individual*]
+
   v(0.3em)
-  
-  [#underlined("", width: 0.5in) *I was not convicted of any criminal act involving the use of a commercial motor vehicle or while driving a commercial motor vehicle*]
+
+  [#underlined(mark(decl.at("not_convicted_affirm", default: false)), width: 0.5in) *I was not convicted of any criminal act involving the use of a commercial motor vehicle or while driving a commercial motor vehicle*]
   
   v(0.8em)
   
@@ -93,7 +96,8 @@
   grid(
     columns: (1fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Signature:#driver-signature(data, width: 2.5in)],
-    [Date:#underlined("", width: 1.5in)]
+    [Date:#underlined(fill-date(data), width: 1.5in)]
   )
 }

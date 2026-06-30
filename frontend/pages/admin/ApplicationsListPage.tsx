@@ -15,7 +15,7 @@ const STATUS_OPTIONS = [
 
 function fmtDate(value: string | null): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString();
+  return new Date(value).toLocaleDateString('en-US');
 }
 
 const ApplicationsListPage: React.FC = () => {

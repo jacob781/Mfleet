@@ -31,13 +31,14 @@ const Step3History: React.FC = () => {
           name="violations"
           addLabel="Add violation"
           emptyHint="Add any traffic convictions from the last 3 years (leave empty if none)."
-          newItem={() => ({ date: '', location: '', charge: '', penalty: '' })}
+          newItem={() => ({ date: '', location: '', charge: '', penalty: '', vehicle_type: '' })}
           renderItem={(i) => (
             <>
               <TextField name={`violations.${i}.date`} label="Date" type="date" />
               <TextField name={`violations.${i}.location`} label="Location" />
               <TextField name={`violations.${i}.charge`} label="Charge" />
               <TextField name={`violations.${i}.penalty`} label="Penalty" />
+              <TextField name={`violations.${i}.vehicle_type`} label="Type of vehicle operated" placeholder="e.g. Tractor-trailer" />
             </>
           )}
         />
@@ -47,6 +48,7 @@ const Step3History: React.FC = () => {
         <CheckboxField name="drug_alcohol_history.tested_positive_3yrs" label="Tested positive in the last 3 years" />
         <CheckboxField name="drug_alcohol_history.breath_alcohol_04_3yrs" label="Breath alcohol 0.04+ in the last 3 years" />
         <CheckboxField name="drug_alcohol_history.refused_test_3yrs" label="Refused a test in the last 3 years" />
+        <CheckboxField name="drug_alcohol_history.tested_positive_preemployment" label="Tested positive on a pre-employment test for a job you applied for but did not obtain" />
         <CheckboxField name="drug_alcohol_history.violated_dot_regulations" label="Violated DOT drug/alcohol regulations" />
         <CheckboxField name="drug_alcohol_history.sap_evaluation" label="Completed a SAP (Substance Abuse Professional) evaluation" />
         {sap && <TextAreaField name="drug_alcohol_history.sap_details" label="SAP details" />}

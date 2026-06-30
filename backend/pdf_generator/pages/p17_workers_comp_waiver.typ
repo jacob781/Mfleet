@@ -96,7 +96,7 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature:#driver-signature(data, width: 2.5in)],
-    [Date:#underlined("", width: 1.2in)]
+    [Date:#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(0.3em)
@@ -104,7 +104,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [Employer's Signature:#carrier-signature(data, width: 2.5in)],
-    [Date:#underlined("", width: 1.2in)]
+    [Employer's Signature:#carrier-signature(data, width: 2.5in)\ #text(size: 8pt)[#company-name(data), #carrier-title]],
+    [Date:#underlined(carrier-date(data), width: 1.2in)]
   )
 }

@@ -37,13 +37,14 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
-  
+
   v(3em)
-  
-  [Company Representative#underlined("", width: 3in)]
+
+  company-sign-block(data)
 }
 
 // Page 28: Damages, Towing & Violation
@@ -75,13 +76,14 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
-  
+
   v(3em)
-  
-  [Company Representative#underlined("", width: 3in)]
+
+  company-sign-block(data)
 }
 
 // Page 29: Insurance Consent (Leased IC Agreement)
@@ -137,8 +139,9 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
 }
 
@@ -158,7 +161,7 @@
   
   v(0.5em)
   
-  [Upon completion of the onboarding process will #text(weight: "bold")[#underline[#company-name(data)]] Independent Contractor from this day #underlined("", width: 1.5in) forward agrees to abide to the following terms:]
+  [Upon completion of the onboarding process will #text(weight: "bold")[#underline[#company-name(data)]] Independent Contractor from this day #underlined(agreement-date(data), width: 1.5in) forward agrees to abide to the following terms:]
   
   v(0.5em)
   
@@ -260,8 +263,9 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [Date#underlined("", width: 1.2in)]
+    [Date#underlined(fill-date(data), width: 1.2in)]
   )
 }
 
@@ -354,18 +358,14 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [Date#underlined("", width: 1.2in)]
+    [Date#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(0.5em)
   
-  grid(
-    columns: (1fr, 1fr),
-    gutter: 1em,
-    [Safety Department#underlined("", width: 2in)],
-    [Date#underlined("", width: 1.2in)]
-  )
+  company-sign-block(data, label: "Safety Department")
 }
 
 // Page 33: FMCSA Drug & Alcohol Clearinghouse Consent
@@ -393,7 +393,8 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Employee Signature#driver-signature(data, width: 2.5in)],
-    [Date#underlined("", width: 1.2in)]
+    [Date#underlined(fill-date(data), width: 1.2in)]
   )
 }

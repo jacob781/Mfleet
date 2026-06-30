@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { CheckboxField, FieldGroup, TextField } from '../fields';
 import FieldArrayList from '../FieldArrayList';
 
 const Step4Work: React.FC = () => {
-  const { watch } = useFormContext();
+  const { watch, getValues, setValue } = useFormContext();
   const log = watch('seven_day_log') || [];
+
+  // Pre-fill the record-of-duty dates from the application date (day 1 = that date,
+  // each row one day earlier) as MM/DD. Only fills blanks so manual edits stay.
+  useEffect(() => {
+    const appDate = getValues('application_date');
+    const base = appDate ? new Date(`${String(appDate).slice(0, 10)}T00:00:00`) : new Date();
+    (getValues('seven_day_log') || []).forEach((d: { date?: string }, i: number) => {
+      if (!d?.date) {
+        const dt = new Date(base);
+        dt.setDate(base.getDate() - i);
+        const mmdd = `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`;
+        setValue(`seven_day_log.${i}.date`, mmdd);
+      }
+    });
+  }, [getValues, setValue]);
+
   return (
     <div>
       <FieldGroup title="Employment history (last 10 years)">
@@ -25,7 +41,7 @@ const Step4Work: React.FC = () => {
               <TextField name={`employment_history.${i}.employer_address`} label="Address" />
               <TextField name={`employment_history.${i}.employer_city`} label="City" />
               <TextField name={`employment_history.${i}.employer_state`} label="State" format="state" />
-              <TextField name={`employment_history.${i}.employer_zip`} label="ZIP" inputMode="numeric" />
+              <TextField name={`employment_history.${i}.employer_zip`} label="ZIP" format="zip" />
               <TextField name={`employment_history.${i}.employer_phone`} label="Phone" format="phone" />
               <TextField name={`employment_history.${i}.employer_fax`} label="Fax" />
               <TextField name={`employment_history.${i}.start_date`} label="Start date" type="date" />

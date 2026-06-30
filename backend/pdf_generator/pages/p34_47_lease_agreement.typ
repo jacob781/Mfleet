@@ -22,6 +22,13 @@
   // Party 2 (Owner) info from W-9
   let owner-name = if has-business { w9.at("business_name", default: "") } else { w9.at("name", default: driver-name(data)) }
   let owner-addr = w9.at("address", default: "") + ", " + w9.at("city_state_zip", default: "")
+
+  // Equipment info for the cover page Unit# line — first leased unit's plate (or VIN).
+  let first-equip = {
+    let eq = data.at("equipment", default: ())
+    if eq.len() > 0 { eq.at(0) } else { (:) }
+  }
+  let unit-no = first-equip.at("plate", default: first-equip.at("vin", default: ""))
   
   // =========================================================================
   // PAGE 34: LEASE AGREEMENT COVER
@@ -49,12 +56,12 @@
   
   v(0.8em)
   
-  text(size: 10pt, weight: "bold")[III.] 
-  [Equipment Owner/Equipment Information Name: #underlined("", width: 2.5in)]
-  
+  text(size: 10pt, weight: "bold")[III.]
+  [Equipment Owner/Equipment Information Name: #underlined(owner-name, width: 2.5in)]
+
   v(0.5em)
-  
-  text(size: 12pt, weight: "bold")[Unit\# #underlined("", width: 3in)]
+
+  text(size: 12pt, weight: "bold")[Unit\# #underlined(unit-no, width: 3in)]
   
   v(1em)
   
@@ -68,26 +75,26 @@
   
   v(0.8em)
   
-  [Signed this date #underlined("", width: 1.5in)]
-  
+  [Signed this date #underlined(agreement-date(data), width: 1.5in)]
+
   v(1.5em)
-  
+
   grid(
     columns: (1fr, 1fr),
     gutter: 2em,
     [
       #text(weight: "bold", size: 11pt)[#underline[MOTOR CARRIER:]]
       #v(0.5em)
-      #underlined("", width: 2.5in)
+      #carrier-signature(data, width: 2.5in)
       #v(0.3em)
-      By: #underlined("", width: 2in)
+      By: #underlined(company-name(data) + ", " + carrier-title, width: 2in)
     ],
     [
       #text(weight: "bold", size: 11pt)[#underline[EQUIPMENT OWNER:]]
       #v(0.5em)
-      #underlined("", width: 2.5in)
+      #driver-signature(data, width: 2.5in)
       #v(0.3em)
-      By: #underlined("", width: 2in)
+      By: #underlined(owner-name, width: 2in)
     ]
   )
   
@@ -321,7 +328,7 @@
   
   v(1em)
   
-  text(size: 10pt, weight: "bold")[IN WITNESS WHEREOF, CARRIER and INDEPENDENT CONTRACTOR do hereby sign this Agreement on the day#underlined("", width: 1.5in), the effective date of this Agreement.]
+  text(size: 10pt, weight: "bold")[IN WITNESS WHEREOF, CARRIER and INDEPENDENT CONTRACTOR do hereby sign this Agreement on the day#underlined(agreement-date(data), width: 1.5in), the effective date of this Agreement.]
   
   v(1.5em)
   
@@ -339,9 +346,9 @@
       #v(0.3em)
       FEIN/SSN: #underlined(data.w9.tin, width: 1.5in)
       #v(0.5em)
-      By: #underlined("", width: 2in)
+      By: #driver-signature(data, width: 2in)
       #v(0.3em)
-      Title: #underlined("", width: 1.5in)
+      Title: #underlined("Owner", width: 1.5in)
     ],
     [
       #text(weight: "bold")[CARRIER:]
@@ -354,9 +361,9 @@
       #v(0.3em)
       Phone: #config.at("company_phone", default: "")
       #v(0.5em)
-      By: #underlined("", width: 2in)
+      By: #carrier-signature(data, width: 2in)
       #v(0.3em)
-      Title: #underlined("", width: 1.5in)
+      Title: #underlined(carrier-title, width: 1.5in)
     ]
   )
 }

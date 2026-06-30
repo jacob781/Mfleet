@@ -57,7 +57,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [Signature of Carrier's Agent#carrier-signature(data, width: 2.5in)],
-    [Date#underlined("", width: 1.2in)]
+    [Signature of Carrier's Agent#carrier-signature(data, width: 2.5in)\ #text(size: 8pt)[#company-name(data), #carrier-title]],
+    [Date#underlined(carrier-date(data), width: 1.2in)]
   )
 }

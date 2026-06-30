@@ -34,28 +34,29 @@
   
   v(0.5em)
   
-  // Questions box
+  // Questions box (checkbox(true) marks the driver's actual answer — see styles.typ)
+  let dah = data.drug_alcohol_history
   rect(width: 100%, stroke: 0.5pt, inset: 8pt)[
     #grid(
-      columns: (4fr, 0.3fr, 0.3fr),
+      columns: (4fr, 0.6fr, 0.6fr),
       gutter: 0.3em,
       [Have you ever refused to be tested for drugs & alcohol at any time in the last 2 years?],
-      [Yes], [No]
+      [#checkbox(dah.at("refused_test_3yrs", default: false)) Yes], [#checkbox(not dah.at("refused_test_3yrs", default: false)) No]
     )
     #v(0.3em)
     #grid(
-      columns: (4fr, 0.3fr, 0.3fr),
+      columns: (4fr, 0.6fr, 0.6fr),
       gutter: 0.3em,
       [Have you ever tested positive for drugs or alcohol at any time in the last 2 years?],
-      [Yes], [No]
+      [#checkbox(dah.at("tested_positive_3yrs", default: false)) Yes], [#checkbox(not dah.at("tested_positive_3yrs", default: false)) No]
     )
     #v(0.3em)
     Have you ever tested positive on any pre-employment drug or alcohol test for a job which you
     #grid(
-      columns: (4fr, 0.3fr, 0.3fr),
+      columns: (4fr, 0.6fr, 0.6fr),
       gutter: 0.3em,
       [applied for but did not obtain?],
-      [Yes], [No]
+      [#checkbox(dah.at("tested_positive_preemployment", default: false)) Yes], [#checkbox(not dah.at("tested_positive_preemployment", default: false)) No]
     )
     #v(0.3em)
     #text(weight: "bold")[If you answered yes to any of the above questions, attach a statement of explanation and]
@@ -93,7 +94,7 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [#driver-signature(data, width: 3in)\ Applicant's Signature],
-    [#underlined("", width: 1.5in)\ Date]
+    [#underlined(fill-date(data), width: 1.5in)\ Date]
   )
   
   v(1em)
@@ -101,7 +102,7 @@
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
-    [#underlined("", width: 3in)\ Print Name],
+    [#underlined(driver-name(data), width: 3in)\ Print Name],
     [#underlined(ssn-masked(data), width: 1.5in)\ Social Security Number]
   )
 }

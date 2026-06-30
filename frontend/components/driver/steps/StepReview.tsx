@@ -56,7 +56,7 @@ const StepReview: React.FC<{ goToStep: (s: number) => void; isOwner: boolean }> 
         <Row label="7-day log" value={`${(v.seven_day_log || []).filter((d) => d.date).length}/7 days`} />
       </Section>
 
-      <Section title="Agreements & Finance" step={4} goToStep={goToStep}>
+      <Section title="Agreements & Finance" step={5} goToStep={goToStep}>
         {isOwner && <Row label="Equipment" value={`${v.equipment?.length || 0} listed`} />}
         {isOwner && <Row label="IFTA" value={v.ifta_choice || ''} />}
         <Row label="W-9 type" value={v.w9?.type} />

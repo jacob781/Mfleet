@@ -76,6 +76,6 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Signature:#driver-signature(data, width: 3in)],
-    [DATE:#underlined("", width: 1.2in)]
+    [DATE:#underlined(fill-date(data), width: 1.2in)]
   )
 }

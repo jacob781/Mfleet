@@ -81,8 +81,19 @@
   )
   
   v(1em)
-  
-  [Total hours worked past seven days:#underlined("", width: 1in) #h(1em) By signing below, I certify that the above information is correct to the best of my knowledge, and that I was last relieved from duty]
+
+  // Sum the daily hours (stored as strings/ints; skip blank entries).
+  let total-hours = {
+    let t = 0.0
+    for log in data.at("seven_day_log", default: ()) {
+      let h = log.at("hours", default: "")
+      if type(h) == int or type(h) == float { t += h }
+      else if type(h) == str and h.trim() != "" { t += float(h.trim()) }
+    }
+    if calc.rem(t, 1) == 0 { str(int(t)) } else { str(t) }
+  }
+
+  [Total hours worked past seven days:#underlined(total-hours, width: 1in) #h(1em) By signing below, I certify that the above information is correct to the best of my knowledge, and that I was last relieved from duty]
   
   v(0.5em)
   
@@ -94,6 +105,5 @@
   
   v(1.5em)
   
-  line(length: 4in, stroke: 0.5pt)
-  [Company Representative (Witness)]
+  company-sign-block(data, label: "Company Representative (Witness)")
 }

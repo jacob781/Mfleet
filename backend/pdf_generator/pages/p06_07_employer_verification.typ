@@ -314,7 +314,7 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [#driver-signature(data, width: 4in)\ Signature of Applicant],
-    [#underlined("", width: 1.2in)\ Date]
+    [#underlined(fill-date(data), width: 1.2in)\ Date]
   )
 }
 

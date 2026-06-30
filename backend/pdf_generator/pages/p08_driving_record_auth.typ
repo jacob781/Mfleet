@@ -31,7 +31,7 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature #driver-signature(data, width: 3in)],
-    [Date:#underlined("", width: 1.2in)]
+    [Date:#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(1.5em)
@@ -81,10 +81,10 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature:#driver-signature(data, width: 2.5in)],
-    [Date:#underlined("", width: 1.2in)]
+    [Date:#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(1.5em)
   
-  [Representative:#underlined("", width: 4in)]
+  company-sign-block(data, label: "Company Representative")
 }

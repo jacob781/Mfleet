@@ -48,6 +48,7 @@
 // Sprint 5: Financial & Additional Forms
 #import "pages/p50_direct_deposit.typ": page-direct-deposit
 #import "pages/p51_53_penalties.typ": page-penalties-intro
+#import "pages/p58_fines_fees.typ": page-fines-fees
 #import "pages/p54_55_dash_camera_policy.typ": page-dash-camera-policy
 #import "pages/p56_57_hold_harmless.typ": page-hold-harmless
 #import "pages/p60_incident_protocol.typ": page-incident-protocol
@@ -165,15 +166,30 @@
 #page-supplement-b(data)
 
 // =============================================================================
-// SPRINT 5: FINANCIAL & ADDITIONAL FORMS (Pages 49-60)
-// Note: Page 49 (W-9 form) is merged from fw9.pdf separately
+// SPRINT 5: FINANCIAL & ADDITIONAL FORMS
+// Order: [Penalties] -> W-9 -> Direct Deposit -> Dash Camera -> Hold Harmless -> Incident
+// The W-9 (fw9.pdf) is spliced in by pdf_generator.py at the anchor page below.
 // =============================================================================
+
+// Penalties (Schedule A) — optional, manager-toggled, placed BEFORE the W-9.
+#let include-penalties = data.at("config", default: (:)).at("include_penalties", default: true)
+#if include-penalties {
+  page-penalties-intro(data)
+}
+
+// Compact FINES AND FEES SCHEDULE — separate manager toggle.
+#let include-fees = data.at("config", default: (:)).at("include_fees", default: true)
+#if include-fees {
+  page-fines-fees(data)
+}
+
+// W-9 insertion anchor: the merge step replaces THIS throwaway page with the
+// 6-page IRS W-9 PDF. Marker must stay unique and on its own page.
+#pagebreak()
+#text(fill: white)[W9INSERTANCHORPAGE]
 
 // Page 50: Direct Deposit Agreement Form
 #page-direct-deposit(data)
-
-// Pages 51-53: Penalties for Non-Compliance (Schedule A)
-#page-penalties-intro(data)
 
 // Pages 54-55: Dash Camera Policy
 #page-dash-camera-policy(data)

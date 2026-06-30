@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import {
@@ -16,8 +16,12 @@ import {
   type ApplicationSettings,
   type CompanyResponse,
   type DriverSummary,
+  type FineSchedule,
+  type FeesSchedule,
 } from '../../lib/adminTypes';
 import CompanyFields from '../../components/admin/CompanyFields';
+import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
+import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
 import { Button, Card, Field, SelectInput, Spinner, TextInput, Toggle } from '../../components/admin/ui';
 
 interface CreateForm {
@@ -71,6 +75,38 @@ const ApplicationCreatePage: React.FC = () => {
 
   const companyMode = watch('company_mode');
   const companyId = watch('company_id');
+
+  // Per-application fine-schedule override (option 3). Off = inherit the company's table;
+  // on = edit a copy just for this contract. Only for existing companies (a new one gets
+  // the default and can be edited on its company page).
+  const [customizeFines, setCustomizeFines] = useState(false);
+  const fineOverride = useRef<FineSchedule | null>(null);
+  const selectedCompany = companies.find((c) => c.id === Number(companyId));
+  // Reset the override whenever the selected company changes.
+  useEffect(() => {
+    setCustomizeFines(false);
+    fineOverride.current = null;
+  }, [companyId, companyMode]);
+  const toggleCustomizeFines = (on: boolean) => {
+    fineOverride.current = on && selectedCompany?.fine_schedule
+      ? JSON.parse(JSON.stringify(selectedCompany.fine_schedule))
+      : null;
+    setCustomizeFines(on);
+  };
+
+  // Same pattern for the compact fees schedule.
+  const [customizeFees, setCustomizeFees] = useState(false);
+  const feesOverride = useRef<FeesSchedule | null>(null);
+  useEffect(() => {
+    setCustomizeFees(false);
+    feesOverride.current = null;
+  }, [companyId, companyMode]);
+  const toggleCustomizeFees = (on: boolean) => {
+    feesOverride.current = on && selectedCompany?.fees_schedule
+      ? JSON.parse(JSON.stringify(selectedCompany.fees_schedule))
+      : null;
+    setCustomizeFees(on);
+  };
   const driverMode = watch('driver_mode');
   const compType = watch('settings.compensation_type');
 
@@ -101,7 +137,7 @@ const ApplicationCreatePage: React.FC = () => {
     // Client-side: the active compensation rate must be set.
     const s = data.settings;
     const activeRate: Record<string, keyof ApplicationSettings> = {
-      percentage: 'percentage_rate',
+      percentage: 'percentage_rate_non_amazon',
       weekly_flat: 'weekly_amount',
       per_mile: 'loaded_rate',
       hourly: 'hourly_rate',
@@ -130,6 +166,10 @@ const ApplicationCreatePage: React.FC = () => {
           if (Number.isFinite(n)) (settings as any)[k] = n;
         }
       });
+
+      // Per-application override: a customized copy, or null to inherit the company table.
+      (settings as any).fine_schedule = customizeFines ? fineOverride.current : null;
+      (settings as any).fees_schedule = customizeFees ? feesOverride.current : null;
 
       // 3. Create the application.
       const app = await createApplication({
@@ -354,7 +394,12 @@ const ApplicationCreatePage: React.FC = () => {
                 ))}
               </SelectInput>
             </Field>
-            {compType === 'percentage' && num('percentage_rate', 'Percentage rate (%)')}
+            {compType === 'percentage' && (
+              <>
+                {num('percentage_rate_non_amazon', 'Non-Amazon loads (%)')}
+                {num('percentage_rate_amazon', 'Amazon loads (%) — if different')}
+              </>
+            )}
             {compType === 'weekly_flat' && num('weekly_amount', 'Weekly amount ($)', '0.01')}
             {compType === 'per_mile' && (
               <>
@@ -372,18 +417,66 @@ const ApplicationCreatePage: React.FC = () => {
             <Toggle label="Include Auto Liability" {...register('settings.include_auto_liability')} />
             <Toggle label="Include Cargo" {...register('settings.include_cargo')} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {num('insurance_cargo_liability', 'Cargo liability ($)')}
+              {num('insurance_cargo_liability', 'Auto liability and cargo ($)')}
             </div>
           </div>
 
           <h3 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
             Weekly / monthly fees
           </h3>
+          {/* Labels relabeled per company request; field keys unchanged
+              (eld_device_weekly→Service, tablet_weekly→Tablet/month, prepass_monthly→IFTA). */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {num('eld_device_weekly', 'ELD device / week ($)')}
-            {num('tablet_weekly', 'Tablet / week ($)')}
-            {num('prepass_monthly', 'PrePass / month ($)')}
+            {num('eld_device_weekly', 'Service / week ($)')}
+            {num('tablet_weekly', 'Tablet / month ($)')}
+            {num('prepass_monthly', 'IFTA / week ($)')}
             {num('administration_fee_weekly', 'Administration fee / week ($)')}
+          </div>
+          <p className="mt-2 text-xs text-mfleet-gray">
+            Prepass is billed monthly according to toll-road usage.
+          </p>
+
+          <h3 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
+            Penalties
+          </h3>
+          <div className="flex flex-col gap-3">
+            <Toggle
+              label="Include Schedule A penalties page"
+              {...register('settings.include_penalties')}
+            />
+            <p className="text-xs text-mfleet-gray">
+              Uses this company&apos;s fine schedule. Edit the amounts on the company&apos;s page,
+              or customize them just for this driver below.
+            </p>
+            {companyMode === 'existing' && selectedCompany?.fine_schedule && (
+              <Toggle
+                label="Customize fine schedule for this application"
+                checked={customizeFines}
+                onChange={(e) => toggleCustomizeFines(e.target.checked)}
+              />
+            )}
+            {customizeFines && fineOverride.current && (
+              <div className="mt-2 rounded-lg border border-gray-200 p-3">
+                <FineScheduleEditor key={companyId} draft={fineOverride.current} />
+              </div>
+            )}
+
+            <Toggle
+              label="Include compact FINES & FEES schedule page"
+              {...register('settings.include_fees')}
+            />
+            {companyMode === 'existing' && selectedCompany?.fees_schedule && (
+              <Toggle
+                label="Customize fines & fees for this application"
+                checked={customizeFees}
+                onChange={(e) => toggleCustomizeFees(e.target.checked)}
+              />
+            )}
+            {customizeFees && feesOverride.current && (
+              <div className="mt-2 rounded-lg border border-gray-200 p-3">
+                <FeesScheduleEditor key={companyId} draft={feesOverride.current} />
+              </div>
+            )}
           </div>
         </Card>
 

@@ -76,11 +76,13 @@
   
   text(weight: "bold")[#underline[#company-name(data)]]
   v(0.3em)
-  [By:#underlined("", width: 2.5in)]
+  [Signature:#carrier-signature(data, width: 2.5in)]
   v(0.2em)
-  [Title:#underlined("", width: 2.5in)]
+  [By:#underlined(company-name(data), width: 2.5in)]
   v(0.2em)
-  [Date:#underlined("", width: 1.5in)]
+  [Title:#underlined(carrier-title, width: 2.5in)]
+  v(0.2em)
+  [Date:#underlined(carrier-date(data), width: 1.5in)]
   
   v(1em)
   
@@ -90,5 +92,5 @@
   
   [Independent Contractor's Signature:#driver-signature(data, width: 3in)]
   v(0.3em)
-  [Date:#underlined("", width: 1.5in)]
+  [Date:#underlined(fill-date(data), width: 1.5in)]
 }

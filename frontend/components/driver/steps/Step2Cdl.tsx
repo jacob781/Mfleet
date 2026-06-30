@@ -24,10 +24,7 @@ const Step2Cdl: React.FC = () => {
       </FieldGroup>
 
       <FieldGroup title="Medical examiner's certificate">
-        <TextField name="medical.examiner_name" label="Examiner name" required />
-        <TextField name="medical.registry_number" label="National Registry number" required />
         <TextField name="medical.expiration_date" label="Expiration date" required type="date" />
-        <CheckboxField name="medical.waiver" label="I have a medical waiver / exemption" />
       </FieldGroup>
 
       <FieldGroup title="Driving experience">

@@ -125,6 +125,33 @@
 // Manager / company counter-signature — on the carrier/company representative lines.
 #let carrier-signature(data, width: 3in) = _signature-box(_sig-at(data, "carrier"), width)
 
+// Date the driver completed/signed the form, taken from the applicant signature
+// (MM/DD/YYYY ET). Blank on the unsigned preview (signatures stripped). Use to
+// fill "Date" / "from this day ___" lines that should carry the fill date.
+#let fill-date(data) = {
+  let s = _sig-at(data, "applicant")
+  if s != none { s.at("date", default: "") } else { "" }
+}
+
+// Date the manager/company counter-signed, from the carrier signature (MM/DD/YYYY ET).
+// Blank until the manager signs. Use on company "Date" lines.
+#let carrier-date(data) = {
+  let s = _sig-at(data, "carrier")
+  if s != none { s.at("date", default: "") } else { "" }
+}
+
+// Effective date of the agreements ("made/entered into on this day ___", "Signed this
+// date", "on the day ___"): the date the MANAGER created the application. Falls back to
+// the driver fill date for older applications that don't carry the creation date.
+#let agreement-date(data) = {
+  let d = data.at("application_created_date", default: "")
+  if d != "" { d } else { fill-date(data) }
+}
+
+// Company name + fixed "Manager" title — for the By / Name / Title lines the manager
+// signs on behalf of the company.
+#let carrier-title = "Manager"
+
 // =============================================================================
 // TABLE STYLES
 // =============================================================================
@@ -164,6 +191,19 @@
 
 #let underlined(value, width: 2in) = {
   box(width: width, stroke: (bottom: 0.5pt), inset: (bottom: 2pt))[#value]
+}
+
+// Standard company counter-signature block: the manager's signature line, the printed
+// "Company, Manager", and the counter-sign date. Used on every "Company Representative"
+// / "Signature" line the company signs. Defined after `underlined` so it's in scope.
+#let company-sign-block(data, label: "Company Representative") = {
+  grid(
+    columns: (2fr, 1fr),
+    gutter: 1em,
+    align: bottom,
+    [#label:#carrier-signature(data, width: 2.5in)\ #text(size: 8pt)[#company-name(data), #carrier-title]],
+    [Date:#underlined(carrier-date(data), width: 1.2in)],
+  )
 }
 
 // Legacy compatibility

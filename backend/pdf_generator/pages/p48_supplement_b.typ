@@ -15,6 +15,10 @@
   let comp-type = config.at("compensation_type", default: "percentage")
   let weekly-amount = config.at("weekly_amount", default: 0)
   let percentage-rate = config.at("percentage_rate", default: 0)
+  let pct-non-amazon = config.at("percentage_rate_non_amazon", default: 0)
+  let pct-amazon = config.at("percentage_rate_amazon", default: 0)
+  // Old applications only carry the single percentage_rate — fall back to it.
+  if pct-non-amazon == 0 and pct-amazon == 0 { pct-non-amazon = percentage-rate }
   let loaded-rate = config.at("loaded_rate", default: 0)
   let empty-rate = config.at("empty_rate", default: 0)
   let hourly-rate = config.at("hourly_rate", default: 0)
@@ -32,7 +36,11 @@
   
   // Dynamic compensation text based on type
   if comp-type == "percentage" {
-    [CARRIER agrees, to pay #text(weight: "bold")[#percentage-rate%] (to hold #h(0.3em) #percentage-rate% commission) of gross receipts of each load, minus]
+    if pct-amazon > 0 {
+      [CARRIER agrees, to pay #text(weight: "bold")[#pct-non-amazon%] of gross receipts on non-Amazon loads and #text(weight: "bold")[#pct-amazon%] on Amazon loads, minus]
+    } else {
+      [CARRIER agrees, to pay #text(weight: "bold")[#pct-non-amazon%] (to hold #h(0.3em) #pct-non-amazon% commission) of gross receipts of each load, minus]
+    }
   } else if comp-type == "weekly_flat" {
     [CARRIER agrees, to pay #text(weight: "bold")[\$#weekly-amount weekly] flat rate, minus]
   } else if comp-type == "per_mile" {
@@ -59,68 +67,61 @@
   
   v(0.3em)
   
-  // IFTA choices - Owner chooses option
+  // IFTA choices - Owner chooses option (ticked from the driver's ifta_choice).
   if is-owner {
-    [#h(1em) #box(stroke: 0.5pt, width: 0.4em, height: 0.4em) I choose to file my own quarterly Fuel Tax Returns]
-    
+    let ifta = data.at("ifta_choice", default: none)
+    [#h(1em) #checkbox(ifta == "own") #h(0.3em) I choose to file my own quarterly Fuel Tax Returns]
+
     v(0.2em)
-    
-    [#h(1em) #box(stroke: 0.5pt, width: 0.4em, height: 0.4em) I choose to use the Fuel Tax reporting service chosen by CARRIER]
+
+    [#h(1em) #checkbox(ifta == "carrier") #h(0.3em) I choose to use the Fuel Tax reporting service chosen by CARRIER]
     [to be automatically deducted by CARRIER from the settlement/payment.]
     [\$35 weekly charge if more then \$420 at the end of quarter, will get charged the difference.]
   }
   
   v(0.8em)
   
-  text(size: 10pt, weight: "bold")[3. ]
-  text(size: 10pt)[
-    Insurance (Cargo, Liability, Trailer Interchange) \$#box[#underlined(str(insurance-cargo), width: 0.8in)]#h(0.3em)weekly
-  ]
-  
+  [#text(size: 10pt, weight: "bold")[3.] #text(size: 10pt)[Insurance (Cargo, Liability, Trailer Interchange) \$#box[#underlined(str(insurance-cargo), width: 0.8in)]#h(0.3em)weekly]]
+
   v(0.5em)
-  
+
   // Points 4-7 only for owners
   if is-owner {
-    text(size: 10pt, weight: "bold")[4. ]
-    text(size: 10pt)[
-      ELD Device: \$#box[#underlined(str(eld-weekly), width: 0.8in)]#h(0.3em)weekly
-    ]
-    
+    // Labels relabeled per company request; the config keys stay the same:
+    // eld_device_weekly -> Service/week, tablet_weekly -> Tablet/month,
+    // prepass_monthly -> IFTA/week. Prepass itself is now a usage-based note (no amount).
+    [#text(size: 10pt, weight: "bold")[4.] #text(size: 10pt)[Service: \$#box[#underlined(str(eld-weekly), width: 0.8in)]#h(0.3em)weekly]]
+
     v(0.5em)
-    
-    text(size: 10pt, weight: "bold")[5. ]
-    text(size: 10pt)[
-      Tablet: \$#box[#underlined(str(tablet-weekly), width: 0.8in)]#h(0.3em)weekly
-    ]
-    
+
+    [#text(size: 10pt, weight: "bold")[5.] #text(size: 10pt)[Tablet: \$#box[#underlined(str(tablet-weekly), width: 0.8in)]#h(0.3em)monthly]]
+
     v(0.5em)
-    
-    text(size: 10pt, weight: "bold")[6. ]
-    text(size: 10pt)[
-      PrePass: \$#box[#underlined(str(prepass-monthly), width: 0.8in)]#h(0.3em)monthly
-    ]
-    
+
+    [#text(size: 10pt, weight: "bold")[6.] #text(size: 10pt)[IFTA: \$#box[#underlined(str(prepass-monthly), width: 0.8in)]#h(0.3em)weekly]]
+
     v(0.5em)
-    
-    text(size: 10pt, weight: "bold")[7. ]
-    text(size: 10pt)[
-      Administration fee: \$#box[#underlined(str(admin-fee-weekly), width: 0.8in)]#h(0.3em)weekly
+
+    [#text(size: 10pt, weight: "bold")[7.] #text(size: 10pt)[Administration fee: \$#box[#underlined(str(admin-fee-weekly), width: 0.8in)]#h(0.3em)weekly]]
+
+    v(0.5em)
+
+    text(size: 9pt, style: "italic")[
+      Prepass is billed monthly according to toll-road usage.
     ]
   }
-  
+
   v(0.8em)
-  
-  text(size: 10pt, weight: "bold")[8. ]
-  text(size: 10pt)[
-    In case of Carrier's fuel card and Ipass, the charges will get deducted from Independent Contractor's settlements.
-  ]
+
+  [#text(size: 10pt, weight: "bold")[8.] #text(size: 10pt)[In case of Carrier's fuel card and Ipass, the charges will get deducted from Independent Contractor's settlements.]]
   
   v(2em)
   
   grid(
     columns: (2fr, 1fr),
     gutter: 1em,
+    align: bottom,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [Date#underlined("", width: 1.2in)]
+    [Date#underlined(fill-date(data), width: 1.2in)]
   )
 }

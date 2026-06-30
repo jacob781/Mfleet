@@ -35,12 +35,12 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(3em)
   
-  [Company Representative#underlined("", width: 3in)]
+  company-sign-block(data, label: "Company Representative")
 }
 
 // Page 23: Roadside Inspections
@@ -73,12 +73,12 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(3em)
   
-  [Company Representative#underlined("", width: 3in)]
+  company-sign-block(data, label: "Company Representative")
 }
 
 // Page 24: License Status & Suspension
@@ -111,12 +111,12 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(3em)
   
-  [Company Representative#underlined("", width: 3in)]
+  company-sign-block(data, label: "Company Representative")
 }
 
 // Page 25: Unresolved Claims & Violations
@@ -155,12 +155,12 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(3em)
   
-  [Company Representative#underlined("", width: 3in)]
+  company-sign-block(data, label: "Company Representative")
 }
 
 // Page 26: Accident Reporting
@@ -193,10 +193,10 @@
     columns: (2fr, 1fr),
     gutter: 1em,
     [Independent Contractor Signature#driver-signature(data, width: 2.5in)],
-    [DATE#underlined("", width: 1.2in)]
+    [DATE#underlined(fill-date(data), width: 1.2in)]
   )
   
   v(3em)
   
-  [Company Representative#underlined("", width: 3in)]
+  company-sign-block(data, label: "Company Representative")
 }
