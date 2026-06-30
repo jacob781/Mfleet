@@ -25,9 +25,11 @@ from sqlmodel import Session, select
 from starlette.background import BackgroundTask
 
 import uploads
-from database import get_session
+from database import get_engine, get_session
+from mailer import send_mail
 from models import (
     ApplicationPayload,
+    Company,
     ComplianceDocument,
     Driver,
     DriverAnswers,
@@ -351,7 +353,30 @@ def submit_form(
     session.commit()
 
     background.add_task(generate_application_pdf, app.id)
+    background.add_task(notify_manager_submitted, app.id)
     return {"status": app.status, "pdf_status": "generating"}
+
+
+def notify_manager_submitted(application_id: int) -> None:
+    """Email the team inbox (MAIL_TO) that a driver has submitted an application.
+    Best-effort: never raises (runs as a background task)."""
+    with Session(get_engine()) as session:
+        app = session.get(DriverApplication, application_id)
+        if app is None:
+            return
+        driver = session.get(Driver, app.driver_id) if app.driver_id else None
+        company = session.get(Company, app.company_id)
+        who = f"{driver.first_name} {driver.last_name}" if driver else "A driver"
+        where = f" — {company.name}" if company else ""
+        kind = "Owner-operator" if app.driver_is_owner else "Company driver"
+        send_mail(
+            os.getenv("MAIL_TO"),
+            f"New submission: application #{app.id}{where}",
+            f"{who} ({kind}) has submitted application #{app.id}{where} "
+            f"and it is ready for review.\n\n"
+            f"Open the Mfleet admin panel to review the answers and documents, "
+            f"then counter-sign to approve.\n",
+        )
 
 
 @router.get("/{token}/preview")
