@@ -173,10 +173,8 @@ export interface DriverFormValues {
 }
 
 // Metadata returned by GET /api/form/{token}
-export interface FineRow { violation: string; points: string; first: string; second: string }
-export interface FineSection { title: string; rows: FineRow[] }
-export interface FineSchedule { rate_per_point: number; sections: FineSection[] }
-export interface FeesSchedule { title: string; rows: { violation: string; fee: string }[] }
+import type { FineRow, FineSection, FineSchedule, FeesSchedule } from './adminTypes';
+export type { FineRow, FineSection, FineSchedule, FeesSchedule };
 
 export interface Compensation {
   compensation_type: 'percentage' | 'weekly_flat' | 'per_mile' | 'hourly' | null;

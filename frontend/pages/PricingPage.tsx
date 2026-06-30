@@ -3,12 +3,7 @@ import { Helmet } from 'react-helmet-async';
 
 // ─── PRICING DATA (from Mfleet_services.xlsx) ────────────────────────────────
 
-interface ServiceItem {
-  service: string;
-  fee: string;
-}
-
-const SERVICES: ServiceItem[] = [
+const SERVICES: { service: string; fee: string }[] = [
   { service: 'Applying for FMCSA account',                                  fee: '$300 + government fee' },
   { service: 'Establishing a new business',                                 fee: '$150 + government fee + $60 Annual report/Amendment' },
   { service: 'Applying for an IRP account',                                 fee: '$100 + government fee' },
