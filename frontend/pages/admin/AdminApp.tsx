@@ -11,6 +11,7 @@ import CompaniesPage from './CompaniesPage';
 import DriversPage from './DriversPage';
 import TrucksPage from './TrucksPage';
 import AlertsPage from './AlertsPage';
+import SettingsPage from './SettingsPage';
 import UsersPage from './UsersPage';
 import AccountPage from './AccountPage';
 
@@ -34,6 +35,7 @@ const AdminApp: React.FC = () => {
             <Route path="trucks" element={<TrucksPage />} />
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="settings" element={<SettingsPage />} />
             <Route path="account" element={<AccountPage />} />
           </Route>
         </Route>
