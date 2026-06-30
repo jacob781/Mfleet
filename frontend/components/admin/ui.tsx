@@ -130,6 +130,9 @@ const STATUS_STYLES: Record<string, string> = {
   Valid: 'bg-green-100 text-green-800',
   'Expiring Soon': 'bg-amber-100 text-amber-800',
   Expired: 'bg-red-100 text-red-800',
+  // Employer verification statuses.
+  sent: 'bg-blue-100 text-blue-800',
+  received: 'bg-green-100 text-green-800',
 };
 
 export const StatusBadge: React.FC<{ value: string | null | undefined }> = ({ value }) => {

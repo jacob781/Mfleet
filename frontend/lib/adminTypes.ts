@@ -28,6 +28,14 @@ export interface UserUpdate {
 
 export type ApplicationStatus = 'pending_driver' | 'pending_review' | 'approved' | 'rejected';
 
+export interface GoogleStatus {
+  configured: boolean;   // client id/secret/redirect present in backend env
+  connected: boolean;
+  email: string | null;
+  connected_at: string | null;
+  drive_folder_id: string | null;
+}
+
 // --- Companies -------------------------------------------------------------
 
 export interface CompanyCreate {
@@ -41,6 +49,13 @@ export interface CompanyCreate {
   phone?: string | null;
   email?: string | null;
   fax?: string | null;
+  owner_name?: string | null;
+  owner_ssn?: string | null;
+  owner_dob?: string | null;
+  owner_address?: string | null;
+  owner_license_no?: string | null;
+  owner_license_state?: string | null;
+  ein?: string | null;
 }
 
 // Fine/penalty schedule (Schedule A). All amounts/points/text are free-form strings.
@@ -87,6 +102,27 @@ export interface AlertItem {
   driver_id: number | null;
   truck_id: number | null;
   company_id: number | null;
+}
+
+export interface EmployerAttempt {
+  date: string;
+  method: string;
+  destination: string;
+  by: string;
+}
+
+export interface EmployerVerification {
+  id: number;
+  employer_index: number;
+  employer_name: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string; // pending | sent | received
+  sent_at: string | null;
+  attempts: EmployerAttempt[];
+  received_at: string | null;
+  received_from: string | null;
+  has_file: boolean;
 }
 
 // --- Drivers ---------------------------------------------------------------
@@ -248,6 +284,13 @@ export function normalizeCompany(c: CompanyCreate): CompanyCreate {
     'phone',
     'email',
     'fax',
+    'owner_name',
+    'owner_ssn',
+    'owner_dob',
+    'owner_address',
+    'owner_license_no',
+    'owner_license_state',
+    'ein',
   ];
   const out: CompanyCreate = { ...c };
   optional.forEach((k) => {
@@ -270,5 +313,12 @@ export function emptyCompany(): CompanyCreate {
     phone: '',
     email: '',
     fax: '',
+    owner_name: '',
+    owner_ssn: '',
+    owner_dob: '',
+    owner_address: '',
+    owner_license_no: '',
+    owner_license_state: '',
+    ein: '',
   };
 }

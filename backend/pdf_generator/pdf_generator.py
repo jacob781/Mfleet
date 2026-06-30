@@ -316,6 +316,33 @@ class PDFGenerator:
             final.save(str(output_path), incremental=True, encryption=pymupdf.PDF_ENCRYPT_KEEP)
         final.close()
 
+    def generate_employer_packet(self, payload: dict, index: int, output_path: Path) -> bool:
+        """Compile the 2-page verification packet for a single prior employer.
+        Reuses signature prep (part 2 carries the driver's signature); no W-9/merge."""
+        sig_dir = self._prepare_signatures(payload)
+        try:
+            # typst runs with cwd=base_dir, so a relative output (e.g. ./generated_pdfs)
+            # would resolve under pdf_generator/. Make it absolute first.
+            out_abs = str(Path(output_path).resolve())
+            cmd = [
+                "typst", "compile",
+                str(self.base_dir / "employer_packet.typ"),
+                out_abs,
+                "--input", f"payload={json.dumps(payload)}",
+                "--input", f"employer_index={int(index)}",
+            ]
+            result = subprocess.run(cmd, cwd=str(self.base_dir), capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"Employer packet compile failed: {result.stderr}")
+                return False
+            return True
+        except FileNotFoundError:
+            print("Typst not found.")
+            return False
+        finally:
+            if sig_dir and sig_dir.exists():
+                shutil.rmtree(sig_dir, ignore_errors=True)
+
     def generate(self, payload: dict, output_path: Path) -> bool:
         """Generate the complete PDF with all merges."""
 

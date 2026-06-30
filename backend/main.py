@@ -10,7 +10,10 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 from rate_limit import limiter
-from routers import auth, applications, companies, drivers, driver_form, trucks, compliance
+from routers import (
+    auth, applications, companies, drivers, driver_form, trucks, compliance,
+    integrations, employers,
+)
 
 load_dotenv()
 
@@ -24,6 +27,8 @@ app.include_router(companies.router)
 app.include_router(drivers.router)
 app.include_router(trucks.router)
 app.include_router(compliance.router)
+app.include_router(integrations.router)
+app.include_router(employers.router)
 app.include_router(applications.router)
 app.include_router(driver_form.router)
 

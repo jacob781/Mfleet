@@ -8,15 +8,32 @@ import {
   getApplication,
   getApplicationAnswers,
   getApplicationDocumentObjectUrl,
+  getEmployerPacketUrl,
   getPdfObjectUrl,
+  listEmployers,
+  markEmployerReceived,
   regeneratePdf,
+  sendEmployerPacket,
   updateApplicationStatus,
+  updateEmployerEmail,
 } from '../../lib/adminApi';
-import type { ApplicationResponse, ApplicationStatus } from '../../lib/adminTypes';
+import type {
+  ApplicationResponse,
+  ApplicationStatus,
+  EmployerVerification,
+} from '../../lib/adminTypes';
 import type { SignatureData } from '../../lib/driverTypes';
 import { useAuth } from '../../lib/auth';
 import SignatureInput from '../../components/driver/SignatureInput';
-import { Button, Card, CopyButton, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
+import {
+  Button,
+  Card,
+  CopyButton,
+  SelectInput,
+  Spinner,
+  StatusBadge,
+  TextInput,
+} from '../../components/admin/ui';
 
 function fmtDateTime(value: string | null): string {
   if (!value) return '—';
@@ -178,6 +195,125 @@ const SectionBody: React.FC<{ name: string; value: unknown; appId: number }> = (
     return <AnswersView data={value} />;
   }
   return <KeyValueGrid data={value as Record<string, unknown>} />;
+};
+
+// Prior-employer verification packets: edit the employer's email, preview the
+// packet, and email it. Seeded server-side from the driver's employment history.
+const EmployerVerifications: React.FC<{ appId: number }> = ({ appId }) => {
+  const [rows, setRows] = useState<EmployerVerification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [emails, setEmails] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listEmployers(appId)
+      .then((r) => {
+        setRows(r);
+        setEmails(Object.fromEntries(r.map((e) => [e.id, e.email ?? ''])));
+      })
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, [appId]);
+
+  const patch = (row: EmployerVerification) => {
+    const email = emails[row.id]?.trim() || null;
+    if (email === (row.email ?? null)) return;
+    updateEmployerEmail(appId, row.id, email)
+      .then((updated) => setRows((rs) => rs.map((r) => (r.id === row.id ? updated : r))))
+      .catch(() => {});
+  };
+
+  const view = (row: EmployerVerification) => {
+    const tab = window.open('', '_blank');
+    getEmployerPacketUrl(appId, row.id)
+      .then((url) => { if (tab) tab.location.href = url; })
+      .catch(() => tab?.close());
+  };
+
+  const run = async (row: EmployerVerification, fn: () => Promise<EmployerVerification>, fail: string) => {
+    setError(null);
+    setBusy(row.id);
+    try {
+      const updated = await fn();
+      setRows((rs) => rs.map((r) => (r.id === row.id ? updated : r)));
+    } catch (e) {
+      setError(e instanceof ApiError && typeof e.detail === 'string' ? e.detail : fail);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const send = (row: EmployerVerification) =>
+    run(row, () => sendEmployerPacket(appId, row.id), 'Could not send the packet.');
+  const markReceived = (row: EmployerVerification) =>
+    run(row, () => markEmployerReceived(appId, row.id), 'Could not mark received.');
+
+  if (loading) return <Spinner className="h-5 w-5" />;
+  if (rows.length === 0)
+    return <p className="text-sm text-mfleet-gray">No prior employers listed by the driver.</p>;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {rows.map((row) => (
+        <div key={row.id} className="rounded-lg border border-gray-200 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-medium text-mfleet-gray-dark">
+              {row.employer_name || `Employer #${row.employer_index + 1}`}
+              {row.phone && <span className="ml-2 text-xs text-mfleet-gray">{row.phone}</span>}
+            </div>
+            <StatusBadge value={row.status} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TextInput
+              type="email"
+              placeholder="employer@example.com"
+              value={emails[row.id] ?? ''}
+              onChange={(e) => setEmails((m) => ({ ...m, [row.id]: e.target.value }))}
+              onBlur={() => patch(row)}
+              className="max-w-xs"
+            />
+            <Button variant="secondary" onClick={() => view(row)}>
+              View packet
+            </Button>
+            {row.status !== 'received' && (
+              <Button
+                onClick={() => send(row)}
+                disabled={busy === row.id || !emails[row.id]?.trim() || row.attempts.length >= 3}
+              >
+                {busy === row.id ? <Spinner className="h-4 w-4 text-white" /> : row.attempts.length ? 'Resend' : 'Send'}
+              </Button>
+            )}
+            {row.status === 'sent' && (
+              <Button variant="secondary" onClick={() => markReceived(row)} disabled={busy === row.id}>
+                Mark received
+              </Button>
+            )}
+          </div>
+          {(row.attempts.length > 0 || row.received_at) && (
+            <div className="mt-2 flex flex-col gap-0.5 text-xs text-mfleet-gray">
+              {row.attempts.map((a, i) => (
+                <div key={i}>
+                  Sent #{i + 1} to <span className="text-mfleet-gray-dark">{a.destination}</span> on {a.date}
+                  <span className="text-gray-400"> · by {a.by}</span>
+                </div>
+              ))}
+              {row.attempts.length >= 3 && row.status !== 'received' && (
+                <div className="text-amber-700">Max attempts (3) reached — no reply yet.</div>
+              )}
+              {row.received_at && (
+                <div className="text-green-700">
+                  Reply received{row.received_from ? ` from ${row.received_from}` : ''} on{' '}
+                  {new Date(row.received_at).toLocaleString()}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const ApplicationDetailPage: React.FC = () => {
@@ -555,6 +691,19 @@ const ApplicationDetailPage: React.FC = () => {
               })()}
             </div>
           )}
+        </Card>
+      )}
+
+      {/* Prior-employer verification packets — available once the driver has signed */}
+      {app.submitted_at && (
+        <Card className="p-6">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
+            Employer verification
+          </h2>
+          <p className="mb-4 text-xs text-mfleet-gray">
+            Add each previous employer's email, then send them the signed verification packet.
+          </p>
+          <EmployerVerifications appId={app.id} />
         </Card>
       )}
 

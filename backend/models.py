@@ -2,7 +2,7 @@ import uuid
 from typing import List, Optional, Literal, Dict, Annotated
 from datetime import date, datetime, timezone, timedelta
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from pydantic import BaseModel, EmailStr, model_validator, AfterValidator
 
@@ -199,6 +199,15 @@ class Company(SQLModel, table=True):
     email: Optional[str] = None
     fax: Optional[str] = None
 
+    # Owner / principal of the carrier. SSN and EIN are sensitive, encrypted at rest.
+    owner_name: Optional[str] = None
+    owner_ssn: Optional[str] = Field(default=None, sa_column=Column(EncryptedString, nullable=True))
+    owner_dob: Optional[date] = None
+    owner_address: Optional[str] = None
+    owner_license_no: Optional[str] = None
+    owner_license_state: Optional[str] = None
+    ein: Optional[str] = Field(default=None, sa_column=Column(EncryptedString, nullable=True))
+
     # Per-company penalty schedule (Schedule A). Seeded with the standard table on
     # creation; managers may edit it. A snapshot is copied into manager_config at
     # application-creation time so each contract freezes the schedule it was made with.
@@ -301,6 +310,49 @@ class User(SQLModel, table=True):
     )
 
     applications: List["DriverApplication"] = Relationship(back_populates="created_by")
+
+
+class EmployerVerification(SQLModel, table=True):
+    """One prior-employer verification packet per application × employer. The driver's
+    employment_history supplies name/phone but no email — the manager adds/edits the
+    email here, then generates the 2-page packet and emails it to the employer."""
+    __table_args__ = (UniqueConstraint("application_id", "employer_index"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    application_id: int = Field(foreign_key="driverapplication.id", index=True)
+    employer_index: int  # position in the driver's employment_history list
+    employer_name: Optional[str] = None  # snapshot for the manager's list
+    email: Optional[str] = None          # manager-entered recipient
+    status: str = Field(default="pending")  # pending | sent | received
+    sent_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    # Each send (manual or auto) appends {date, method, destination, by}. Up to 3 are
+    # rendered on the packet's records-request page (FMCSA 3-attempt form).
+    attempts: list = Field(
+        default_factory=list,
+        sa_column=Column(JSONB, nullable=False, server_default="[]"),
+    )
+    received_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    received_from: Optional[str] = None  # email address the reply came from (Gmail detect)
+    file_path: Optional[str] = None      # generated packet PDF (absolute path)
+
+
+class GoogleAccount(SQLModel, table=True):
+    """Singleton (id=1) holding the app-wide Google Drive OAuth connection.
+    Only the long-lived refresh token is stored (encrypted); access tokens are
+    short-lived and fetched on demand. `pending_state` guards the OAuth callback."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    account_email: Optional[str] = None
+    refresh_token: Optional[str] = Field(default=None, sa_column=Column(EncryptedString, nullable=True))
+    drive_folder_id: Optional[str] = None  # parent folder for uploads (optional)
+    pending_state: Optional[str] = None     # CSRF state for the in-flight connect
+    connected_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
 
 
 class DriverApplication(SQLModel, table=True):

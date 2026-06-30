@@ -10,6 +10,8 @@ import type {
   AlertItem,
   ComplianceDocument,
   DriverUpdate,
+  EmployerVerification,
+  GoogleStatus,
   Token,
   TruckCreate,
   TruckResponse,
@@ -166,6 +168,32 @@ export function listDriverDocuments(id: number): Promise<ComplianceDocument[]> {
   return request(`/api/drivers/${id}/documents`);
 }
 
+// --- Employer verification --------------------------------------------------
+
+export function listEmployers(appId: number): Promise<EmployerVerification[]> {
+  return request(`/api/applications/${appId}/employers`);
+}
+
+export function updateEmployerEmail(
+  appId: number,
+  evId: number,
+  email: string | null,
+): Promise<EmployerVerification> {
+  return jsonRequest(`/api/applications/${appId}/employers/${evId}`, 'PATCH', { email });
+}
+
+export function sendEmployerPacket(appId: number, evId: number): Promise<EmployerVerification> {
+  return request(`/api/applications/${appId}/employers/${evId}/send`, { method: 'POST' });
+}
+
+export function markEmployerReceived(appId: number, evId: number): Promise<EmployerVerification> {
+  return request(`/api/applications/${appId}/employers/${evId}/received`, { method: 'POST' });
+}
+
+export async function getEmployerPacketUrl(appId: number, evId: number): Promise<string> {
+  return URL.createObjectURL(await fetchFileBlob(`/api/applications/${appId}/employers/${evId}/pdf`));
+}
+
 // --- Compliance documents & alerts -----------------------------------------
 
 export function listTruckDocuments(id: number): Promise<ComplianceDocument[]> {
@@ -235,6 +263,20 @@ export function updateTruck(id: number, body: Partial<TruckCreate>): Promise<Tru
 
 export function deleteTruck(id: number): Promise<void> {
   return request(`/api/trucks/${id}`, { method: 'DELETE' }).then(() => undefined);
+}
+
+// --- Integrations (Google Drive) -------------------------------------------
+
+export function googleStatus(): Promise<GoogleStatus> {
+  return request('/api/integrations/google/status');
+}
+
+export function googleConnect(): Promise<{ auth_url: string }> {
+  return request('/api/integrations/google/connect', { method: 'POST' });
+}
+
+export function googleDisconnect(): Promise<void> {
+  return request('/api/integrations/google/disconnect', { method: 'POST' }).then(() => undefined);
 }
 
 // --- Applications ----------------------------------------------------------

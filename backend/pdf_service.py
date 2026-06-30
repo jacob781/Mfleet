@@ -101,6 +101,26 @@ def build_payload(application: DriverApplication, answers: dict) -> dict:
     return payload
 
 
+def generate_employer_packet(
+    application: DriverApplication, answers: dict, index: int,
+    attempts: list | None = None, received_at=None,
+) -> Path:
+    """Build the signed verification packet for one prior employer (by index into
+    employment_history), stamping the send-attempt log onto the records-request page.
+    Returns the stored path. Raises on bad index/compile."""
+    payload = build_payload(application, answers)  # validates; includes the driver signature
+    history = payload.get("employment_history") or []
+    if not 0 <= index < len(history):
+        raise ValueError(f"employer index {index} out of range")
+    payload["employer_attempts"] = attempts or []
+    if received_at is not None:
+        payload["employer_received"] = {"date": received_at.strftime("%m/%d/%Y")}
+    out = _output_dir() / f"employer_app{application.id}_{index}.pdf"
+    if not PDFGenerator().generate_employer_packet(payload, index, out):
+        raise RuntimeError("Employer packet generation failed")
+    return out
+
+
 def generate_preview_pdf(application: DriverApplication, answers: dict) -> Path:
     """Generate a one-off preview PDF from the current draft answers into a temp
     file, WITHOUT touching the application's stored pdf status/path. The caller
@@ -146,3 +166,12 @@ def generate_application_pdf(application_id: int) -> None:
             app.pdf_error = str(exc)[:1000]
         session.add(app)
         session.commit()
+
+        # On final (counter-signed) approval, mirror the signed packet to Google Drive.
+        # Best-effort: a Drive failure never affects the application's PDF status.
+        if app.pdf_status == "ready" and app.status == "approved":
+            try:
+                import google_drive
+                google_drive.upload_application(app.id)
+            except Exception as exc:  # noqa: BLE001
+                print(f"Drive upload skipped for app {app.id}: {exc}")

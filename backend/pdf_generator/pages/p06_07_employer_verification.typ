@@ -7,8 +7,8 @@
 
 // Part 1: Employer verification form
 #let employer-verification-part1(data, emp, i) = {
-  pagebreak()
-  
+  pagebreak(weak: true)  // weak: collapses at doc start (standalone packet has no blank lead page)
+
   // Header
   align(center)[
     #text(size: 24pt, weight: "bold")[#company-name(data)]
@@ -258,8 +258,8 @@
 
 // Part 2: Authorization text
 #let employer-verification-part2(data) = {
-  pagebreak()
-  
+  pagebreak(weak: true)
+
   // Subtitle
   align(center)[
     #text(size: 12pt, weight: "bold")[PAST EMPLOYMENT VERIFICATION (part 2)]

@@ -5,6 +5,8 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
+from models import SsnStr, TinStr
+
 
 class Token(BaseModel):
     access_token: str
@@ -56,6 +58,14 @@ class CompanyCreate(BaseModel):
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
     fax: Optional[str] = None
+    # Owner / principal + company EIN. SSN/EIN re-checked for digit count here.
+    owner_name: Optional[str] = None
+    owner_ssn: Optional[SsnStr] = None
+    owner_dob: Optional[date] = None
+    owner_address: Optional[str] = None
+    owner_license_no: Optional[str] = None
+    owner_license_state: Optional[str] = None
+    ein: Optional[TinStr] = None
 
 
 class CompanyResponse(BaseModel):
@@ -70,6 +80,13 @@ class CompanyResponse(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     fax: Optional[str] = None
+    owner_name: Optional[str] = None
+    owner_ssn: Optional[str] = None
+    owner_dob: Optional[date] = None
+    owner_address: Optional[str] = None
+    owner_license_no: Optional[str] = None
+    owner_license_state: Optional[str] = None
+    ein: Optional[str] = None
     fine_schedule: Optional[dict] = None
     fees_schedule: Optional[dict] = None
 
@@ -89,6 +106,13 @@ class CompanyUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
     fax: Optional[str] = None
+    owner_name: Optional[str] = None
+    owner_ssn: Optional[SsnStr] = None
+    owner_dob: Optional[date] = None
+    owner_address: Optional[str] = None
+    owner_license_no: Optional[str] = None
+    owner_license_state: Optional[str] = None
+    ein: Optional[TinStr] = None
     fine_schedule: Optional[dict] = None
     fees_schedule: Optional[dict] = None
 
@@ -147,6 +171,28 @@ class AlertItem(BaseModel):
     driver_id: Optional[int] = None
     truck_id: Optional[int] = None
     company_id: Optional[int] = None
+
+
+# --- Employer verification ---------------------------------------------------
+
+class EmployerVerificationResponse(BaseModel):
+    id: int
+    employer_index: int
+    employer_name: Optional[str] = None
+    phone: Optional[str] = None          # context from employment_history (read-only)
+    email: Optional[str] = None
+    status: str                          # pending | sent | received
+    sent_at: Optional[datetime] = None
+    attempts: List[dict] = []            # [{date, method, destination, by, message_id}]
+    received_at: Optional[datetime] = None
+    received_from: Optional[str] = None
+    has_file: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class EmployerEmailUpdate(BaseModel):
+    email: Optional[EmailStr] = None     # null clears it
 
 
 # --- Drivers -----------------------------------------------------------------

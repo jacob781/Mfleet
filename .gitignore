@@ -58,6 +58,7 @@ pdf_open_questions.md
 backend/pdf_generator/*
 !backend/pdf_generator/pdf_generator.py
 !backend/pdf_generator/main.typ
+!backend/pdf_generator/employer_packet.typ
 !backend/pdf_generator/styles.typ
 !backend/pdf_generator/fw9.pdf
 !backend/pdf_generator/FINES_AND_FEES_SCHEDULE.pdf
