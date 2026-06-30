@@ -15,8 +15,10 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
+import uploads
 from database import get_session
 from dependencies import get_current_user
+from fine_schedule import default_fine_schedule, default_fees_schedule
 from models import Company, Driver, DriverApplication, ManagerConfig, User
 from pdf_service import generate_application_pdf
 from schemas import (
@@ -48,6 +50,9 @@ def _company_snapshot(company: Company) -> dict:
         "company_phone": company.phone or "",
         "company_email": company.email,
         "company_fax": company.fax,
+        # Freeze the company's current penalty + fees tables into this contract.
+        "fine_schedule": company.fine_schedule or default_fine_schedule(),
+        "fees_schedule": company.fees_schedule or default_fees_schedule(),
     }
 
 
@@ -93,7 +98,13 @@ def create_application(
                 detail="Driver does not belong to the selected company",
             )
 
-    merged = {**_company_snapshot(company), **body.settings.model_dump()}
+    # A None fine_schedule in settings means "no per-application override" — don't let
+    # it clobber the company's snapshotted table. A provided dict overrides as expected.
+    settings_dict = body.settings.model_dump()
+    for key in ("fine_schedule", "fees_schedule"):
+        if settings_dict.get(key) is None:
+            settings_dict.pop(key, None)  # keep the company snapshot
+    merged = {**_company_snapshot(company), **settings_dict}
     try:
         config = ManagerConfig(**merged)
     except ValidationError as exc:
@@ -170,6 +181,10 @@ def update_status(
     if not application:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
     application.status = body.status
+    if body.status == "pending_driver":
+        # The stored PDF reflects the pre-correction submission — stop showing
+        # it as "ready" until the driver resubmits and it's regenerated.
+        application.pdf_status = None
     session.add(application)
     session.commit()
     session.refresh(application)
@@ -302,3 +317,25 @@ def download_pdf(
         media_type="application/pdf",
         filename=f"application_{application_id}.pdf",
     )
+
+
+@router.get("/{application_id}/documents/{doc_type}")
+def download_document(
+    application_id: int,
+    doc_type: str,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> FileResponse:
+    """Serve a driver-uploaded document to the manager (login-gated, not static)."""
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    rel = ((application.answers.answers if application.answers else {}) or {}).get(
+        "documents", {}
+    ).get(doc_type)
+    if not rel:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not uploaded")
+    path = uploads.resolve(rel)
+    if not path.exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File missing")
+    return FileResponse(path)
