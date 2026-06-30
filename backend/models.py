@@ -1,12 +1,44 @@
 import uuid
-from typing import List, Optional, Literal, Dict
+from typing import List, Optional, Literal, Dict, Annotated
 from datetime import date, datetime, timezone, timedelta
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
-from pydantic import BaseModel, EmailStr, model_validator
+from pydantic import BaseModel, EmailStr, model_validator, AfterValidator
 
 from crypto import EncryptedString, EncryptedJSON
+
+
+# --- Format validators (server-side mirror of frontend lib/masks.ts) ----------
+# The frontend masks SSN/phone/zip/etc., but masks can be bypassed by calling the
+# API directly. These re-check digit counts at the trust boundary. Empty passes —
+# presence is a separate `required` concern, matching the frontend rule exactly.
+def _digits(s: str) -> str:
+    return "".join(c for c in str(s) if c.isdigit())
+
+def _exact_digits(n: int, label: str):
+    def check(v: str) -> str:
+        if v and len(_digits(v)) != n:
+            raise ValueError(f"{label} must be {n} digits")
+        return v
+    return check
+
+def _zip_check(v: str) -> str:
+    if v and len(_digits(v)) not in (5, 9):
+        raise ValueError("ZIP must be 5 digits (or 9 for ZIP+4)")
+    return v
+
+def _account_check(v: str) -> str:
+    if v and (not v.isdigit() or not 4 <= len(v) <= 17):
+        raise ValueError("Account number must be 4–17 digits")
+    return v
+
+SsnStr = Annotated[str, AfterValidator(_exact_digits(9, "SSN"))]
+TinStr = Annotated[str, AfterValidator(_exact_digits(9, "TIN (SSN/EIN)"))]
+PhoneStr = Annotated[str, AfterValidator(_exact_digits(10, "Phone"))]
+RoutingStr = Annotated[str, AfterValidator(_exact_digits(9, "Routing number"))]
+ZipStr = Annotated[str, AfterValidator(_zip_check)]
+AccountStr = Annotated[str, AfterValidator(_account_check)]
 
 
 # --- Column default helpers ---------------------------------------------------
@@ -23,6 +55,21 @@ def _default_expiry() -> datetime:
 def _new_token() -> str:
     """Unguessable URL-safe access token for a driver link (UUIDv4 hex)."""
     return uuid.uuid4().hex
+
+
+# Days before expiry a document counts as "Expiring Soon" (drives alerts + emails).
+EXPIRY_SOON_DAYS = 30
+
+
+def doc_status(expiry: date, today: Optional[date] = None) -> str:
+    """Live compliance status from the expiry date — the stored column drifts, so
+    alerts/UI compute this on read instead of trusting it."""
+    today = today or date.today()
+    if expiry < today:
+        return "Expired"
+    if expiry <= today + timedelta(days=EXPIRY_SOON_DAYS):
+        return "Expiring Soon"
+    return "Valid"
 
 
 # ==============================================================================
@@ -57,7 +104,9 @@ class ManagerConfig(BaseModel):
 
     # Compensation (Supplement B). The active rate depends on compensation_type.
     compensation_type: Literal["percentage", "weekly_flat", "per_mile", "hourly"] = "percentage"
-    percentage_rate: int = 0       # compensation_type == "percentage"
+    percentage_rate: int = 0       # legacy single percentage rate (fallback for old apps)
+    percentage_rate_non_amazon: int = 0  # compensation_type == "percentage" (primary)
+    percentage_rate_amazon: int = 0      # optional second rate, only if Amazon loads differ
     weekly_amount: float = 0       # compensation_type == "weekly_flat"
     loaded_rate: float = 0         # compensation_type == "per_mile"
     empty_rate: float = 0          # compensation_type == "per_mile"
@@ -74,10 +123,19 @@ class ManagerConfig(BaseModel):
     prepass_monthly: int = 0
     administration_fee_weekly: int = 0
 
+    # Penalties page (Schedule A): manager toggle + the fine table snapshot used
+    # for this contract. fine_schedule is filled from the company at creation; if
+    # absent the Typst page falls back to the standard schedule.
+    include_penalties: bool = True
+    fine_schedule: Optional[Dict] = None
+    # Compact FINES AND FEES SCHEDULE — separate toggle + table snapshot.
+    include_fees: bool = True
+    fees_schedule: Optional[Dict] = None
+
     @model_validator(mode="after")
     def _require_rate_for_type(self) -> "ManagerConfig":
-        if self.compensation_type == "percentage" and self.percentage_rate <= 0:
-            raise ValueError("percentage_rate must be > 0 for compensation_type='percentage'")
+        if self.compensation_type == "percentage" and (self.percentage_rate_non_amazon or self.percentage_rate) <= 0:
+            raise ValueError("percentage rate (non-Amazon) must be > 0 for compensation_type='percentage'")
         if self.compensation_type == "weekly_flat" and self.weekly_amount <= 0:
             raise ValueError("weekly_amount must be > 0 for compensation_type='weekly_flat'")
         if self.compensation_type == "hourly" and self.hourly_rate <= 0:
@@ -117,6 +175,7 @@ class DrugAlcoholHistory(BaseModel):
     tested_positive_3yrs: bool = False
     breath_alcohol_04_3yrs: bool = False
     refused_test_3yrs: bool = False
+    tested_positive_preemployment: bool = False
     violated_dot_regulations: bool = False
     sap_evaluation: bool = False
     sap_details: Optional[str] = None
@@ -139,7 +198,16 @@ class Company(SQLModel, table=True):
     phone: Optional[str] = None
     email: Optional[str] = None
     fax: Optional[str] = None
-    
+
+    # Per-company penalty schedule (Schedule A). Seeded with the standard table on
+    # creation; managers may edit it. A snapshot is copied into manager_config at
+    # application-creation time so each contract freezes the schedule it was made with.
+    fine_schedule: Optional[dict] = Field(default=None, sa_column=Column(JSONB, nullable=True))
+
+    # Per-company compact "FINES AND FEES SCHEDULE" (flat violation -> fee). Separate
+    # from fine_schedule; same snapshot-on-create behaviour.
+    fees_schedule: Optional[dict] = Field(default=None, sa_column=Column(JSONB, nullable=True))
+
     # Relationships
     drivers: List["Driver"] = Relationship(back_populates="company")
     trucks: List["Truck"] = Relationship(back_populates="company")
@@ -331,12 +399,12 @@ class AddressSchema(BaseModel):
     street: str
     city: str
     state: str
-    zip: str
+    zip: ZipStr
     years: Optional[str] = None # Only used in residency history
 
 class EmergencyContact(BaseModel):
     name: str
-    phone: str
+    phone: PhoneStr
     relation: str
 
 class CDLInfo(BaseModel):
@@ -346,10 +414,7 @@ class CDLInfo(BaseModel):
     expiration: date # This maps to ComplianceDocument.expiry_date
 
 class MedicalInfo(BaseModel):
-    examiner_name: str
-    registry_number: str
     expiration_date: date # This maps to ComplianceDocument.expiry_date
-    waiver: bool
 
 class ExperienceItem(BaseModel):
     type: str
@@ -366,14 +431,25 @@ class Violation(BaseModel):
     location: str
     charge: str
     penalty: str
+    vehicle_type: Optional[str] = ""   # "Type of Vehicle Operated" (Certification of Violations page)
+
+class EmploymentDeclaration(BaseModel):
+    """Driver's declaration about employment gaps (DECLARATION OF EMPLOYMENT STATUS page).
+    The gap LIST is recomputed server-side from employment_history (the trust anchor, so a
+    direct API call can't hide a gap). These are the parts only the driver supplies:
+    a per-gap explanation keyed by "<from>_<to>" (ISO), and the two attestations."""
+    gap_explanations: Dict[str, str] = {}  # { "2019-06-30_2020-02-01": "Attended CDL school" }
+    not_employed_affirm: bool = False       # "I was not employed by any company or individual"
+    not_convicted_affirm: bool = False      # "...not convicted of a criminal act involving a CMV"
+
 
 class EmploymentItem(BaseModel):
     employer_name: str
     employer_address: str
     employer_city: str
     employer_state: str
-    employer_zip: str
-    employer_phone: str
+    employer_zip: ZipStr
+    employer_phone: PhoneStr
     employer_fax: Optional[str] = None
     start_date: str
     end_date: str
@@ -400,15 +476,19 @@ class TruckSchema(BaseModel):
 class W9Schema(BaseModel):
     name: str
     business_name: Optional[str] = ""
-    type: Literal["Individual", "C Corp", "S Corp", "Partnership"]
+    type: Literal["Individual", "C Corp", "S Corp", "Partnership", "LLC", "Trust/estate", "Other"]
+    llc_classification: Optional[str] = ""       # C/S/P, only when type = LLC
+    other_classification: Optional[str] = ""     # free text, only when type = Other
+    exempt_payee_code: Optional[str] = ""        # W-9 line 4, entities only
+    fatca_exemption_code: Optional[str] = ""     # W-9 line 4, entities only
     address: str
     city_state_zip: str
-    tin: str
+    tin: TinStr
 
 class BankingSchema(BaseModel):
     bank_name: str
-    routing_number: str
-    account_number: str
+    routing_number: RoutingStr
+    account_number: AccountStr
     account_type: Literal["Checking", "Savings"]
 
 class PolicyItem(BaseModel):
@@ -431,9 +511,9 @@ class ApplicationPayload(BaseModel):
     first_name: str
     last_name: str
     middle_name: Optional[str] = ""
-    ssn: str
+    ssn: SsnStr
     dob: date
-    phone: str
+    phone: PhoneStr
     email: EmailStr
     
     address: AddressSchema
@@ -449,7 +529,8 @@ class ApplicationPayload(BaseModel):
     violations: List[Violation]
     drug_alcohol_history: DrugAlcoholHistory
     employment_history: List[EmploymentItem]
-    
+    employment_declaration: EmploymentDeclaration = EmploymentDeclaration()
+
     # Logs — Typst iterates this as a list (see pages/p09_seven_day_log.typ)
     seven_day_log: List[DailyLog]
     last_relieved_time: str
@@ -471,3 +552,23 @@ class ApplicationPayload(BaseModel):
     
     # Signatures (key = section name, value = signature data)
     signatures: Dict[str, SignatureData] = {}
+
+    # Uploaded documents (key = doc_type, value = path relative to UPLOADS_DIR).
+    # pdf_service resolves these to absolute paths before generation.
+    documents: Dict[str, str] = {}
+
+    # Expiry dates for uploaded truck documents (key = doc_type, ISO date). CDL and
+    # medical expiries come from the cdl/medical sections; these cover the docs that
+    # have no dedicated field — annual_inspection and registration.
+    document_expiries: Dict[str, date] = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_blank_expiries(cls, data):
+        # Untouched date inputs arrive as "" — drop them so the dict parses (and so a
+        # missing truck-doc expiry doesn't 422 the whole submit; uploads are soft-required).
+        if isinstance(data, dict) and isinstance(data.get("document_expiries"), dict):
+            data["document_expiries"] = {
+                k: v for k, v in data["document_expiries"].items() if v
+            }
+        return data

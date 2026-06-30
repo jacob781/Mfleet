@@ -1,4 +1,5 @@
-import type { DriverFormValues, FormMeta } from './driverTypes';
+import type { DriverFormValues, FormMeta, EmploymentItem } from './driverTypes';
+import type { Gap } from './employmentGaps';
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_URL ||
@@ -46,12 +47,41 @@ export function submitForm(token: string, values: DriverFormValues): Promise<any
   }).then(parse);
 }
 
+// Ask the server (the single source of truth) to compute employment gaps from the
+// current history, so the UI never recomputes them itself.
+export function getEmploymentGaps(
+  token: string,
+  employment_history: EmploymentItem[],
+  application_date: string,
+): Promise<Gap[]> {
+  return fetch(`${API_BASE}/api/form/${token}/employment-gaps`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ employment_history, application_date }),
+  })
+    .then(parse)
+    .then((r) => r.gaps as Gap[]);
+}
+
 export function getStatus(token: string): Promise<{ status: string; pdf_status: string | null }> {
   return fetch(`${API_BASE}/api/form/${token}/status`).then(parse);
 }
 
 export function pdfUrl(token: string): string {
   return `${API_BASE}/api/form/${token}/pdf`;
+}
+
+// Upload a required document (multipart). Stored on the server by id; the path is
+// recorded in the draft and folded into the final contract.
+export function uploadDocument(token: string, docType: string, file: File): Promise<any> {
+  const body = new FormData();
+  body.append('file', file);
+  return fetch(`${API_BASE}/api/form/${token}/documents/${docType}`, { method: 'POST', body }).then(parse);
+}
+
+// View an already-uploaded document back (token-gated, never static).
+export function documentUrl(token: string, docType: string): string {
+  return `${API_BASE}/api/form/${token}/documents/${docType}`;
 }
 
 // Fetch the full assembled contract preview as a blob object URL (token access).
@@ -89,7 +119,7 @@ export function emptyDriverForm(): DriverFormValues {
     residency_history: [],
     emergency: { name: '', phone: '', relation: '' },
     cdl: { state: '', number: '', type: '', expiration: '' },
-    medical: { examiner_name: '', registry_number: '', expiration_date: '', waiver: false },
+    medical: { expiration_date: '' },
     experience: {
       straight: emptyExperienceItem(),
       tractor: emptyExperienceItem(),
@@ -102,11 +132,13 @@ export function emptyDriverForm(): DriverFormValues {
       tested_positive_3yrs: false,
       breath_alcohol_04_3yrs: false,
       refused_test_3yrs: false,
+      tested_positive_preemployment: false,
       violated_dot_regulations: false,
       sap_evaluation: false,
       sap_details: '',
     },
     employment_history: [],
+    employment_declaration: { gap_explanations: {}, not_employed_affirm: false, not_convicted_affirm: false },
     seven_day_log: Array.from({ length: 7 }, () => ({ date: '', hours: '', relieved_time: '' })),
     last_relieved_time: '',
     last_relieved_date: '',
@@ -117,5 +149,6 @@ export function emptyDriverForm(): DriverFormValues {
     banking: { bank_name: '', routing_number: '', account_number: '', account_type: 'Checking' },
     policies: [],
     signatures: {},
+    document_expiries: { annual_inspection: '', registration: '' },
   };
 }

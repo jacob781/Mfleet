@@ -10,8 +10,15 @@ from sqlmodel import Session, select
 
 from database import get_session
 from dependencies import get_current_user
-from models import Driver, DriverApplication, User
-from schemas import DriverApplicationBrief, DriverDetail, DriverSummary
+from models import ComplianceDocument, Driver, DriverApplication, User
+from routers.compliance import doc_response
+from schemas import (
+    ComplianceDocumentResponse,
+    DriverApplicationBrief,
+    DriverDetail,
+    DriverSummary,
+    DriverUpdate,
+)
 
 router = APIRouter(prefix="/api/drivers", tags=["Drivers"])
 
@@ -43,3 +50,33 @@ def get_driver(
     detail = DriverDetail.model_validate(driver)
     detail.applications = [DriverApplicationBrief.model_validate(a) for a in apps]
     return detail
+
+
+@router.patch("/{driver_id}", response_model=DriverDetail)
+def update_driver(
+    driver_id: int,
+    body: DriverUpdate,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> DriverDetail:
+    driver = session.get(Driver, driver_id)
+    if not driver:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Driver not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(driver, field, value)
+    session.add(driver)
+    session.commit()
+    session.refresh(driver)
+    return DriverDetail.model_validate(driver)
+
+
+@router.get("/{driver_id}/documents", response_model=List[ComplianceDocumentResponse])
+def list_driver_documents(
+    driver_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> List[ComplianceDocumentResponse]:
+    docs = session.exec(
+        select(ComplianceDocument).where(ComplianceDocument.driver_id == driver_id)
+    ).all()
+    return [doc_response(d) for d in docs]

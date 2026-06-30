@@ -1,16 +1,25 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
+import { listAlerts } from '../../lib/adminApi';
 import { Button, cn } from './ui';
 
 const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [alertCount, setAlertCount] = useState(0);
+
+  // Live count for the alerts badge; refreshed on mount (cheap query).
+  useEffect(() => {
+    listAlerts().then((a) => setAlertCount(a.length)).catch(() => setAlertCount(0));
+  }, []);
 
   const navItems = [
     { to: '/admin/applications', label: 'Applications' },
     { to: '/admin/companies', label: 'Companies' },
     { to: '/admin/drivers', label: 'Drivers' },
+    { to: '/admin/trucks', label: 'Vehicles' },
+    { to: '/admin/alerts', label: 'Alerts', badge: alertCount },
     // User management is admin-only.
     ...(user?.role === 'admin' ? [{ to: '/admin/users', label: 'Users' }] : []),
     { to: '/admin/account', label: 'Account' },
@@ -44,6 +53,11 @@ const AdminLayout: React.FC = () => {
                   }
                 >
                   {item.label}
+                  {'badge' in item && (item.badge ?? 0) > 0 && (
+                    <span className="ml-1.5 inline-flex items-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>

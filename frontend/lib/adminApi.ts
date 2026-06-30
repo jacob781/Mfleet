@@ -7,7 +7,12 @@ import type {
   CompanyResponse,
   DriverDetail,
   DriverSummary,
+  AlertItem,
+  ComplianceDocument,
+  DriverUpdate,
   Token,
+  TruckCreate,
+  TruckResponse,
   UserCreate,
   UserResponse,
   UserUpdate,
@@ -138,6 +143,10 @@ export function createCompany(body: CompanyCreate): Promise<CompanyResponse> {
   return jsonRequest('/api/companies', 'POST', body);
 }
 
+export function updateCompany(id: number, body: Partial<CompanyResponse>): Promise<CompanyResponse> {
+  return jsonRequest(`/api/companies/${id}`, 'PATCH', body);
+}
+
 // --- Drivers ---------------------------------------------------------------
 
 export function listDrivers(companyId?: number): Promise<DriverSummary[]> {
@@ -147,6 +156,85 @@ export function listDrivers(companyId?: number): Promise<DriverSummary[]> {
 
 export function getDriver(id: number): Promise<DriverDetail> {
   return request(`/api/drivers/${id}`);
+}
+
+export function updateDriver(id: number, body: DriverUpdate): Promise<DriverDetail> {
+  return jsonRequest(`/api/drivers/${id}`, 'PATCH', body);
+}
+
+export function listDriverDocuments(id: number): Promise<ComplianceDocument[]> {
+  return request(`/api/drivers/${id}/documents`);
+}
+
+// --- Compliance documents & alerts -----------------------------------------
+
+export function listTruckDocuments(id: number): Promise<ComplianceDocument[]> {
+  return request(`/api/trucks/${id}/documents`);
+}
+
+export function listAlerts(days?: number): Promise<AlertItem[]> {
+  const qs = days != null ? `?days=${days}` : '';
+  return request(`/api/compliance/alerts${qs}`);
+}
+
+// Files (compliance docs, application uploads) are JWT-protected — fetch with the
+// auth header and hand back a blob/object URL the browser can show or save.
+async function fetchFileBlob(path: string): Promise<Blob> {
+  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() });
+  if (!res.ok) await parse(res); // throws ApiError with the server detail
+  return res.blob();
+}
+
+function saveBlob(blob: Blob, baseName: string): void {
+  const ext =
+    blob.type === 'application/pdf' ? 'pdf'
+    : blob.type === 'image/png' ? 'png'
+    : blob.type.startsWith('image/') ? 'jpg'
+    : 'bin';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${baseName}.${ext}`.replace(/\s+/g, '_');
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function getDocumentObjectUrl(docId: number): Promise<string> {
+  return URL.createObjectURL(await fetchFileBlob(`/api/compliance/documents/${docId}/file`));
+}
+
+export async function downloadDocument(docId: number, baseName: string): Promise<void> {
+  saveBlob(await fetchFileBlob(`/api/compliance/documents/${docId}/file`), baseName);
+}
+
+// Driver-uploaded documents served per application (by doc_type, e.g. "cdl").
+export async function getApplicationDocumentObjectUrl(appId: number, docType: string): Promise<string> {
+  return URL.createObjectURL(await fetchFileBlob(`/api/applications/${appId}/documents/${docType}`));
+}
+
+export async function downloadApplicationDocument(appId: number, docType: string, baseName: string): Promise<void> {
+  saveBlob(await fetchFileBlob(`/api/applications/${appId}/documents/${docType}`), baseName);
+}
+
+// --- Trucks ----------------------------------------------------------------
+
+export function listTrucks(companyId?: number): Promise<TruckResponse[]> {
+  const qs = companyId != null ? `?company_id=${companyId}` : '';
+  return request(`/api/trucks${qs}`);
+}
+
+export function createTruck(body: TruckCreate): Promise<TruckResponse> {
+  return jsonRequest('/api/trucks', 'POST', body);
+}
+
+export function updateTruck(id: number, body: Partial<TruckCreate>): Promise<TruckResponse> {
+  return jsonRequest(`/api/trucks/${id}`, 'PATCH', body);
+}
+
+export function deleteTruck(id: number): Promise<void> {
+  return request(`/api/trucks/${id}`, { method: 'DELETE' }).then(() => undefined);
 }
 
 // --- Applications ----------------------------------------------------------

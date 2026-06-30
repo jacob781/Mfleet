@@ -10,7 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 from rate_limit import limiter
-from routers import auth, applications, companies, drivers, driver_form
+from routers import auth, applications, companies, drivers, driver_form, trucks, compliance
 
 load_dotenv()
 
@@ -22,6 +22,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth.router)
 app.include_router(companies.router)
 app.include_router(drivers.router)
+app.include_router(trucks.router)
+app.include_router(compliance.router)
 app.include_router(applications.router)
 app.include_router(driver_form.router)
 

@@ -43,8 +43,50 @@ export interface CompanyCreate {
   fax?: string | null;
 }
 
+// Fine/penalty schedule (Schedule A). All amounts/points/text are free-form strings.
+export interface FineRow { violation: string; points: string; first: string; second: string }
+export interface FineSection { title: string; rows: FineRow[] }
+export interface RewardRow { label: string; amount: string }
+export interface FineSchedule {
+  rate_per_point: number;
+  rewards: { title: string; intro: string; rows: RewardRow[] };
+  sections: FineSection[];
+}
+
+// Compact FINES AND FEES SCHEDULE (flat violation -> fee).
+export interface FeesRow { violation: string; fee: string }
+export interface FeesSchedule { title: string; rows: FeesRow[] }
+
 export interface CompanyResponse extends CompanyCreate {
   id: number;
+  fine_schedule: FineSchedule | null;
+  fees_schedule: FeesSchedule | null;
+}
+
+// --- Compliance documents & alerts -----------------------------------------
+
+export interface ComplianceDocument {
+  id: number;
+  driver_id: number | null;
+  truck_id: number | null;
+  document_type: string;
+  issue_date: string;
+  expiry_date: string;
+  status: string;      // Valid | Expiring Soon | Expired
+  has_file: boolean;
+}
+
+export interface AlertItem {
+  document_id: number;
+  document_type: string;
+  expiry_date: string;
+  status: string;      // Expiring Soon | Expired
+  days_left: number;
+  subject: string;
+  subject_kind: 'driver' | 'truck';
+  driver_id: number | null;
+  truck_id: number | null;
+  company_id: number | null;
 }
 
 // --- Drivers ---------------------------------------------------------------
@@ -60,6 +102,32 @@ export interface DriverSummary {
   status: string;
 }
 
+// --- Trucks ----------------------------------------------------------------
+
+export interface TruckCreate {
+  company_id: number;
+  make: string;
+  year: number;
+  vin: string;
+  plate_number: string;
+  state_registered: string;
+}
+
+export interface TruckResponse extends TruckCreate {
+  id: number;
+}
+
+export function emptyTruck(companyId: number): TruckCreate {
+  return {
+    company_id: companyId,
+    make: '',
+    year: new Date().getFullYear(),
+    vin: '',
+    plate_number: '',
+    state_registered: '',
+  };
+}
+
 // --- Applications ----------------------------------------------------------
 
 export interface DriverApplicationBrief {
@@ -72,7 +140,18 @@ export interface DriverApplicationBrief {
 
 export interface DriverDetail extends DriverSummary {
   dob?: string | null;
+  notes?: string | null;
   applications: DriverApplicationBrief[];
+}
+
+export interface DriverUpdate {
+  first_name?: string;
+  middle_name?: string | null;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  notes?: string | null;
 }
 
 export type CompensationType = 'percentage' | 'weekly_flat' | 'per_mile' | 'hourly';
@@ -84,7 +163,9 @@ export interface ApplicationSettings {
   deposit_weeks: number;
   trailer_maintenance_monthly: number;
   compensation_type: CompensationType;
-  percentage_rate: number;
+  percentage_rate: number;             // legacy single rate (fallback)
+  percentage_rate_non_amazon: number;  // percentage: primary (non-Amazon) rate
+  percentage_rate_amazon: number;      // percentage: optional Amazon-loads rate
   weekly_amount: number;
   loaded_rate: number;
   empty_rate: number;
@@ -96,6 +177,8 @@ export interface ApplicationSettings {
   tablet_weekly: number;
   prepass_monthly: number;
   administration_fee_weekly: number;
+  include_penalties: boolean;
+  include_fees: boolean;
 }
 
 export interface ApplicationCreate {
@@ -138,6 +221,8 @@ export function defaultSettings(): ApplicationSettings {
     trailer_maintenance_monthly: 0,
     compensation_type: 'percentage',
     percentage_rate: 0,
+    percentage_rate_non_amazon: 0,
+    percentage_rate_amazon: 0,
     weekly_amount: 0,
     loaded_rate: 0,
     empty_rate: 0,
@@ -149,6 +234,8 @@ export function defaultSettings(): ApplicationSettings {
     tablet_weekly: 0,
     prepass_monthly: 0,
     administration_fee_weekly: 0,
+    include_penalties: true,
+    include_fees: true,
   };
 }
 

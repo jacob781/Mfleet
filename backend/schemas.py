@@ -1,7 +1,7 @@
 """API request/response DTOs (kept separate from the SQLModel tables)."""
 
 from datetime import date, datetime
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -70,8 +70,83 @@ class CompanyResponse(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     fax: Optional[str] = None
+    fine_schedule: Optional[dict] = None
+    fees_schedule: Optional[dict] = None
 
     model_config = {"from_attributes": True}
+
+
+class CompanyUpdate(BaseModel):
+    """Partial company edit. All fields optional; only provided ones are applied.
+    `fine_schedule` lets a manager edit the company's penalty table."""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    dot_number: Optional[str] = None
+    mc_number: Optional[str] = None
+    address_street: Optional[str] = None
+    address_city: Optional[str] = None
+    address_state: Optional[str] = None
+    address_zip: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    fax: Optional[str] = None
+    fine_schedule: Optional[dict] = None
+    fees_schedule: Optional[dict] = None
+
+
+# --- Trucks ------------------------------------------------------------------
+
+class TruckCreate(BaseModel):
+    company_id: int
+    make: str = Field(min_length=1, max_length=100)
+    year: int = Field(ge=1900, le=2100)
+    vin: str = Field(min_length=1, max_length=32)
+    plate_number: str = Field(min_length=1, max_length=20)
+    state_registered: str = Field(min_length=2, max_length=2)
+
+
+class TruckUpdate(BaseModel):
+    """Partial truck edit; only provided fields are applied."""
+    company_id: Optional[int] = None
+    make: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    year: Optional[int] = Field(default=None, ge=1900, le=2100)
+    vin: Optional[str] = Field(default=None, min_length=1, max_length=32)
+    plate_number: Optional[str] = Field(default=None, min_length=1, max_length=20)
+    state_registered: Optional[str] = Field(default=None, min_length=2, max_length=2)
+
+
+class TruckResponse(TruckCreate):
+    id: int
+
+    model_config = {"from_attributes": True}
+
+
+# --- Compliance documents ----------------------------------------------------
+
+class ComplianceDocumentResponse(BaseModel):
+    id: int
+    driver_id: Optional[int] = None
+    truck_id: Optional[int] = None
+    document_type: str
+    issue_date: date
+    expiry_date: date
+    status: str          # live status (Valid / Expiring Soon / Expired)
+    has_file: bool       # whether a file is attached to download
+
+    model_config = {"from_attributes": True}
+
+
+class AlertItem(BaseModel):
+    """An expiring/expired compliance document with context for the alerts list."""
+    document_id: int
+    document_type: str
+    expiry_date: date
+    status: str          # Expiring Soon | Expired
+    days_left: int       # negative if already expired
+    subject: str         # driver name or truck label
+    subject_kind: Literal["driver", "truck"]
+    driver_id: Optional[int] = None
+    truck_id: Optional[int] = None
+    company_id: Optional[int] = None
 
 
 # --- Drivers -----------------------------------------------------------------
@@ -100,8 +175,20 @@ class DriverApplicationBrief(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DriverUpdate(BaseModel):
+    """Partial driver edit from the admin drawer; only provided fields are applied."""
+    first_name: Optional[str] = Field(default=None, min_length=1)
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = Field(default=None, min_length=1)
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class DriverDetail(DriverSummary):
     dob: Optional[date] = None
+    notes: Optional[str] = None
     applications: List[DriverApplicationBrief] = []
 
 
@@ -116,7 +203,9 @@ class ApplicationSettings(BaseModel):
     deposit_weeks: int = 0
     trailer_maintenance_monthly: int = 0
     compensation_type: Literal["percentage", "weekly_flat", "per_mile", "hourly"] = "percentage"
-    percentage_rate: int = 0
+    percentage_rate: int = 0              # legacy single rate (fallback)
+    percentage_rate_non_amazon: int = 0   # percentage: primary (non-Amazon) rate
+    percentage_rate_amazon: int = 0       # percentage: optional Amazon-loads rate
     weekly_amount: float = 0
     loaded_rate: float = 0
     empty_rate: float = 0
@@ -128,6 +217,12 @@ class ApplicationSettings(BaseModel):
     tablet_weekly: int = 0
     prepass_monthly: int = 0
     administration_fee_weekly: int = 0
+    include_penalties: bool = True   # show the Schedule A penalties page
+    # Per-application override of the company's fine table. None = inherit the company
+    # snapshot taken at creation (the common case); a dict overrides it for this contract.
+    fine_schedule: Optional[Dict] = None
+    include_fees: bool = True        # show the compact FINES AND FEES SCHEDULE page
+    fees_schedule: Optional[Dict] = None  # None = inherit company snapshot; dict overrides
 
 
 class ApplicationCreate(BaseModel):
