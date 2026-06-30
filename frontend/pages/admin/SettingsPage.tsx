@@ -93,7 +93,7 @@ const SettingsPage: React.FC = () => {
               </div>
               {status.connected_at && (
                 <div className="text-xs text-mfleet-gray">
-                  since {new Date(status.connected_at).toLocaleDateString()}
+                  since {new Date(status.connected_at).toLocaleDateString('en-US')}
                 </div>
               )}
             </div>

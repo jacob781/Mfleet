@@ -305,7 +305,7 @@ const EmployerVerifications: React.FC<{ appId: number }> = ({ appId }) => {
               {row.received_at && (
                 <div className="text-green-700">
                   Reply received{row.received_from ? ` from ${row.received_from}` : ''} on{' '}
-                  {new Date(row.received_at).toLocaleString()}
+                  {new Date(row.received_at).toLocaleString('en-US')}
                 </div>
               )}
             </div>
