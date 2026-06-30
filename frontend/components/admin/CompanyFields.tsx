@@ -58,6 +58,35 @@ const CompanyFields: React.FC<CompanyFieldsProps> = ({ register, errors, prefix 
       <Field label="Fax" error={err('fax')}>
         <TextInput {...maskedRegister(register, name('fax'), 'phone')} />
       </Field>
+
+      <Field label="EIN" error={err('ein')}>
+        <TextInput {...maskedRegister(register, name('ein'), 'ein')} />
+      </Field>
+
+      <div className="mt-2 sm:col-span-2 text-xs font-semibold uppercase tracking-wide text-mfleet-gray">
+        Owner / principal
+      </div>
+
+      <Field label="Owner name" error={err('owner_name')}>
+        <TextInput {...register(name('owner_name'))} placeholder="John Doe" />
+      </Field>
+      <Field label="Owner date of birth" error={err('owner_dob')}>
+        <TextInput type="date" {...register(name('owner_dob'))} />
+      </Field>
+
+      <Field label="Owner SSN" error={err('owner_ssn')}>
+        <TextInput {...maskedRegister(register, name('owner_ssn'), 'ssn')} />
+      </Field>
+      <Field label="Owner address" error={err('owner_address')}>
+        <TextInput {...register(name('owner_address'))} placeholder="123 Main St, City, ST 00000" />
+      </Field>
+
+      <Field label="Owner license #" error={err('owner_license_no')}>
+        <TextInput {...register(name('owner_license_no'))} />
+      </Field>
+      <Field label="License state" error={err('owner_license_state')}>
+        <TextInput {...maskedRegister(register, name('owner_license_state'), 'state')} />
+      </Field>
     </div>
   );
 };
