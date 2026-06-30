@@ -22,6 +22,9 @@ cryptography==48.0.0
 # ─── Config ───────────────────────────────────────────────
 python-dotenv==1.2.1
 
+# ─── HTTP client (Google OAuth / Drive / Gmail REST) ──────
+requests==2.32.3
+
 # ─── Rate limiting ────────────────────────────────────────
 slowapi==0.1.9
 
