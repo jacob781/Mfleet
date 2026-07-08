@@ -8,3 +8,7 @@ export const TRUCK_MAKES = [
   'WESTERN STAR',
   'PETERBILT',
 ] as const;
+
+// Equipment type — for owner-operators it's a tractor ("Truck") 99% of the time,
+// occasionally their own trailer; "Other" reveals a free-text box for anything else.
+export const TRUCK_TYPES = ['Truck', 'Trailer'] as const;

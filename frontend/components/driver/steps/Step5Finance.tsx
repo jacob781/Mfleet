@@ -3,18 +3,23 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { CheckboxField, FieldGroup, SelectField, TextField, inputCls } from '../fields';
 import FieldArrayList from '../FieldArrayList';
 import type { Compensation } from '../../../lib/driverTypes';
-import { TRUCK_MAKES } from '../../../lib/truckMakes';
+import { TRUCK_MAKES, TRUCK_TYPES } from '../../../lib/truckMakes';
 
-const MakeField: React.FC<{ index: number }> = ({ index }) => {
+// Dropdown of preset values with an "Other" escape that reveals a free-text box.
+// Used for both Make and Type — the selected/typed string is the source of truth.
+const PresetOrOtherField: React.FC<{
+  name: string;
+  label: string;
+  options: readonly string[];
+}> = ({ name, label, options }) => {
   const { register, setValue } = useFormContext();
-  const name = `equipment.${index}.make`;
-  const make = (useWatch({ name }) as string | undefined) ?? '';
-  const preset = TRUCK_MAKES.find((m) => m.toLowerCase() === make.toLowerCase());
-  const [other, setOther] = useState(!preset && make !== '');
+  const value = (useWatch({ name }) as string | undefined) ?? '';
+  const preset = options.find((o) => o.toLowerCase() === value.toLowerCase());
+  const [other, setOther] = useState(!preset && value !== '');
   const selectVal = preset ?? (other ? 'OTHER' : '');
   return (
     <div className="mb-4">
-      <span className="block text-sm font-medium text-mfleet-gray-dark mb-1">Make</span>
+      <span className="block text-sm font-medium text-mfleet-gray-dark mb-1">{label}</span>
       <select
         className={inputCls}
         value={selectVal}
@@ -30,13 +35,13 @@ const MakeField: React.FC<{ index: number }> = ({ index }) => {
         }}
       >
         <option value="">— select —</option>
-        {TRUCK_MAKES.map((m) => (
-          <option key={m} value={m}>{m}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>{o}</option>
         ))}
         <option value="OTHER">Other</option>
       </select>
       {other && (
-        <input {...register(name)} placeholder="Enter make" className={inputCls + ' mt-2'} />
+        <input {...register(name)} placeholder={`Enter ${label.toLowerCase()}`} className={inputCls + ' mt-2'} />
       )}
     </div>
   );
@@ -105,10 +110,10 @@ const Step5Finance: React.FC<{ isOwner: boolean; compensation?: Compensation | n
           newItem={() => ({ make: '', year: new Date().getFullYear(), type: '', vin: '', state: '', plate: '' })}
           renderItem={(i) => (
             <>
-              <MakeField index={i} />
+              <PresetOrOtherField name={`equipment.${i}.make`} label="Make" options={TRUCK_MAKES} />
               <TextField name={`equipment.${i}.year`} label="Year" type="number" inputMode="numeric" valueAsNumber />
-              <TextField name={`equipment.${i}.type`} label="Type" placeholder="e.g. Tractor" />
-              <TextField name={`equipment.${i}.vin`} label="VIN" />
+              <PresetOrOtherField name={`equipment.${i}.type`} label="Type" options={TRUCK_TYPES} />
+              <TextField name={`equipment.${i}.vin`} label="VIN" format="vin" />
               <TextField name={`equipment.${i}.state`} label="Registered state" format="state" />
               <TextField name={`equipment.${i}.plate`} label="Plate number" />
             </>
