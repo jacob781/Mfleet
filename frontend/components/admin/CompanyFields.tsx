@@ -53,7 +53,13 @@ const CompanyFields: React.FC<CompanyFieldsProps> = ({ register, errors, prefix 
         <TextInput {...maskedRegister(register, name('phone'), 'phone')} />
       </Field>
       <Field label="Email" error={err('email')}>
-        <TextInput type="email" {...register(name('email'))} placeholder="dispatch@acme.com" />
+        <TextInput
+          type="email"
+          {...register(name('email'), {
+            validate: (v: string) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) || 'Enter a valid email',
+          })}
+          placeholder="dispatch@acme.com"
+        />
       </Field>
       <Field label="Fax" error={err('fax')}>
         <TextInput {...maskedRegister(register, name('fax'), 'phone')} />

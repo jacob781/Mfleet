@@ -56,6 +56,15 @@ def read_current_user(
     return current_user
 
 
+@router.get("/file-token", response_model=Token)
+def issue_file_token(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Token:
+    """Mint a short-lived, file-scoped token so the UI can open a document directly
+    in a new tab (reload re-hits the server for the current file, no stale blob)."""
+    return Token(access_token=security.create_file_token(subject=current_user.id))
+
+
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
     user_in: UserCreate,

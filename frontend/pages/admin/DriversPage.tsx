@@ -1,7 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getDriver, listCompanies, listDrivers, updateDriver } from '../../lib/adminApi';
-import type { CompanyResponse, DriverDetail, DriverSummary } from '../../lib/adminTypes';
+import {
+  deleteDriver,
+  downloadDocument,
+  getDriver,
+  listCompanies,
+  listDriverDocuments,
+  listDrivers,
+  listTrucks,
+  openDocumentInTab,
+  updateDriver,
+  uploadDriverDocument,
+} from '../../lib/adminApi';
+import type { ComplianceDocument, CompanyResponse, DriverDetail, DriverSummary, TruckResponse } from '../../lib/adminTypes';
 import {
   Button,
   Card,
@@ -15,9 +26,16 @@ import {
   StatusBadge,
   TextInput,
 } from '../../components/admin/ui';
-import DocumentList from '../../components/admin/DocumentList';
+import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 
 const DRIVER_STATUSES = ['Pending', 'Active', 'Terminated'];
+
+// Manager-uploadable driver documents. `typeLabel` matches ComplianceDocument.document_type.
+const DRIVER_DOCS = [
+  { key: 'cdl', label: 'Driver license (CDL)', typeLabel: 'CDL' },
+  { key: 'medical_cert', label: "Medical examiner's certificate", typeLabel: 'Medical Cert' },
+] as const;
 
 const DriversPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +49,29 @@ const DriversPage: React.FC = () => {
   const [editing, setEditing] = useState(false);
   /** Snapshot of the driver row used for editing; `selected` stays immutable in view mode. */
   const [draft, setDraft] = useState<DriverSummary | null>(null);
+  const [driverDocs, setDriverDocs] = useState<ComplianceDocument[]>([]);
+  const [driverTrucks, setDriverTrucks] = useState<TruckResponse[]>([]);
+  const [docsReload, setDocsReload] = useState(0);
+  const [pendingDelete, setPendingDelete] = useState<DriverSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const onDeleteDriver = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      await deleteDriver(pendingDelete.id);
+      setPendingDelete(null);
+      if (selected?.id === pendingDelete.id) closeDrawer();
+      refresh();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selected) { setDriverDocs([]); return; }
+    listDriverDocuments(selected.id).then(setDriverDocs).catch(() => setDriverDocs([]));
+  }, [selected, docsReload]);
 
   // Open the drawer with the list row, then load full detail (dob, applications).
   const openDriver = (d: DriverSummary) => {
@@ -39,6 +80,10 @@ const DriversPage: React.FC = () => {
     setEditing(false);
     setDetail(null);
     getDriver(d.id).then(setDetail).catch(() => setDetail(null));
+    setDriverTrucks([]);
+    listTrucks(d.company_id)
+      .then((ts) => setDriverTrucks(ts.filter((t) => t.owner_driver_id === d.id)))
+      .catch(() => setDriverTrucks([]));
   };
 
   const closeDrawer = () => {
@@ -140,6 +185,7 @@ const DriversPage: React.FC = () => {
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -167,6 +213,18 @@ const DriversPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge value={d.status} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      title="Delete"
+                      onClick={(e) => { e.stopPropagation(); setPendingDelete(d); }}
+                      className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-red-50 hover:text-red-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -231,26 +289,66 @@ const DriversPage: React.FC = () => {
               </>
             ) : (
               /* ── View mode ─────────────────────────────────────── */
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <ReadOnlyField label="First name" value={selected.first_name} />
-                  <ReadOnlyField label="Last name" value={selected.last_name} />
-                </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <ReadOnlyField label="First name" value={selected.first_name} />
+                <ReadOnlyField label="Last name" value={selected.last_name} />
                 {selected.middle_name && (
                   <ReadOnlyField label="Middle name" value={selected.middle_name} />
                 )}
-                <ReadOnlyField label="Email" value={selected.email} />
-                <ReadOnlyField label="Phone" value={selected.phone} />
                 <ReadOnlyField label="Status" value={selected.status} copyable={false} />
+                <ReadOnlyField label="Email" value={selected.email} className="col-span-2" />
+                <ReadOnlyField label="Phone" value={selected.phone} />
                 {detail?.dob && (
                   <ReadOnlyField label="Date of birth" value={new Date(detail.dob).toLocaleDateString('en-US')} />
                 )}
-              </>
+              </div>
             )}
 
             <div>
               <h3 className="mb-2 mt-2 text-sm font-semibold text-mfleet-gray-dark">Documents</h3>
-              <DocumentList driverId={selected.id} />
+              <div className="flex flex-col gap-2">
+                {DRIVER_DOCS.map(({ key, label, typeLabel }) => {
+                  const doc = driverDocs.find((d) => d.document_type === typeLabel);
+                  return (
+                    <ManagerDocUpload
+                      key={key}
+                      label={label}
+                      requireExpiry
+                      currentExpiry={doc?.expiry_date}
+                      hasFile={doc?.has_file}
+                      status={doc?.status}
+                      onView={doc?.has_file ? () => openDocumentInTab(doc.id) : undefined}
+                      onDownload={doc?.has_file ? () => downloadDocument(doc.id, doc.document_type) : undefined}
+                      onSave={async (f, e) => {
+                        await uploadDriverDocument(selected.id, key, f, e);
+                        setDocsReload((k) => k + 1);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-2 mt-2 text-sm font-semibold text-mfleet-gray-dark">Trucks</h3>
+              {driverTrucks.length === 0 ? (
+                <p className="text-sm text-mfleet-gray">No trucks owned by this driver.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {driverTrucks.map((t) => (
+                    <li
+                      key={t.id}
+                      onClick={() => navigate(`/admin/trucks?focus=${t.id}`)}
+                      className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50"
+                    >
+                      <span className="text-sm text-mfleet-gray-dark">
+                        {t.make} {t.year}{t.unit_number ? ` · Unit ${t.unit_number}` : ''}
+                      </span>
+                      <span className="font-mono text-xs text-mfleet-gray">{t.plate_number}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div>
@@ -282,6 +380,17 @@ const DriversPage: React.FC = () => {
           </div>
         )}
       </Drawer>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete driver?"
+        message={pendingDelete
+          ? `${pendingDelete.first_name} ${pendingDelete.last_name} will be permanently removed, along with their applications, documents, and any trucks they own.`
+          : ''}
+        busy={deleting}
+        onConfirm={onDeleteDriver}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 };

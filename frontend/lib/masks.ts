@@ -42,6 +42,15 @@ export function maskMmdd(v: string): string {
   return d.length <= 2 ? d : `${d.slice(0, 2)}/${d.slice(2)}`;
 }
 
+// VIN: 17 chars, uppercase, letters+digits only. I/O/Q are not used in VINs.
+export function maskVin(v: string): string {
+  return String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 17);
+}
+// Licence plate: uppercase alphanumerics, spaces and hyphens allowed.
+export function maskPlate(v: string): string {
+  return String(v ?? '').toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, 10);
+}
+
 const maskDigitsMax = (n: number) => (v: string) => digitsOnly(v).slice(0, n);
 
 export interface MaskSpec {
@@ -71,6 +80,8 @@ export const MASKS = {
     placeholder: '98101', inputMode: 'numeric',
   },
   state: { mask: maskState, validate: (v: string) => !v || /^[A-Za-z]{2}$/.test(v) || 'Use the 2-letter state code', placeholder: 'WA', inputMode: 'text' },
+  vin: { mask: maskVin, validate: (v: string) => !v || /^[A-HJ-NPR-Z0-9]{17}$/.test(v) || 'VIN must be 17 characters (letters/digits, no I, O, Q)', placeholder: '1FUJGLDR3CSBM1234', inputMode: 'text' },
+  plate: { mask: maskPlate, validate: (v: string) => !v || /^[A-Z0-9][A-Z0-9 -]{0,9}$/.test(v) || 'Letters, digits, spaces or hyphens only', placeholder: 'ABC1234', inputMode: 'text' },
   dot: { mask: maskDigitsMax(8), validate: rangeDigits(1, 8, 'DOT number is up to 8 digits'), placeholder: '1234567', inputMode: 'numeric' },
   mc: { mask: maskDigitsMax(8), validate: rangeDigits(1, 8, 'MC number is up to 8 digits'), placeholder: '987654', inputMode: 'numeric' },
   routing: { mask: maskDigitsMax(9), validate: exactDigits(9, 'Routing number is 9 digits'), placeholder: '123456789', inputMode: 'numeric' },

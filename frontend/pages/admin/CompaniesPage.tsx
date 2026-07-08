@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { createCompany, listCompanies, updateCompany } from '../../lib/adminApi';
+import {
+  createCompany,
+  deleteCompany,
+  downloadOwnerLicense,
+  openOwnerLicenseInTab,
+  listCompanies,
+  updateCompany,
+  uploadOwnerLicense,
+} from '../../lib/adminApi';
 import {
   emptyCompany,
   normalizeCompany,
@@ -10,6 +18,7 @@ import {
   type FeesSchedule,
 } from '../../lib/adminTypes';
 import CompanyFields from '../../components/admin/CompanyFields';
+import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
 import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
 import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, Spinner } from '../../components/admin/ui';
@@ -19,6 +28,10 @@ const CompaniesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<CompanyResponse | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'cascade' | 'reassign'>('cascade');
+  const [deleteTarget, setDeleteTarget] = useState<string>('');
+  const [deleting, setDeleting] = useState(false);
   const [editingFines, setEditingFines] = useState<CompanyResponse | null>(null);
   const [savingFines, setSavingFines] = useState(false);
   const fineDraft = useRef<FineSchedule | null>(null);
@@ -115,12 +128,28 @@ const CompaniesPage: React.FC = () => {
 
   useEffect(refresh, []);
 
+  const onDeleteCompany = async () => {
+    if (!pendingDelete) return;
+    if (deleteMode === 'reassign' && !deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteCompany(pendingDelete.id, deleteMode, deleteMode === 'reassign' ? Number(deleteTarget) : undefined);
+      if (viewing?.id === pendingDelete.id) closeDrawer();
+      setPendingDelete(null);
+      refresh();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const onSubmit = async (data: CompanyCreate) => {
     setFormError(null);
     try {
-      await createCompany(normalizeCompany(data));
+      // Reopen the new company's drawer so the manager can upload the owner's license.
+      const created = await createCompany(normalizeCompany(data));
       reset(emptyCompany());
       setShowForm(false);
+      openViewCompany(created);
       refresh();
     } catch {
       setFormError('Could not create company. Check the fields and try again.');
@@ -218,6 +247,7 @@ const CompaniesPage: React.FC = () => {
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Fines</th>
                 <th className="px-4 py-3">Fees</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -268,6 +298,18 @@ const CompaniesPage: React.FC = () => {
                       className="text-sm font-medium text-mfleet-blue underline"
                     >
                       Edit fees
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      title="Delete"
+                      onClick={(e) => { e.stopPropagation(); setPendingDelete(c); setDeleteMode('cascade'); setDeleteTarget(''); }}
+                      className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-red-50 hover:text-red-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                      </svg>
                     </button>
                   </td>
                 </tr>
@@ -322,7 +364,65 @@ const CompaniesPage: React.FC = () => {
             </div>
           )
         )}
+        {viewing && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-sm font-semibold text-mfleet-gray-dark">Owner's license</h3>
+            <ManagerDocUpload
+              label="Driver license"
+              currentExpiry={viewing.owner_license_expiry}
+              hasFile={!!viewing.owner_license_path}
+              status={viewing.owner_license_status ?? undefined}
+              requireExpiry
+              onView={() => openOwnerLicenseInTab(viewing.id)}
+              onDownload={() => downloadOwnerLicense(viewing.id, `${viewing.name}_owner_license`)}
+              onSave={async (f, e) => {
+                const updated = await uploadOwnerLicense(viewing.id, f, e);
+                setViewing(updated);
+                refresh();
+              }}
+            />
+          </div>
+        )}
       </Drawer>
+
+      {pendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !deleting && setPendingDelete(null)}>
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-mfleet-gray-dark">Delete {pendingDelete.name}?</h3>
+            <p className="mt-2 text-sm text-mfleet-gray">
+              This company has drivers, vehicles and applications. Choose what to do with them:
+            </p>
+            <div className="mt-4 flex flex-col gap-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" className="mt-1" checked={deleteMode === 'cascade'} onChange={() => setDeleteMode('cascade')} />
+                <span><span className="font-medium text-mfleet-gray-dark">Delete everything</span> — the company and all its drivers, vehicles, applications and documents.</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" className="mt-1" checked={deleteMode === 'reassign'} onChange={() => setDeleteMode('reassign')} />
+                <span><span className="font-medium text-mfleet-gray-dark">Move to another company</span> — reassign its drivers, vehicles and applications, then delete this company.</span>
+              </label>
+              {deleteMode === 'reassign' && (
+                <select
+                  className="ml-6 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={deleteTarget}
+                  onChange={(e) => setDeleteTarget(e.target.value)}
+                >
+                  <option value="">— select company —</option>
+                  {companies.filter((c) => c.id !== pendingDelete.id).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setPendingDelete(null)} disabled={deleting}>Cancel</Button>
+              <Button variant="danger" onClick={onDeleteCompany} disabled={deleting || (deleteMode === 'reassign' && !deleteTarget)}>
+                {deleting ? <Spinner className="h-4 w-4 text-white" /> : deleteMode === 'reassign' ? 'Move & delete' : 'Delete all'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

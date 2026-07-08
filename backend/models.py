@@ -206,6 +206,8 @@ class Company(SQLModel, table=True):
     owner_address: Optional[str] = None
     owner_license_no: Optional[str] = None
     owner_license_state: Optional[str] = None
+    owner_license_path: Optional[str] = None      # uploaded license image/PDF (rel path)
+    owner_license_expiry: Optional[date] = None   # drives an expiry alert
     ein: Optional[str] = Field(default=None, sa_column=Column(EncryptedString, nullable=True))
 
     # Per-company penalty schedule (Schedule A). Seeded with the standard table on
@@ -266,7 +268,10 @@ class Truck(SQLModel, table=True):
     vin: str
     plate_number: str
     state_registered: str
-    
+    unit_number: Optional[str] = None          # fleet unit # assigned by the company
+    ownership: Optional[str] = None             # "owned" | "leased" (manager-set)
+    owner_driver_id: Optional[int] = Field(default=None, foreign_key="driver.id")  # owner-operator who owns it
+
     # Relationships
     company: Company = Relationship(back_populates="trucks")
     documents: List["ComplianceDocument"] = Relationship(back_populates="truck")
@@ -284,11 +289,12 @@ class ComplianceDocument(SQLModel, table=True):
     
     document_type: str # e.g., "CDL", "Medical Cert", "Annual Inspection"
     issue_date: date
-    expiry_date: date  # <--- The most important field for your alerts
+    expiry_date: date  # <--- The most important field for your alerts (always set)
     
     file_path: Optional[str] = None # Path to the stored PDF
-    status: str = "Valid" # Valid, Expiring Soon, Expired
-    
+    # Live status (Valid/Expiring Soon/Expired) is always recomputed from expiry_date
+    # via doc_status() on read — never stored, so it can't drift.
+
     driver: Optional[Driver] = Relationship(back_populates="documents")
     truck: Optional[Truck] = Relationship(back_populates="documents")
 
@@ -614,6 +620,11 @@ class ApplicationPayload(BaseModel):
     # have no dedicated field — annual_inspection and registration.
     document_expiries: Dict[str, date] = {}
 
+    # Per-truck uploaded documents & expiries for owner-operators with multiple trucks.
+    # Keyed by the equipment index (as a string): {"0": {"annual_inspection": path, ...}}.
+    truck_documents: Dict[str, Dict[str, str]] = {}
+    truck_document_expiries: Dict[str, Dict[str, date]] = {}
+
     @model_validator(mode="before")
     @classmethod
     def _drop_blank_expiries(cls, data):
@@ -622,5 +633,10 @@ class ApplicationPayload(BaseModel):
         if isinstance(data, dict) and isinstance(data.get("document_expiries"), dict):
             data["document_expiries"] = {
                 k: v for k, v in data["document_expiries"].items() if v
+            }
+        if isinstance(data, dict) and isinstance(data.get("truck_document_expiries"), dict):
+            data["truck_document_expiries"] = {
+                idx: {k: v for k, v in (per or {}).items() if v}
+                for idx, per in data["truck_document_expiries"].items()
             }
         return data

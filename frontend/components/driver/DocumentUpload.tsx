@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { documentUrl, uploadDocument, FormError } from '../../lib/driverApi';
+import { documentUrl, uploadDocument, truckDocumentUrl, uploadTruckDocument, FormError } from '../../lib/driverApi';
 
 type Status = 'idle' | 'uploading' | 'done' | 'error';
 
 /**
  * Reusable required-document uploader. Sends the file to the server (stored by id,
  * folded into the final contract) and shows the uploaded state with a view link.
+ * When `truckIndex` is set, it targets that owner-operator truck's per-truck endpoint.
  * ponytail: probes the serve endpoint once on mount to recover "already uploaded"
  * state after a reload — small files, one GET; swap for a HEAD if it ever matters.
  */
@@ -14,18 +15,21 @@ const DocumentUpload: React.FC<{
   docType: string;
   label: string;
   required?: boolean;
-}> = ({ token, docType, label, required }) => {
+  truckIndex?: number;
+}> = ({ token, docType, label, required, truckIndex }) => {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const viewUrl = truckIndex != null ? truckDocumentUrl(token, truckIndex, docType) : documentUrl(token, docType);
+
   useEffect(() => {
     let alive = true;
-    fetch(documentUrl(token, docType)).then((r) => {
+    fetch(viewUrl).then((r) => {
       if (alive && r.ok) setStatus('done');
     }).catch(() => {});
     return () => { alive = false; };
-  }, [token, docType]);
+  }, [viewUrl]);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -33,7 +37,8 @@ const DocumentUpload: React.FC<{
     setStatus('uploading');
     setError('');
     try {
-      await uploadDocument(token, docType, file);
+      if (truckIndex != null) await uploadTruckDocument(token, truckIndex, docType, file);
+      else await uploadDocument(token, docType, file);
       setStatus('done');
     } catch (err) {
       const detail = err instanceof FormError ? err.detail : 'Upload failed';
@@ -59,7 +64,7 @@ const DocumentUpload: React.FC<{
       {status === 'done' && (
         <span className="block text-sm text-green-700 mt-1">
           Uploaded ✓{' '}
-          <a href={documentUrl(token, docType)} target="_blank" rel="noopener noreferrer" className="underline">
+          <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="underline">
             View
           </a>{' '}
           — pick a file to replace.

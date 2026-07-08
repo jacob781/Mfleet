@@ -15,6 +15,7 @@ import jwt
 
 ALGORITHM = "HS256"
 _DEFAULT_TOKEN_EXPIRE_MINUTES = 60
+_FILE_TOKEN_EXPIRE_MINUTES = 15
 
 
 # --- Passwords ---------------------------------------------------------------
@@ -51,6 +52,16 @@ def create_access_token(subject: Any, expires_delta: Optional[timedelta] = None)
         expires_delta or timedelta(minutes=_expire_minutes())
     )
     payload = {"sub": str(subject), "exp": expire}
+    return jwt.encode(payload, _secret(), algorithm=ALGORITHM)
+
+
+def create_file_token(subject: Any) -> str:
+    """Short-lived, file-read-only JWT for opening a document straight in a browser
+    tab. The token rides in the URL (a tab navigation can't send headers), so it's
+    kept brief and scoped to 'file' — even if it lands in a log it expires fast and
+    grants nothing but document reads."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=_FILE_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": str(subject), "exp": expire, "scope": "file"}
     return jwt.encode(payload, _secret(), algorithm=ALGORITHM)
 
 

@@ -74,6 +74,9 @@ export interface FeesSchedule { title: string; rows: FeesRow[] }
 
 export interface CompanyResponse extends CompanyCreate {
   id: number;
+  owner_license_path?: string | null;
+  owner_license_expiry?: string | null;
+  owner_license_status?: string | null;   // Valid | Expiring Soon | Expired (null if no file)
   fine_schedule: FineSchedule | null;
   fees_schedule: FeesSchedule | null;
 }
@@ -98,7 +101,7 @@ export interface AlertItem {
   status: string;      // Expiring Soon | Expired
   days_left: number;
   subject: string;
-  subject_kind: 'driver' | 'truck';
+  subject_kind: 'driver' | 'truck' | 'company';
   driver_id: number | null;
   truck_id: number | null;
   company_id: number | null;
@@ -140,6 +143,8 @@ export interface DriverSummary {
 
 // --- Trucks ----------------------------------------------------------------
 
+export type TruckOwnership = 'owned' | 'leased';
+
 export interface TruckCreate {
   company_id: number;
   make: string;
@@ -147,6 +152,9 @@ export interface TruckCreate {
   vin: string;
   plate_number: string;
   state_registered: string;
+  unit_number?: string | null;
+  ownership?: TruckOwnership | null;
+  owner_driver_id?: number | null;
 }
 
 export interface TruckResponse extends TruckCreate {
@@ -161,6 +169,9 @@ export function emptyTruck(companyId: number): TruckCreate {
     vin: '',
     plate_number: '',
     state_registered: '',
+    unit_number: '',
+    ownership: null,
+    owner_driver_id: null,
   };
 }
 

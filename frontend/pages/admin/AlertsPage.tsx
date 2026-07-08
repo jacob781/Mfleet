@@ -50,7 +50,9 @@ const AlertsPage: React.FC = () => {
                   onClick={() =>
                     a.subject_kind === 'driver'
                       ? navigate(`/admin/drivers?focus=${a.driver_id}`)
-                      : navigate(`/admin/trucks?focus=${a.truck_id}`)
+                      : a.subject_kind === 'truck'
+                        ? navigate(`/admin/trucks?focus=${a.truck_id}`)
+                        : navigate('/admin/companies')
                   }
                   className="cursor-pointer hover:bg-gray-50"
                 >

@@ -84,6 +84,17 @@ export function documentUrl(token: string, docType: string): string {
   return `${API_BASE}/api/form/${token}/documents/${docType}`;
 }
 
+// Per-truck document upload/view for owner-operators (keyed by equipment index).
+export function uploadTruckDocument(token: string, truckIndex: number, docType: string, file: File): Promise<any> {
+  const body = new FormData();
+  body.append('file', file);
+  return fetch(`${API_BASE}/api/form/${token}/trucks/${truckIndex}/documents/${docType}`, { method: 'POST', body }).then(parse);
+}
+
+export function truckDocumentUrl(token: string, truckIndex: number, docType: string): string {
+  return `${API_BASE}/api/form/${token}/trucks/${truckIndex}/documents/${docType}`;
+}
+
 // Fetch the full assembled contract preview as a blob object URL (token access).
 // Throws FormError (422 when fields are still incomplete).
 export async function getPreviewObjectUrl(token: string): Promise<string> {

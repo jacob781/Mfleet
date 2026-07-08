@@ -90,6 +90,16 @@ def build_payload(application: DriverApplication, answers: dict) -> dict:
             continue
         if p.exists():
             docs[doc_type] = str(p)
+    # Owner-operators: fold each truck's documents (keyed by equipment index) into the
+    # same append set so every uploaded truck doc is merged into the signed contract.
+    for idx, per in (payload.get("truck_documents") or {}).items():
+        for doc_type, rel in (per or {}).items():
+            try:
+                p = uploads.resolve(rel)
+            except ValueError:
+                continue
+            if p.exists():
+                docs[f"{doc_type}_truck{idx}"] = str(p)
     payload["documents"] = docs
     # Employment gaps: the LIST is recomputed here (authoritative — a client can't hide a
     # gap), then each gap picks up the driver's explanation by its "<from>_<to>" key.

@@ -14,12 +14,13 @@ import Step4Work from '../components/driver/steps/Step4Work';
 import StepEmploymentGaps from '../components/driver/steps/StepEmploymentGaps';
 import Step5Finance from '../components/driver/steps/Step5Finance';
 import StepReview from '../components/driver/steps/StepReview';
+import StepFines from '../components/driver/steps/StepFines';
 import StepDocuments from '../components/driver/steps/StepDocuments';
 import Step6Signatures from '../components/driver/steps/Step6Signatures';
 
 type Screen = 'loading' | 'ready' | 'notfound' | 'expired' | 'submitted' | 'done' | 'error';
 
-const STEP_TITLES = ['Personal', 'License & Medical', 'History', 'Work & Logs', 'Employment', 'Agreements', 'Review', 'Documents', 'Signatures'];
+const STEP_TITLES = ['Personal', 'License & Medical', 'History', 'Work & Logs', 'Employment', 'Agreements', 'Review', 'Fines', 'Documents', 'Signatures'];
 
 // Which top-level fields to validate when leaving each step.
 const STEP_FIELDS: string[][] = [
@@ -30,7 +31,8 @@ const STEP_FIELDS: string[][] = [
   [], // Employment gaps (explanations + attestations are optional)
   ['w9', 'banking', '_policies_ack'],
   [], // Review (read-only)
-  ['_fines_ack'], // Documents: fines acceptance gates Next (uploads are soft-required)
+  ['_fines_ack'], // Fines: acceptance gates Next
+  [], // Documents (uploads are soft-required)
   ['signatures'],
 ];
 
@@ -43,7 +45,7 @@ const FIELD_TO_STEP: Record<string, number> = {
   employment_history: 3, seven_day_log: 3, last_relieved_time: 3, last_relieved_date: 3, last_relieved_location: 3,
   employment_declaration: 4,
   equipment: 5, ifta_choice: 5, w9: 5, banking: 5, policies: 5,
-  signatures: 8,
+  signatures: 9,
 };
 
 const CenteredCard: React.FC<{ title: string; children?: React.ReactNode }> = ({ title, children }) => (
@@ -181,8 +183,9 @@ const DriverPortal: React.FC = () => {
       case 4: return <StepEmploymentGaps token={token} />;
       case 5: return <Step5Finance isOwner={isOwner} compensation={compensation} />;
       case 6: return <StepReview goToStep={goToStep} isOwner={isOwner} />;
-      case 7: return <StepDocuments isOwner={isOwner} token={token} penalties={penalties} />;
-      case 8: return <Step6Signatures isOwner={isOwner} token={token} />;
+      case 7: return <StepFines penalties={penalties} />;
+      case 8: return <StepDocuments isOwner={isOwner} token={token} />;
+      case 9: return <Step6Signatures isOwner={isOwner} token={token} />;
       default: return null;
     }
   }, [step, isOwner, token, penalties, compensation]);

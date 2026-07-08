@@ -11,6 +11,7 @@ import {
 import type { UserCreate, UserResponse } from '../../lib/adminTypes';
 import { useAuth } from '../../lib/auth';
 import { Button, Card, Field, SelectInput, Spinner, TextInput, Toggle } from '../../components/admin/ui';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 
 const emptyUser = (): UserCreate => ({ email: '', password: '', full_name: '', role: 'manager' });
 
@@ -27,6 +28,7 @@ const EditUserPanel: React.FC<{
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const save = async () => {
     setError(null);
@@ -47,11 +49,11 @@ const EditUserPanel: React.FC<{
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete user ${user.email}? This cannot be undone.`)) return;
     setError(null);
     setBusy(true);
     try {
       await deleteUser(user.id);
+      setConfirmOpen(false);
       onChanged();
       onClose();
     } catch (e) {
@@ -93,7 +95,7 @@ const EditUserPanel: React.FC<{
       </div>
       {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       <div className="mt-4 flex justify-between">
-        <Button variant="danger" onClick={remove} disabled={busy || isSelf}>
+        <Button variant="danger" onClick={() => setConfirmOpen(true)} disabled={busy || isSelf}>
           Delete
         </Button>
         <div className="flex gap-2">
@@ -106,6 +108,14 @@ const EditUserPanel: React.FC<{
         </div>
       </div>
       {isSelf && <p className="mt-2 text-xs text-mfleet-gray">You cannot delete your own account.</p>}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete user?"
+        message={`${user.email} will be permanently removed. This cannot be undone.`}
+        busy={busy}
+        onConfirm={remove}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </Card>
   );
 };

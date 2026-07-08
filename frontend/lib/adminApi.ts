@@ -190,8 +190,8 @@ export function markEmployerReceived(appId: number, evId: number): Promise<Emplo
   return request(`/api/applications/${appId}/employers/${evId}/received`, { method: 'POST' });
 }
 
-export async function getEmployerPacketUrl(appId: number, evId: number): Promise<string> {
-  return URL.createObjectURL(await fetchFileBlob(`/api/applications/${appId}/employers/${evId}/pdf`));
+export function openEmployerPacketInTab(appId: number, evId: number): void {
+  openFileInTab(`/api/applications/${appId}/employers/${evId}/pdf`);
 }
 
 // --- Compliance documents & alerts -----------------------------------------
@@ -213,6 +213,27 @@ async function fetchFileBlob(path: string): Promise<Blob> {
   return res.blob();
 }
 
+// Short-lived, file-scoped token for opening a document straight in a browser tab.
+function getFileToken(): Promise<string> {
+  return request('/api/auth/file-token').then((r: Token) => r.access_token);
+}
+
+// Open a document in a new tab by navigating straight to the server, authorised by a
+// short-lived file token in the URL (a tab navigation can't send headers). Unlike a
+// blob: URL, a tab reload re-hits the server — so after a document is replaced the
+// tab shows the current file (old one is overwritten on disk, `no-store` server-side),
+// instead of a stale in-memory snapshot that lingers until the admin page reloads.
+function openFileInTab(path: string): void {
+  const tab = window.open('', '_blank'); // open synchronously so popup blockers allow it
+  getFileToken()
+    .then((token) => {
+      const sep = path.includes('?') ? '&' : '?';
+      const url = `${API_BASE}${path}${sep}token=${encodeURIComponent(token)}`;
+      if (tab) tab.location.href = url; else window.open(url, '_blank');
+    })
+    .catch(() => tab?.close());
+}
+
 function saveBlob(blob: Blob, baseName: string): void {
   const ext =
     blob.type === 'application/pdf' ? 'pdf'
@@ -229,8 +250,8 @@ function saveBlob(blob: Blob, baseName: string): void {
   URL.revokeObjectURL(url);
 }
 
-export async function getDocumentObjectUrl(docId: number): Promise<string> {
-  return URL.createObjectURL(await fetchFileBlob(`/api/compliance/documents/${docId}/file`));
+export function openDocumentInTab(docId: number): void {
+  openFileInTab(`/api/compliance/documents/${docId}/file`);
 }
 
 export async function downloadDocument(docId: number, baseName: string): Promise<void> {
@@ -238,12 +259,46 @@ export async function downloadDocument(docId: number, baseName: string): Promise
 }
 
 // Driver-uploaded documents served per application (by doc_type, e.g. "cdl").
-export async function getApplicationDocumentObjectUrl(appId: number, docType: string): Promise<string> {
-  return URL.createObjectURL(await fetchFileBlob(`/api/applications/${appId}/documents/${docType}`));
+export function openApplicationDocumentInTab(appId: number, docType: string): void {
+  openFileInTab(`/api/applications/${appId}/documents/${docType}`);
 }
 
 export async function downloadApplicationDocument(appId: number, docType: string, baseName: string): Promise<void> {
   saveBlob(await fetchFileBlob(`/api/applications/${appId}/documents/${docType}`), baseName);
+}
+
+// Manager-side multipart upload (auth header only; browser sets the multipart boundary).
+function uploadForm(path: string, file: File | null, expiry: string): Promise<any> {
+  const fd = new FormData();
+  if (file) fd.append('file', file);
+  if (expiry) fd.append('expiry', expiry);
+  return request(path, { method: 'POST', body: fd });
+}
+
+export function uploadTruckDocument(
+  truckId: number, docType: string, file: File | null, expiry: string,
+): Promise<ComplianceDocument> {
+  return uploadForm(`/api/trucks/${truckId}/documents/${docType}`, file, expiry);
+}
+
+export function uploadOwnerLicense(
+  companyId: number, file: File | null, expiry: string,
+): Promise<CompanyResponse> {
+  return uploadForm(`/api/companies/${companyId}/owner-license`, file, expiry);
+}
+
+export function uploadDriverDocument(
+  driverId: number, docType: string, file: File | null, expiry: string,
+): Promise<ComplianceDocument> {
+  return uploadForm(`/api/drivers/${driverId}/documents/${docType}`, file, expiry);
+}
+
+export function openOwnerLicenseInTab(companyId: number): void {
+  openFileInTab(`/api/companies/${companyId}/owner-license/file`);
+}
+
+export async function downloadOwnerLicense(companyId: number, baseName: string): Promise<void> {
+  saveBlob(await fetchFileBlob(`/api/companies/${companyId}/owner-license/file`), baseName);
 }
 
 // --- Trucks ----------------------------------------------------------------
@@ -263,6 +318,17 @@ export function updateTruck(id: number, body: Partial<TruckCreate>): Promise<Tru
 
 export function deleteTruck(id: number): Promise<void> {
   return request(`/api/trucks/${id}`, { method: 'DELETE' }).then(() => undefined);
+}
+
+export function deleteDriver(id: number): Promise<void> {
+  return request(`/api/drivers/${id}`, { method: 'DELETE' }).then(() => undefined);
+}
+
+// mode: 'cascade' deletes everything; 'reassign' moves drivers/trucks/apps to targetCompanyId.
+export function deleteCompany(id: number, mode: 'cascade' | 'reassign', targetCompanyId?: number): Promise<void> {
+  const qs = new URLSearchParams({ mode });
+  if (targetCompanyId != null) qs.set('target_company_id', String(targetCompanyId));
+  return request(`/api/companies/${id}?${qs}`, { method: 'DELETE' }).then(() => undefined);
 }
 
 // --- Integrations (Google Drive) -------------------------------------------
@@ -325,6 +391,14 @@ export function updateApplicationStatus(
   status: ApplicationStatus,
 ): Promise<ApplicationResponse> {
   return jsonRequest(`/api/applications/${id}/status`, 'PATCH', { status });
+}
+
+// Set/extend the driver link's expiry (ISO datetime), so a reopened application stays reachable.
+export function updateApplicationLinkExpiry(
+  id: number,
+  expiresAt: string,
+): Promise<ApplicationResponse> {
+  return jsonRequest(`/api/applications/${id}/link-expiry`, 'PATCH', { expires_at: expiresAt });
 }
 
 // Manager counter-signature: applies the company/carrier signature, regenerates

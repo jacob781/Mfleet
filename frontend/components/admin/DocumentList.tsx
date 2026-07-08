@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   downloadDocument,
-  getDocumentObjectUrl,
   listDriverDocuments,
   listTruckDocuments,
+  openDocumentInTab,
 } from '../../lib/adminApi';
 import type { ComplianceDocument } from '../../lib/adminTypes';
 import { Spinner, StatusBadge } from './ui';
@@ -21,17 +21,6 @@ const DocumentList: React.FC<{ driverId?: number; truckId?: number }> = ({ drive
       .catch(() => setDocs([]))
       .finally(() => setLoading(false));
   }, [driverId, truckId]);
-
-  const open = (id: number) => {
-    // Open the tab synchronously (inside the click) so the popup blocker allows it,
-    // then point it at the blob once the JWT-gated fetch resolves.
-    const tab = window.open('', '_blank');
-    getDocumentObjectUrl(id)
-      .then((url) => {
-        if (tab) tab.location.href = url;
-      })
-      .catch(() => tab?.close());
-  };
 
   if (loading) return <Spinner className="h-5 w-5" />;
   if (docs.length === 0) return <p className="text-sm text-mfleet-gray">No documents yet.</p>;
@@ -51,7 +40,7 @@ const DocumentList: React.FC<{ driverId?: number; truckId?: number }> = ({ drive
                 <button
                   type="button"
                   title="View"
-                  onClick={() => open(d.id)}
+                  onClick={() => openDocumentInTab(d.id)}
                   className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

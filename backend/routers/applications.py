@@ -17,12 +17,13 @@ from sqlmodel import Session, select
 
 import uploads
 from database import get_session
-from dependencies import get_current_user
+from dependencies import get_current_user, get_current_user_file
 from fine_schedule import default_fine_schedule, default_fees_schedule
 from models import Company, Driver, DriverApplication, ManagerConfig, User
 from pdf_service import generate_application_pdf
 from schemas import (
     ApplicationCreate,
+    ApplicationLinkExpiry,
     ApplicationListItem,
     ApplicationResponse,
     ApplicationStatusUpdate,
@@ -192,6 +193,25 @@ def update_status(
     return _to_response(application, driver)
 
 
+@router.patch("/{application_id}/link-expiry", response_model=ApplicationResponse)
+def update_link_expiry(
+    application_id: int,
+    body: ApplicationLinkExpiry,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> ApplicationResponse:
+    """Set/extend the driver link's expiry so a reopened application stays reachable."""
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    application.expires_at = body.expires_at
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    driver = session.get(Driver, application.driver_id) if application.driver_id else None
+    return _to_response(application, driver)
+
+
 @router.post("/{application_id}/countersign", response_model=ApplicationResponse)
 def countersign(
     application_id: int,
@@ -324,7 +344,7 @@ def download_document(
     application_id: int,
     doc_type: str,
     session: Annotated[Session, Depends(get_session)],
-    _user: Annotated[User, Depends(get_current_user)],
+    _user: Annotated[User, Depends(get_current_user_file)],
 ) -> FileResponse:
     """Serve a driver-uploaded document to the manager (login-gated, not static)."""
     application = session.get(DriverApplication, application_id)
@@ -338,4 +358,4 @@ def download_document(
     path = uploads.resolve(rel)
     if not path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File missing")
-    return FileResponse(path)
+    return uploads.file_response(path)

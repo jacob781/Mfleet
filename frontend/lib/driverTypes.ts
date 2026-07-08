@@ -170,6 +170,8 @@ export interface DriverFormValues {
   signatures: Record<string, SignatureData>;
   // Expiry dates (YYYY-MM-DD) for owner truck docs without a dedicated field.
   document_expiries?: { annual_inspection?: string; registration?: string };
+  // Per-truck expiry dates, keyed by equipment index (owner-operators).
+  truck_document_expiries?: Record<string, { annual_inspection?: string; registration?: string }>;
 }
 
 // Metadata returned by GET /api/form/{token}

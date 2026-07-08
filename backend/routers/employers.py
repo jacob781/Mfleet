@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 import pdf_service
 from database import get_session
-from dependencies import get_current_user
+from dependencies import get_current_user, get_current_user_file
 from mailer import send_mail
 from models import DriverApplication, EmployerVerification, User
 from schemas import EmployerEmailUpdate, EmployerVerificationResponse
@@ -117,13 +117,14 @@ def employer_packet_pdf(
     application_id: int,
     ev_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _user: Annotated[User, Depends(get_current_user)],
+    _user: Annotated[User, Depends(get_current_user_file)],
 ) -> FileResponse:
     app = _load(application_id, session)
     ev = _get_ev(application_id, ev_id, session)
     path = _build_packet(app, ev, session)
     return FileResponse(path, media_type="application/pdf",
-                        filename=f"employer_verification_{application_id}_{ev.employer_index}.pdf")
+                        filename=f"employer_verification_{application_id}_{ev.employer_index}.pdf",
+                        content_disposition_type="inline")
 
 
 def _full_name(answers: dict) -> str:

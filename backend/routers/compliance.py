@@ -10,8 +10,8 @@ from sqlmodel import Session, select
 
 import uploads
 from database import get_session
-from dependencies import get_current_user
-from models import EXPIRY_SOON_DAYS, ComplianceDocument, Driver, Truck, User, doc_status
+from dependencies import get_current_user, get_current_user_file
+from models import EXPIRY_SOON_DAYS, Company, ComplianceDocument, Driver, Truck, User, doc_status
 from schemas import AlertItem, ComplianceDocumentResponse
 
 router = APIRouter(prefix="/api/compliance", tags=["Compliance"])
@@ -35,7 +35,7 @@ def doc_response(doc: ComplianceDocument) -> ComplianceDocumentResponse:
 def download_document(
     doc_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _user: Annotated[User, Depends(get_current_user)],
+    _user: Annotated[User, Depends(get_current_user_file)],
 ) -> FileResponse:
     doc = session.get(ComplianceDocument, doc_id)
     if not doc or not doc.file_path:
@@ -43,7 +43,7 @@ def download_document(
     path = uploads.resolve(doc.file_path)
     if not path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File missing")
-    return FileResponse(path)
+    return uploads.file_response(path)
 
 
 def collect_alerts(session: Session, days: int = EXPIRY_SOON_DAYS) -> List[AlertItem]:
@@ -53,6 +53,7 @@ def collect_alerts(session: Session, days: int = EXPIRY_SOON_DAYS) -> List[Alert
     cutoff = today + timedelta(days=days)
     docs = session.exec(
         select(ComplianceDocument)
+        .where(ComplianceDocument.expiry_date != None)  # noqa: E711 - null = no date, skip
         .where(ComplianceDocument.expiry_date <= cutoff)
         .order_by(ComplianceDocument.expiry_date)
     ).all()
@@ -86,6 +87,27 @@ def collect_alerts(session: Session, days: int = EXPIRY_SOON_DAYS) -> List[Alert
                 company_id=company_id,
             )
         )
+    # Company owner-license expiries (no ComplianceDocument row — synthetic id).
+    companies = session.exec(
+        select(Company).where(
+            Company.owner_license_expiry != None,  # noqa: E711
+            Company.owner_license_expiry <= cutoff,
+        )
+    ).all()
+    for c in companies:
+        alerts.append(
+            AlertItem(
+                document_id=-c.id,  # synthetic (negative) — no document row
+                document_type="Owner License",
+                expiry_date=c.owner_license_expiry,
+                status=doc_status(c.owner_license_expiry),
+                days_left=(c.owner_license_expiry - today).days,
+                subject=c.name,
+                subject_kind="company",
+                company_id=c.id,
+            )
+        )
+    alerts.sort(key=lambda a: a.expiry_date)
     return alerts
 
 

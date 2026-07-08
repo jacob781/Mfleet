@@ -7,13 +7,14 @@ import {
   downloadPdf,
   getApplication,
   getApplicationAnswers,
-  getApplicationDocumentObjectUrl,
-  getEmployerPacketUrl,
+  openApplicationDocumentInTab,
+  openEmployerPacketInTab,
   getPdfObjectUrl,
   listEmployers,
   markEmployerReceived,
   regeneratePdf,
   sendEmployerPacket,
+  updateApplicationLinkExpiry,
   updateApplicationStatus,
   updateEmployerEmail,
 } from '../../lib/adminApi';
@@ -142,13 +143,7 @@ const DOC_LABELS: Record<string, string> = {
 // Driver-uploaded documents: View opens the file in a new tab, Download saves it.
 // The path stored in the answers is never shown — only the two actions.
 const DocumentsSection: React.FC<{ appId: number; docs: Record<string, unknown> }> = ({ appId, docs }) => {
-  const view = (docType: string) => {
-    // Open the tab synchronously (inside the click) so the popup blocker allows it.
-    const tab = window.open('', '_blank');
-    getApplicationDocumentObjectUrl(appId, docType)
-      .then((url) => { if (tab) tab.location.href = url; })
-      .catch(() => tab?.close());
-  };
+  const view = (docType: string) => openApplicationDocumentInTab(appId, docType);
   const keys = Object.keys(docs).filter((k) => docs[k]);
   if (keys.length === 0) return <span className="text-gray-400">—</span>;
   return (
@@ -224,12 +219,7 @@ const EmployerVerifications: React.FC<{ appId: number }> = ({ appId }) => {
       .catch(() => {});
   };
 
-  const view = (row: EmployerVerification) => {
-    const tab = window.open('', '_blank');
-    getEmployerPacketUrl(appId, row.id)
-      .then((url) => { if (tab) tab.location.href = url; })
-      .catch(() => tab?.close());
-  };
+  const view = (row: EmployerVerification) => openEmployerPacketInTab(appId, row.id);
 
   const run = async (row: EmployerVerification, fn: () => Promise<EmployerVerification>, fail: string) => {
     setError(null);
@@ -325,6 +315,8 @@ const ApplicationDetailPage: React.FC = () => {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [extendBusy, setExtendBusy] = useState(false);
+  const [extendError, setExtendError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, unknown> | null>(null);
@@ -410,6 +402,22 @@ const ApplicationDetailPage: React.FC = () => {
     }
   };
 
+  const handleExtendLink = async (days: number) => {
+    if (!app) return;
+    setExtendError(null);
+    setExtendBusy(true);
+    try {
+      const when = new Date(Date.now() + days * 86400000).toISOString();
+      setApp(await updateApplicationLinkExpiry(app.id, when));
+    } catch (e) {
+      setExtendError(
+        e instanceof ApiError && typeof e.detail === 'string' ? e.detail : 'Could not extend the link.',
+      );
+    } finally {
+      setExtendBusy(false);
+    }
+  };
+
   const copyLink = async () => {
     if (!app) return;
     try {
@@ -482,6 +490,16 @@ const ApplicationDetailPage: React.FC = () => {
   const companyName = (cfg.company_name as string) || `#${app.company_id}`;
   const pdfReady = app.pdf_status === 'ready';
 
+  // Link-expiry status, to warn + offer an extension (esp. after reopening to pending_driver).
+  const expiryInfo = (() => {
+    if (!app.expires_at) return null;
+    const ms = new Date(app.expires_at).getTime() - Date.now();
+    if (ms < 0) return { level: 'expired' as const, label: 'Expired' };
+    const days = Math.ceil(ms / 86400000);
+    if (days <= 7) return { level: 'soon' as const, label: `Expires in ${days}d` };
+    return { level: 'ok' as const, label: null };
+  })();
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -548,7 +566,24 @@ const ApplicationDetailPage: React.FC = () => {
           </Row>
           <Row label="Created">{fmtDateTime(app.created_at)}</Row>
           <Row label="Submitted">{fmtDateTime(app.submitted_at)}</Row>
-          <Row label="Expires">{fmtDateTime(app.expires_at)}</Row>
+          <Row label="Expires">
+            {fmtDateTime(app.expires_at)}
+            {expiryInfo?.label && (
+              <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-medium ${expiryInfo.level === 'expired' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                {expiryInfo.label}
+              </span>
+            )}
+          </Row>
+          {(expiryInfo?.level === 'expired' || expiryInfo?.level === 'soon') && (
+            <div className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+              The driver link {expiryInfo.level === 'expired' ? 'has expired' : 'is expiring soon'} — extend it so the driver can open the form.
+              <div className="mt-2 flex gap-2">
+                <Button onClick={() => handleExtendLink(7)} disabled={extendBusy}>+7 days</Button>
+                <Button onClick={() => handleExtendLink(30)} disabled={extendBusy}>+30 days</Button>
+              </div>
+              {extendError && <p className="mt-1 text-red-600">{extendError}</p>}
+            </div>
+          )}
           <div className="mt-4">
             <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-mfleet-gray">
               Update status

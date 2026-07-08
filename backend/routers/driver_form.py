@@ -35,7 +35,6 @@ from models import (
     DriverAnswers,
     DriverApplication,
     Truck,
-    doc_status,
 )
 from pdf_service import employment_gaps, generate_application_pdf, generate_preview_pdf
 from rate_limit import limiter
@@ -88,7 +87,6 @@ def _upsert_compliance(
     ).first()
     if existing is not None:
         existing.expiry_date = expiry
-        existing.status = doc_status(expiry)
         if file_path:
             existing.file_path = file_path
         session.add(existing)
@@ -100,16 +98,17 @@ def _upsert_compliance(
                 document_type=doc_type,
                 issue_date=date.today(),
                 expiry_date=expiry,
-                status=doc_status(expiry),
                 file_path=file_path,
             )
         )
 
 
-def _upsert_trucks(session: Session, company_id: int, equipment: list) -> list:
+def _upsert_trucks(session: Session, company_id: int, equipment: list,
+                   owner_driver_id: int | None = None) -> list:
     """Create/update Truck rows from the driver's equipment list, matched by VIN
-    within the company so re-submit updates instead of duplicating. Returns the
-    Truck rows (first = primary, used to attach truck documents)."""
+    within the company so re-submit updates instead of duplicating. Links each to the
+    owner-operator (owner_driver_id). Returns the Truck rows; the caller matches each
+    back to its equipment entry by VIN to attach that truck's own documents."""
     trucks = []
     for item in equipment:
         vin = (item.vin or "").strip()
@@ -125,6 +124,8 @@ def _upsert_trucks(session: Session, company_id: int, equipment: list) -> list:
         truck.year = item.year or truck.year
         truck.plate_number = item.plate or truck.plate_number
         truck.state_registered = (item.state or truck.state_registered)[:2]
+        if owner_driver_id is not None:
+            truck.owner_driver_id = owner_driver_id
         session.add(truck)
         trucks.append(truck)
     if trucks:
@@ -262,7 +263,66 @@ def get_document(
 ) -> FileResponse:
     """Serve the driver their own uploaded document back (token-gated, not static)."""
     app = _load(token, session)  # _load, not _load_fillable: viewable after submit too
-    return FileResponse(_document_path(app, doc_type))
+    return uploads.file_response(_document_path(app, doc_type))
+
+
+@router.post("/{token}/trucks/{truck_idx}/documents/{doc_type}")
+@limiter.limit("30/minute")
+async def upload_truck_document(
+    request: Request,
+    token: str,
+    truck_idx: int,
+    doc_type: str,
+    file: Annotated[UploadFile, File()],
+    session: Annotated[Session, Depends(get_session)],
+) -> dict:
+    """Owner-operator uploads a document (annual inspection / registration) for one of
+    their trucks, keyed by the equipment index. At submit each truck's docs are relocated
+    into that truck's folder and linked to its ComplianceDocument."""
+    app = _load_fillable(token, session)
+    data = await file.read()
+    try:
+        rel = uploads.save_app_truck(app.company_id, app.id, truck_idx, doc_type, data)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    row = app.answers
+    if row is None:
+        row = DriverAnswers(application_id=app.id, answers={})
+    answers = row.answers or {}
+    trucks = {**(answers.get("truck_documents") or {})}
+    trucks[str(truck_idx)] = {**(trucks.get(str(truck_idx)) or {}), doc_type: rel}
+    row.answers = {**answers, "truck_documents": trucks}
+    session.add(row)
+    session.commit()
+    return {"saved": True, "truck_index": truck_idx, "doc_type": doc_type, "path": rel}
+
+
+def _truck_document_path(app: DriverApplication, truck_idx: int, doc_type: str):
+    rel = (
+        (((app.answers.answers if app.answers else {}) or {}).get("truck_documents", {}) or {})
+        .get(str(truck_idx), {})
+        .get(doc_type)
+    )
+    if not rel:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not uploaded")
+    path = uploads.resolve(rel)
+    if not path.exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File missing")
+    return path
+
+
+@router.get("/{token}/trucks/{truck_idx}/documents/{doc_type}")
+@limiter.limit("60/minute")
+def get_truck_document(
+    request: Request,
+    token: str,
+    truck_idx: int,
+    doc_type: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> FileResponse:
+    """Serve a driver their own uploaded truck document back (token-gated)."""
+    app = _load(token, session)
+    return uploads.file_response(_truck_document_path(app, truck_idx, doc_type))
 
 
 @router.post("/{token}/submit")
@@ -336,15 +396,35 @@ def submit_form(
     # documents (annual inspection, registration) hang off the primary truck so they
     # surface in the fleet view and expiry alerts. Expiries come from the form.
     if app.driver_is_owner and validated.equipment:
-        trucks = _upsert_trucks(session, app.company_id, validated.equipment)
-        if trucks:
-            primary = trucks[0]
-            exp = validated.document_expiries or {}
+        trucks = _upsert_trucks(session, app.company_id, validated.equipment, owner_driver_id=app.driver_id)
+        # Each equipment entry carries its own documents (keyed by equipment index).
+        # Match index → Truck row by VIN, then link that truck's docs to its own row.
+        by_vin = {t.vin: t for t in trucks}
+        truck_docs = {k: dict(v) for k, v in (answers.get("truck_documents") or {}).items()}
+        truck_exp = validated.truck_document_expiries or {}
+        changed = False
+        for idx, item in enumerate(validated.equipment):
+            truck = by_vin.get((item.vin or "").strip())
+            if truck is None:
+                continue
+            per = truck_docs.get(str(idx)) or {}
+            exp = truck_exp.get(str(idx)) or {}
             for doc_type, label in (("annual_inspection", "Annual Inspection"),
                                     ("registration", "Registration")):
+                file_rel = per.get(doc_type)
+                if file_rel:
+                    # Relocate into the truck's folder so ALL of a truck's documents live
+                    # in one place; keep the answers path in sync for the PDF merge.
+                    file_rel = uploads.move_to_truck(file_rel, truck.id, doc_type)
+                    per[doc_type] = file_rel
+                    changed = True
                 if exp.get(doc_type):
-                    _upsert_compliance(session, label, exp[doc_type], docs.get(doc_type),
-                                       truck_id=primary.id)
+                    _upsert_compliance(session, label, exp[doc_type], file_rel, truck_id=truck.id)
+            truck_docs[str(idx)] = per
+        if changed:
+            # Persist the relocated paths so the background PDF task reads them from the DB.
+            row.answers = {**answers, "truck_documents": truck_docs}
+            session.add(row)
 
     app.status = "pending_review"
     app.submitted_at = datetime.now(timezone.utc)

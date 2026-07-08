@@ -3,9 +3,9 @@
 from datetime import date, datetime
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, computed_field
 
-from models import SsnStr, TinStr
+from models import SsnStr, TinStr, doc_status
 
 
 class Token(BaseModel):
@@ -86,9 +86,19 @@ class CompanyResponse(BaseModel):
     owner_address: Optional[str] = None
     owner_license_no: Optional[str] = None
     owner_license_state: Optional[str] = None
+    owner_license_path: Optional[str] = None
+    owner_license_expiry: Optional[date] = None
     ein: Optional[str] = None
     fine_schedule: Optional[dict] = None
     fees_schedule: Optional[dict] = None
+
+    @computed_field
+    @property
+    def owner_license_status(self) -> Optional[str]:
+        """Live expiry status for the owner license, same rules as truck/driver docs."""
+        if not self.owner_license_path or not self.owner_license_expiry:
+            return None
+        return doc_status(self.owner_license_expiry)
 
     model_config = {"from_attributes": True}
 
@@ -112,6 +122,7 @@ class CompanyUpdate(BaseModel):
     owner_address: Optional[str] = None
     owner_license_no: Optional[str] = None
     owner_license_state: Optional[str] = None
+    owner_license_expiry: Optional[date] = None
     ein: Optional[TinStr] = None
     fine_schedule: Optional[dict] = None
     fees_schedule: Optional[dict] = None
@@ -126,6 +137,9 @@ class TruckCreate(BaseModel):
     vin: str = Field(min_length=1, max_length=32)
     plate_number: str = Field(min_length=1, max_length=20)
     state_registered: str = Field(min_length=2, max_length=2)
+    unit_number: Optional[str] = Field(default=None, max_length=32)
+    ownership: Optional[Literal["owned", "leased"]] = None
+    owner_driver_id: Optional[int] = None
 
 
 class TruckUpdate(BaseModel):
@@ -136,6 +150,9 @@ class TruckUpdate(BaseModel):
     vin: Optional[str] = Field(default=None, min_length=1, max_length=32)
     plate_number: Optional[str] = Field(default=None, min_length=1, max_length=20)
     state_registered: Optional[str] = Field(default=None, min_length=2, max_length=2)
+    unit_number: Optional[str] = Field(default=None, max_length=32)
+    ownership: Optional[Literal["owned", "leased"]] = None
+    owner_driver_id: Optional[int] = None
 
 
 class TruckResponse(TruckCreate):
@@ -166,8 +183,8 @@ class AlertItem(BaseModel):
     expiry_date: date
     status: str          # Expiring Soon | Expired
     days_left: int       # negative if already expired
-    subject: str         # driver name or truck label
-    subject_kind: Literal["driver", "truck"]
+    subject: str         # driver name, truck label, or company name
+    subject_kind: Literal["driver", "truck", "company"]
     driver_id: Optional[int] = None
     truck_id: Optional[int] = None
     company_id: Optional[int] = None
@@ -303,6 +320,12 @@ class ApplicationResponse(ApplicationListItem):
 
 class ApplicationStatusUpdate(BaseModel):
     status: Literal["pending_driver", "pending_review", "approved", "rejected"]
+
+
+class ApplicationLinkExpiry(BaseModel):
+    """Manager sets/extends the driver link's expiry so a reopened application stays
+    reachable."""
+    expires_at: datetime
 
 
 class CounterSignRequest(BaseModel):

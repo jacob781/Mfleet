@@ -8,10 +8,12 @@ served through guarded FileResponse endpoints, so the path on disk is never reac
 by URL.
 """
 import os
+import shutil
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
+from fastapi.responses import FileResponse
 from PIL import Image, ImageOps
 import pillow_heif
 
@@ -23,6 +25,7 @@ DOC_TYPES = {
     "cdl": "CDL",
     "annual_inspection": "Annual Inspection",
     "registration": "Registration",
+    "owner_license": "Owner License",
 }
 
 MAX_BYTES = 15 * 1024 * 1024   # 15 MB raw upload cap (HEIC/high-res photos run big)
@@ -65,9 +68,9 @@ def _root() -> Path:
     return d
 
 
-def save(company_id: int, app_id: int, doc_type: str, data: bytes) -> str:
-    """Validate + store an uploaded document. Returns the path relative to UPLOADS_DIR
-    (the value stored in the DB). Raises ValueError on a bad type/size/content."""
+def _save_into(rel_dir: Path, doc_type: str, data: bytes) -> str:
+    """Validate + store a document under rel_dir/<doc_type>.<ext>. Returns the path
+    relative to UPLOADS_DIR (stored in the DB). Raises ValueError on bad type/size."""
     if doc_type not in DOC_TYPES:
         raise ValueError(f"unknown document type: {doc_type}")
     if not data:
@@ -85,8 +88,7 @@ def save(company_id: int, app_id: int, doc_type: str, data: bytes) -> str:
         except Exception as exc:  # corrupt/unreadable image
             raise ValueError(f"could not read image: {exc}")
         ext = "jpg"
-    # int() coerces the ids — no caller-controlled text ever lands in the path.
-    rel = Path(f"company_{int(company_id)}") / f"app_{int(app_id)}" / f"{doc_type}.{ext}"
+    rel = rel_dir / f"{doc_type}.{ext}"
     dest = _root() / rel
     dest.parent.mkdir(parents=True, exist_ok=True)
     # One current file per doc_type: drop any prior copy with a different extension.
@@ -97,6 +99,67 @@ def save(company_id: int, app_id: int, doc_type: str, data: bytes) -> str:
     return str(rel).replace("\\", "/")
 
 
+def save(company_id: int, app_id: int, doc_type: str, data: bytes) -> str:
+    """Driver upload (token flow), scoped per company/application."""
+    # int() coerces the ids — no caller-controlled text ever lands in the path.
+    return _save_into(Path(f"company_{int(company_id)}") / f"app_{int(app_id)}", doc_type, data)
+
+
+def save_app_truck(company_id: int, app_id: int, truck_idx: int, doc_type: str, data: bytes) -> str:
+    """Driver upload (token flow) for one of an owner-operator's trucks, scoped by the
+    equipment index. Relocated into the truck's own folder at submit (move_to_truck)."""
+    return _save_into(
+        Path(f"company_{int(company_id)}") / f"app_{int(app_id)}" / f"truck_{int(truck_idx)}",
+        doc_type, data,
+    )
+
+
+def save_truck(truck_id: int, doc_type: str, data: bytes) -> str:
+    """Manager upload for a fleet truck's document."""
+    return _save_into(Path("trucks") / f"truck_{int(truck_id)}", doc_type, data)
+
+
+def save_company(company_id: int, doc_type: str, data: bytes) -> str:
+    """Manager upload for a company-level document (owner license)."""
+    return _save_into(Path("companies") / f"company_{int(company_id)}", doc_type, data)
+
+
+def save_driver(driver_id: int, doc_type: str, data: bytes) -> str:
+    """Manager upload for a driver's document (CDL, medical cert)."""
+    return _save_into(Path("drivers") / f"driver_{int(driver_id)}", doc_type, data)
+
+
+def move_to_truck(rel_path: str, truck_id: int, doc_type: str) -> str:
+    """Relocate a driver-uploaded truck doc (stored per app) into the truck's own
+    folder, so every truck document lives under trucks/truck_{id}/ regardless of who
+    uploaded it. Returns the new relative path (or the original if the file is gone)."""
+    try:
+        src = resolve(rel_path)
+    except ValueError:
+        return rel_path
+    if not src.exists():
+        return rel_path
+    ext = src.suffix.lstrip(".") or "bin"
+    new_rel = Path("trucks") / f"truck_{int(truck_id)}" / f"{doc_type}.{ext}"
+    dest = _root() / new_rel
+    if src == dest:
+        return str(new_rel).replace("\\", "/")   # already in place (re-submit)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    for old in dest.parent.glob(f"{doc_type}.*"):
+        if old != dest:
+            old.unlink()
+    src.replace(dest)
+    return str(new_rel).replace("\\", "/")
+
+
+def file_response(path, **kwargs) -> FileResponse:
+    """Serve an uploaded document with caching disabled. These files are sensitive
+    PII and their URL is stable across replacements, so a cached browser copy would
+    resurface an old version after a re-upload. `no-store` forbids that."""
+    headers = {"Cache-Control": "no-store", **kwargs.pop("headers", {})}
+    return FileResponse(path, headers=headers, **kwargs)
+
+
 def resolve(rel_path: str) -> Path:
     """Map a stored relative path back to an absolute one, guarding against traversal:
     the resolved path must stay under UPLOADS_DIR."""
@@ -105,3 +168,14 @@ def resolve(rel_path: str) -> Path:
     if not p.is_relative_to(root):
         raise ValueError("path escapes uploads root")
     return p
+
+
+def remove_dir(rel_dir: str) -> None:
+    """Best-effort delete of an uploads subfolder (e.g. on cascade delete). Never
+    raises — leftover files are unreachable without their DB rows anyway."""
+    try:
+        p = resolve(rel_dir)
+    except ValueError:
+        return
+    if p.is_dir():
+        shutil.rmtree(p, ignore_errors=True)
