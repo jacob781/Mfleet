@@ -31,9 +31,6 @@ slowapi==0.1.9
 # ─── PDF generation (Typst compiler must be on PATH) ──────
 PyMuPDF==1.27.2.3
 
-# ─── Image processing (signature autocrop) ────────────────
+# ─── Image processing (signatures + HEIC uploads) ─────────
 Pillow==12.2.0
-
-# ─── Pricing spreadsheet parsing ──────────────────────────
-openpyxl==3.1.5
 pillow-heif==1.4.0

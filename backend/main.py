@@ -4,11 +4,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
+import mailer
 from rate_limit import limiter
 from routers import (
     auth, applications, companies, drivers, driver_form, trucks, compliance,
@@ -53,42 +51,19 @@ class ContactForm(BaseModel):
     email: EmailStr
     message: str = Field(..., max_length=2500)
 
-def send_email(form_data: ContactForm):
-    try:
-        sender_email = os.getenv("MAIL_USERNAME")
-        sender_password = os.getenv("MAIL_PASSWORD")
-        smtp_server = os.getenv("MAIL_SERVER")
-        smtp_port = int(os.getenv("MAIL_PORT", 587))
-        receiver_email = os.getenv("MAIL_TO")
-
-        if not sender_email or not sender_password:
-            print("Error: Mail credentials not set in .env")
-            return False
-
-        message = MIMEMultipart()
-        message["From"] = f"Mfleet Contact <{sender_email}>"
-        message["To"] = receiver_email
-        message["Subject"] = f"New Contact Request from {form_data.name}"
-        message["Reply-To"] = form_data.email
-
-        body = f"""
-        Name: {form_data.name}
-        Email: {form_data.email}
-        
-        Message:
-        {form_data.message}
-        """
-        message.attach(MIMEText(body, "plain"))
-
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
-        
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
+def send_email(form_data: ContactForm) -> bool:
+    body = (
+        f"Name: {form_data.name}\n"
+        f"Email: {form_data.email}\n\n"
+        f"Message:\n{form_data.message}\n"
+    )
+    return mailer.send_mail(
+        os.getenv("MAIL_TO"),
+        f"New Contact Request from {form_data.name}",
+        body,
+        from_label="Mfleet Contact",
+        reply_to=form_data.email,
+    )
 
 @app.get("/")
 def read_root():

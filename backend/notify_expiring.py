@@ -10,13 +10,12 @@ Usage:  python notify_expiring.py [--days N] [--dry-run]
 
 import argparse
 import os
-import smtplib
 import sys
-from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
 from sqlmodel import Session
 
+import mailer
 from database import get_engine
 from models import EXPIRY_SOON_DAYS
 from routers.compliance import collect_alerts
@@ -56,24 +55,11 @@ def main() -> int:
         print(body)
         return 0
 
-    sender = os.getenv("MAIL_USERNAME")
-    password = os.getenv("MAIL_PASSWORD")
-    server_host = os.getenv("MAIL_SERVER")
-    port = int(os.getenv("MAIL_PORT", 587))
     receiver = os.getenv("MAIL_TO")
-    if not (sender and password and server_host and receiver):
-        print("Error: mail settings (MAIL_USERNAME/PASSWORD/SERVER/TO) not set.", file=sys.stderr)
+    subject = f"Mfleet: {len(alerts)} document(s) need attention"
+    if not mailer.send_mail(receiver, subject, body, from_label="Mfleet Alerts"):
+        print("Error: failed to send digest (check MAIL_* settings).", file=sys.stderr)
         return 1
-
-    msg = MIMEText(body, "plain")
-    msg["From"] = f"Mfleet Alerts <{sender}>"
-    msg["To"] = receiver
-    msg["Subject"] = f"Mfleet: {len(alerts)} document(s) need attention"
-
-    with smtplib.SMTP(server_host, port) as smtp:
-        smtp.starttls()
-        smtp.login(sender, password)
-        smtp.sendmail(sender, receiver, msg.as_string())
     print(f"Sent digest with {len(alerts)} alert(s) to {receiver}.")
     return 0
 

@@ -8,7 +8,8 @@ from pathlib import Path
 
 
 def send_mail(to_addr: str | None, subject: str, body: str,
-              attachments: list[str] | None = None, message_id: str | None = None) -> bool:
+              attachments: list[str] | None = None, message_id: str | None = None,
+              from_label: str = "Mfleet", reply_to: str | None = None) -> bool:
     sender = os.getenv("MAIL_USERNAME")
     password = os.getenv("MAIL_PASSWORD")
     server = os.getenv("MAIL_SERVER")
@@ -18,9 +19,11 @@ def send_mail(to_addr: str | None, subject: str, body: str,
         return False
 
     msg = EmailMessage()
-    msg["From"] = f"Mfleet <{sender}>"
+    msg["From"] = f"{from_label} <{sender}>"
     msg["To"] = to_addr
     msg["Subject"] = subject
+    if reply_to:
+        msg["Reply-To"] = reply_to
     if message_id:
         msg["Message-ID"] = message_id  # so replies (In-Reply-To/References) can be matched
     msg.set_content(body)
