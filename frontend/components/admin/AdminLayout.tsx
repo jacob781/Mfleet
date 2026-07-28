@@ -47,10 +47,44 @@ const GoogleBadge: React.FC = () => {
   );
 };
 
+// Day/night switch. The `dark` class on the shell re-points Tailwind's colour
+// variables (see index.css), so the whole panel follows. ponytail: localStorage
+// + one class, no theme context.
+const THEME_KEY = 'mfleet_theme';
+
+const ThemeToggle: React.FC<{ dark: boolean; onToggle: () => void }> = ({ dark, onToggle }) => (
+  <button
+    type="button"
+    onClick={onToggle}
+    title={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+    aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-mfleet-gray hover:bg-gray-100 hover:text-mfleet-gray-dark"
+  >
+    {dark ? (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+      </svg>
+    ) : (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+      </svg>
+    )}
+  </button>
+);
+
 const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [alertCount, setAlertCount] = useState(0);
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
+  }, [dark]);
 
   // Live count for the alerts badge; refreshed on mount (cheap query).
   useEffect(() => {
@@ -79,7 +113,7 @@ const AdminLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-mfleet-gray-dark font-sans">
+    <div className={cn('min-h-screen bg-gray-50 text-mfleet-gray-dark font-sans', dark && 'dark')}>
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-8">
@@ -111,6 +145,7 @@ const AdminLayout: React.FC = () => {
             </nav>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
             {user?.role === 'admin' && <GoogleBadge />}
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium text-mfleet-gray-dark">

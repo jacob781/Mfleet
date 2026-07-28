@@ -244,6 +244,21 @@ class DriverApplicationBrief(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DriverCreate(BaseModel):
+    """Manager adds a driver directly, outside the application flow."""
+    company_id: int
+    first_name: str = Field(min_length=1)
+    middle_name: Optional[str] = None
+    last_name: str = Field(min_length=1)
+    email: EmailStr
+    phone: str
+    dob: Optional[date] = None
+    status: str = "Pending"
+    notes: Optional[str] = None
+    checklist_checked: bool = False
+    checklist_date: Optional[date] = None
+
+
 class DriverUpdate(BaseModel):
     """Partial driver edit from the admin drawer; only provided fields are applied."""
     first_name: Optional[str] = Field(default=None, min_length=1)

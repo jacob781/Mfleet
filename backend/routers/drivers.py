@@ -13,11 +13,12 @@ import cascade
 import uploads
 from database import get_session
 from dependencies import get_current_user
-from models import ComplianceDocument, Driver, DriverApplication, User
-from routers.compliance import doc_response
+from models import Company, ComplianceDocument, Driver, DriverApplication, User
+from routers.compliance import doc_response, owners_with_file
 from schemas import (
     ComplianceDocumentResponse,
     DriverApplicationBrief,
+    DriverCreate,
     DriverDetail,
     DriverSummary,
     DriverUpdate,
@@ -32,13 +33,38 @@ def list_drivers(
     _user: Annotated[User, Depends(get_current_user)],
     company_id: Optional[int] = None,
     checklist: Optional[bool] = None,
+    doc: Optional[str] = None,
+    has_doc: Optional[bool] = None,
 ) -> List[Driver]:
+    """`doc` + `has_doc` filter by document on file, e.g. doc=cdl&has_doc=false lists
+    drivers with no licence copy on record."""
     stmt = select(Driver)
     if company_id is not None:
         stmt = stmt.where(Driver.company_id == company_id)
     if checklist is not None:
         stmt = stmt.where(Driver.checklist_checked == checklist)
+    if doc is not None and has_doc is not None:
+        if doc not in DRIVER_DOC_TYPES:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
+        sub = owners_with_file(ComplianceDocument.driver_id, uploads.DOC_TYPES[doc])
+        stmt = stmt.where(Driver.id.in_(sub)) if has_doc else stmt.where(Driver.id.not_in(sub))
     return list(session.exec(stmt).all())
+
+
+@router.post("", response_model=DriverDetail, status_code=status.HTTP_201_CREATED)
+def create_driver(
+    body: DriverCreate,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> DriverDetail:
+    """Add a driver by hand, without going through an application."""
+    if not session.get(Company, body.company_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Company not found")
+    driver = Driver(**body.model_dump())
+    session.add(driver)
+    session.commit()
+    session.refresh(driver)
+    return DriverDetail.model_validate(driver)
 
 
 @router.get("/{driver_id}", response_model=DriverDetail)

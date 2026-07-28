@@ -37,6 +37,7 @@ import {
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
+import { DocFilterSelect, parseDocFilter } from '../../components/admin/DocFilter';
 import { TRUCK_MAKES } from '../../lib/truckMakes';
 import { maskedRegister } from '../../lib/masks';
 
@@ -55,6 +56,7 @@ const TrucksPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [companyFilter, setCompanyFilter] = useState('');
   const [checklistFilter, setChecklistFilter] = useState(''); // '' | 'yes' | 'no'
+  const [docFilter, setDocFilter] = useState(''); // '' | '<doc_type>:yes|no'
   const [showForm, setShowForm] = useState(false);
   /** The truck whose detail drawer is open (view or edit). */
   const [viewing, setViewing] = useState<TruckResponse | null>(null);
@@ -96,13 +98,14 @@ const TrucksPage: React.FC = () => {
     listTrucks(
       companyFilter ? Number(companyFilter) : undefined,
       checklistFilter === '' ? undefined : checklistFilter === 'yes',
+      parseDocFilter(docFilter),
     )
       .then(setTrucks)
       .catch(() => setTrucks([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(refresh, [companyFilter, checklistFilter]);
+  useEffect(refresh, [companyFilter, checklistFilter, docFilter]);
 
   // Deep-link from the alerts page: ?focus=<truckId> opens that vehicle's drawer once.
   const [searchParams] = useSearchParams();
@@ -331,6 +334,9 @@ const TrucksPage: React.FC = () => {
             <option value="yes">Checklist done</option>
             <option value="no">Checklist pending</option>
           </SelectInput>
+        </div>
+        <div className="w-64">
+          <DocFilterSelect docs={TRUCK_DOCS} value={docFilter} onChange={setDocFilter} />
         </div>
       </div>
 

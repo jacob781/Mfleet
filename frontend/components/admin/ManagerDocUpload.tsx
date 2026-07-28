@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Spinner, StatusBadge, cn, inputBase } from './ui';
 import { DateInput } from '../DateInput';
 import { useFileDrop } from '../../lib/useFileDrop';
+import { isoToUs } from '../../lib/masks';
 
 // One card per manager-side document: shows the current file's status + view/
 // download on top, and a replace-file + expiry row below. Used for truck
@@ -50,6 +51,9 @@ const ManagerDocUpload: React.FC<{
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-mfleet-gray-dark">{label}</span>
           {hasFile && status && <StatusBadge value={status} />}
+          {hasFile && currentExpiry && (
+            <span className="text-xs text-mfleet-gray">exp. {isoToUs(currentExpiry)}</span>
+          )}
         </div>
         {hasFile ? (
           <div className="flex items-center gap-1">

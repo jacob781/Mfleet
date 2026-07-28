@@ -40,8 +40,16 @@ def create_company(
 def list_companies(
     session: Annotated[Session, Depends(get_session)],
     _user: Annotated[User, Depends(get_current_user)],
+    has_license: Optional[bool] = None,
 ) -> List[Company]:
-    return list(session.exec(select(Company)).all())
+    """`has_license` filters by the owner's driver-license file being on record."""
+    stmt = select(Company)
+    if has_license is not None:
+        stmt = stmt.where(
+            Company.owner_license_path.is_not(None) if has_license
+            else Company.owner_license_path.is_(None)
+        )
+    return list(session.exec(stmt).all())
 
 
 @router.get("/{company_id}", response_model=CompanyResponse)

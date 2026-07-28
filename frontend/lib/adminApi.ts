@@ -5,6 +5,7 @@ import type {
   ApplicationStatus,
   CompanyCreate,
   CompanyResponse,
+  DriverCreate,
   DriverDetail,
   DriverSummary,
   AlertItem,
@@ -146,8 +147,8 @@ export function changeMyPassword(currentPassword: string, newPassword: string): 
 
 // --- Companies -------------------------------------------------------------
 
-export function listCompanies(): Promise<CompanyResponse[]> {
-  return request('/api/companies');
+export function listCompanies(hasLicense?: boolean): Promise<CompanyResponse[]> {
+  return request(`/api/companies${hasLicense == null ? '' : `?has_license=${hasLicense}`}`);
 }
 
 export function createCompany(body: CompanyCreate): Promise<CompanyResponse> {
@@ -160,8 +161,14 @@ export function updateCompany(id: number, body: Partial<CompanyResponse>): Promi
 
 // --- Drivers ---------------------------------------------------------------
 
-export function listDrivers(companyId?: number, checklist?: boolean): Promise<DriverSummary[]> {
-  return request(`/api/drivers${checklistQuery(companyId, checklist)}`);
+export function listDrivers(
+  companyId?: number, checklist?: boolean, doc?: DocFilter,
+): Promise<DriverSummary[]> {
+  return request(`/api/drivers${listQuery(companyId, checklist, doc)}`);
+}
+
+export function createDriver(body: DriverCreate): Promise<DriverDetail> {
+  return jsonRequest('/api/drivers', 'POST', body);
 }
 
 export function getDriver(id: number): Promise<DriverDetail> {
@@ -311,15 +318,24 @@ export async function downloadOwnerLicense(companyId: number, baseName: string):
 
 // --- Trucks ----------------------------------------------------------------
 
-export function listTrucks(companyId?: number, checklist?: boolean): Promise<TruckResponse[]> {
-  return request(`/api/trucks${checklistQuery(companyId, checklist)}`);
+export function listTrucks(
+  companyId?: number, checklist?: boolean, doc?: DocFilter,
+): Promise<TruckResponse[]> {
+  return request(`/api/trucks${listQuery(companyId, checklist, doc)}`);
 }
 
-// Shared query builder for the company + checklist list filters.
-function checklistQuery(companyId?: number, checklist?: boolean): string {
+/** "document on file?" list filter — `type` is a doc_type key (cdl, registration…). */
+export interface DocFilter { type: string; has: boolean }
+
+// Shared query builder for the company + checklist + document list filters.
+function listQuery(companyId?: number, checklist?: boolean, doc?: DocFilter): string {
   const p = new URLSearchParams();
   if (companyId != null) p.set('company_id', String(companyId));
   if (checklist != null) p.set('checklist', String(checklist));
+  if (doc) {
+    p.set('doc', doc.type);
+    p.set('has_doc', String(doc.has));
+  }
   const qs = p.toString();
   return qs ? `?${qs}` : '';
 }

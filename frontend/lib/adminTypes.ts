@@ -197,6 +197,36 @@ export interface DriverDetail extends DriverSummary {
   applications: DriverApplicationBrief[];
 }
 
+export interface DriverCreate {
+  company_id: number;
+  first_name: string;
+  middle_name?: string | null;
+  last_name: string;
+  email: string;
+  phone: string;
+  dob?: string | null;
+  status: string;
+  notes?: string | null;
+  checklist_checked: boolean;
+  checklist_date?: string | null;
+}
+
+export function emptyDriver(companyId: number): DriverCreate {
+  return {
+    company_id: companyId,
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    dob: '',
+    status: 'Pending',
+    notes: '',
+    checklist_checked: false,
+    checklist_date: null,
+  };
+}
+
 export interface DriverUpdate {
   first_name?: string;
   middle_name?: string | null;

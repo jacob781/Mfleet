@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  createDriver,
   deleteDriver,
   downloadDocument,
   getDriver,
@@ -12,7 +13,9 @@ import {
   updateDriver,
   uploadDriverDocument,
 } from '../../lib/adminApi';
-import type { ComplianceDocument, CompanyResponse, DriverDetail, DriverSummary, TruckResponse } from '../../lib/adminTypes';
+import type { ComplianceDocument, CompanyResponse, DriverCreate, DriverDetail, DriverSummary, TruckResponse } from '../../lib/adminTypes';
+import { emptyDriver } from '../../lib/adminTypes';
+import { maskPhone } from '../../lib/masks';
 import {
   Button,
   Card,
@@ -25,10 +28,13 @@ import {
   Spinner,
   StatusBadge,
   TextInput,
+  inputBase,
 } from '../../components/admin/ui';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
+import { DocFilterSelect, parseDocFilter } from '../../components/admin/DocFilter';
+import { DateInput } from '../../components/DateInput';
 
 const DRIVER_STATUSES = ['Pending', 'Active', 'Terminated'];
 
@@ -45,6 +51,8 @@ const DriversPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [companyFilter, setCompanyFilter] = useState('');
   const [checklistFilter, setChecklistFilter] = useState(''); // '' | 'yes' | 'no'
+  const [docFilter, setDocFilter] = useState(''); // '' | '<doc_type>:yes|no'
+  const [creating, setCreating] = useState<DriverCreate | null>(null);
   const [selected, setSelected] = useState<DriverSummary | null>(null);
   const [detail, setDetail] = useState<DriverDetail | null>(null);
   const [saving, setSaving] = useState(false);
@@ -106,6 +114,7 @@ const DriversPage: React.FC = () => {
     listDrivers(
       companyFilter ? Number(companyFilter) : undefined,
       checklistFilter === '' ? undefined : checklistFilter === 'yes',
+      parseDocFilter(docFilter),
     )
       .then(setDrivers)
       .catch(() => setDrivers([]))
@@ -138,7 +147,7 @@ const DriversPage: React.FC = () => {
     listCompanies().then(setCompanies).catch(() => setCompanies([]));
   }, []);
 
-  useEffect(refresh, [companyFilter, checklistFilter]);
+  useEffect(refresh, [companyFilter, checklistFilter, docFilter]);
 
   // Deep-link from the alerts page: ?focus=<driverId> opens that driver's drawer once.
   const [searchParams] = useSearchParams();
@@ -159,9 +168,111 @@ const DriversPage: React.FC = () => {
     return (id: number) => map.get(id) ?? `#${id}`;
   }, [companies]);
 
+  const openCreate = () => {
+    setSelected(null);
+    setCreating(emptyDriver(companyFilter ? Number(companyFilter) : companies[0]?.id ?? 0));
+  };
+
+  const saveNew = async () => {
+    if (!creating) return;
+    setSaving(true);
+    try {
+      const created = await createDriver({
+        ...creating,
+        company_id: Number(creating.company_id),
+        middle_name: creating.middle_name || null,
+        dob: creating.dob || null,
+      });
+      setCreating(null);
+      refresh();
+      openDriver(created);   // straight into the drawer to attach their documents
+    } catch {
+      // The API layer already toasted the reason; keep the form filled in.
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-mfleet-gray-dark">Drivers</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-mfleet-gray-dark">Drivers</h1>
+        <Button onClick={openCreate} disabled={companies.length === 0}>Add driver</Button>
+      </div>
+
+      {creating && (
+        <Card className="p-6">
+          <h2 className="mb-4 text-lg font-semibold text-mfleet-gray-dark">New driver</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Company" required>
+              <SelectInput
+                value={creating.company_id}
+                onChange={(e) => setCreating({ ...creating, company_id: Number(e.target.value) })}
+              >
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field label="Status">
+              <SelectInput
+                value={creating.status}
+                onChange={(e) => setCreating({ ...creating, status: e.target.value })}
+              >
+                {DRIVER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </SelectInput>
+            </Field>
+            <Field label="First name" required>
+              <TextInput
+                value={creating.first_name}
+                onChange={(e) => setCreating({ ...creating, first_name: e.target.value })}
+              />
+            </Field>
+            <Field label="Last name" required>
+              <TextInput
+                value={creating.last_name}
+                onChange={(e) => setCreating({ ...creating, last_name: e.target.value })}
+              />
+            </Field>
+            <Field label="Middle name">
+              <TextInput
+                value={creating.middle_name ?? ''}
+                onChange={(e) => setCreating({ ...creating, middle_name: e.target.value })}
+              />
+            </Field>
+            <Field label="Date of birth">
+              <DateInput
+                value={creating.dob}
+                onChange={(iso) => setCreating({ ...creating, dob: iso })}
+                className={inputBase}
+              />
+            </Field>
+            <Field label="Email" required>
+              <TextInput
+                type="email"
+                value={creating.email}
+                onChange={(e) => setCreating({ ...creating, email: e.target.value })}
+              />
+            </Field>
+            <Field label="Phone" required>
+              <TextInput
+                value={creating.phone}
+                onChange={(e) => setCreating({ ...creating, phone: maskPhone(e.target.value) })}
+                placeholder="(555) 123-4567"
+              />
+            </Field>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setCreating(null)}>Cancel</Button>
+            <Button
+              onClick={saveNew}
+              disabled={saving || !creating.first_name || !creating.last_name || !creating.email || !creating.phone}
+            >
+              {saving ? <Spinner className="h-4 w-4 text-white" /> : 'Create driver'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="flex gap-3">
         <div className="w-56">
@@ -181,6 +292,9 @@ const DriversPage: React.FC = () => {
             <option value="no">Checklist pending</option>
           </SelectInput>
         </div>
+        <div className="w-72">
+          <DocFilterSelect docs={DRIVER_DOCS} value={docFilter} onChange={setDocFilter} />
+        </div>
       </div>
 
       <Card className="overflow-hidden">
@@ -190,7 +304,7 @@ const DriversPage: React.FC = () => {
           </div>
         ) : drivers.length === 0 ? (
           <div className="py-16 text-center text-sm text-mfleet-gray">
-            No drivers yet. Drivers appear here once they complete an application.
+            No drivers match. Add one above, or they appear here once an application is completed.
           </div>
         ) : (
           <table className="w-full text-sm">

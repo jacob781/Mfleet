@@ -17,6 +17,17 @@ from schemas import AlertItem, ComplianceDocumentResponse
 router = APIRouter(prefix="/api/compliance", tags=["Compliance"])
 
 
+def owners_with_file(column, doc_label: str):
+    """Sub-select of driver_id/truck_id values that have a FILE on record for this
+    document type — powers the has/hasn't list filters. An expiry row without a
+    file does not count as "have the document"."""
+    return select(column).where(
+        ComplianceDocument.document_type == doc_label,
+        ComplianceDocument.file_path.is_not(None),
+        column.is_not(None),   # a NULL in the set would make NOT IN match nothing
+    )
+
+
 def doc_response(doc: ComplianceDocument) -> ComplianceDocumentResponse:
     """Map a ComplianceDocument to its API DTO with live (recomputed) status."""
     return ComplianceDocumentResponse(

@@ -21,7 +21,7 @@ import CompanyFields from '../../components/admin/CompanyFields';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
 import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
-import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, Spinner } from '../../components/admin/ui';
+import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, SelectInput, Spinner } from '../../components/admin/ui';
 
 const CompaniesPage: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
@@ -85,6 +85,7 @@ const CompaniesPage: React.FC = () => {
   // Separate form instance for the edit drawer.
   const editForm = useForm<CompanyCreate>({ defaultValues: emptyCompany() });
   const [viewing, setViewing] = useState<CompanyResponse | null>(null);
+  const [licenseFilter, setLicenseFilter] = useState(''); // '' | 'yes' | 'no'
   const [drawerEditing, setDrawerEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -121,13 +122,13 @@ const CompaniesPage: React.FC = () => {
 
   const refresh = () => {
     setLoading(true);
-    listCompanies()
+    listCompanies(licenseFilter === '' ? undefined : licenseFilter === 'yes')
       .then(setCompanies)
       .catch(() => setCompanies([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(refresh, []);
+  useEffect(refresh, [licenseFilter]);
 
   const onDeleteCompany = async () => {
     if (!pendingDelete) return;
@@ -164,6 +165,14 @@ const CompaniesPage: React.FC = () => {
         <Button onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancel' : 'Add company'}
         </Button>
+      </div>
+
+      <div className="w-72">
+        <SelectInput value={licenseFilter} onChange={(e) => setLicenseFilter(e.target.value)}>
+          <option value="">All companies</option>
+          <option value="yes">Owner's license: on file</option>
+          <option value="no">Owner's license: missing</option>
+        </SelectInput>
       </div>
 
       {showForm && (

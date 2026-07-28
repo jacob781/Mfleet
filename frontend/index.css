@@ -11,6 +11,34 @@
     --font-family-sans: 'Inter', sans-serif;
 }
 
+/* Dark theme. Tailwind v4 utilities read colours from CSS variables
+   (bg-gray-50 -> var(--color-gray-50)), so flipping the neutral ramp on the
+   .dark wrapper themes the whole admin panel without touching a single class.
+   ponytail: --color-white is deliberately left alone (text-white on the blue
+   buttons must stay white); only the bg-white *surface* is remapped below. */
+.dark {
+    --color-gray-50: #111827;
+    --color-gray-100: #1f2937;
+    --color-gray-200: #374151;
+    --color-gray-300: #4b5563;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #9ca3af;
+    --color-gray-600: #d1d5db;
+    --color-gray-700: #e5e7eb;
+    --color-gray-800: #f3f4f6;
+    --color-gray-900: #f9fafb;
+    --color-mfleet-gray-dark: #f9fafb;
+    --color-mfleet-gray: #9ca3af;
+    --color-mfleet-gray-light: #1f2937;
+    --color-mfleet-blue: #3b82f6;
+    --color-mfleet-blue-dark: #2563eb;
+    color-scheme: dark;
+}
+
+.dark .bg-white {
+    background-color: #1f2937;
+}
+
 /* Marquee animations */
 @keyframes marquee {
     0% {
