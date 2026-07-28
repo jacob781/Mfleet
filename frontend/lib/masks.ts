@@ -37,6 +37,31 @@ export function maskState(v: string): string {
   return lettersOnly(v).slice(0, 2).toUpperCase();
 }
 
+// US date entry: MM/DD/YYYY text <-> ISO yyyy-mm-dd. Native <input type="date">
+// renders in the *browser's* locale (dd.mm.yyyy on a non-US Chrome) and there is
+// no way to force US order, so dates are typed as masked text instead.
+export function maskDate(v: string): string {
+  const d = digitsOnly(v).slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+}
+
+export function isoToUs(iso?: string | null): string {
+  const s = String(iso ?? '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s.slice(5, 7)}/${s.slice(8, 10)}/${s.slice(0, 4)}` : '';
+}
+
+/** '' unless the text is a complete, real calendar date (rejects 02/31/2026). */
+export function usToIso(us: string): string {
+  const d = digitsOnly(us);
+  if (d.length !== 8) return '';
+  const [mm, dd, yyyy] = [+d.slice(0, 2), +d.slice(2, 4), +d.slice(4)];
+  const t = new Date(Date.UTC(yyyy, mm - 1, dd)); // rolls over on impossible dates
+  if (t.getUTCFullYear() !== yyyy || t.getUTCMonth() !== mm - 1 || t.getUTCDate() !== dd) return '';
+  return `${d.slice(4)}-${d.slice(0, 2)}-${d.slice(2, 4)}`;
+}
+
 export function maskMmdd(v: string): string {
   const d = digitsOnly(v).slice(0, 4);
   return d.length <= 2 ? d : `${d.slice(0, 2)}/${d.slice(2)}`;

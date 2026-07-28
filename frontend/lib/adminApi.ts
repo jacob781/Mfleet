@@ -19,6 +19,7 @@ import type {
   UserResponse,
   UserUpdate,
 } from './adminTypes';
+import { errorText, toast } from '../components/Toast';
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_URL ||
@@ -62,7 +63,9 @@ async function parse(res: Response): Promise<any> {
       clearToken();
       window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
     }
-    throw new ApiError(res.status, data?.detail ?? data);
+    const detail = data?.detail ?? data;
+    toast(errorText(res.status, detail));
+    throw new ApiError(res.status, detail);
   }
   return data;
 }
@@ -74,7 +77,13 @@ function authHeaders(): Record<string, string> {
 
 async function request(path: string, init: RequestInit = {}): Promise<any> {
   const headers: Record<string, string> = { ...authHeaders(), ...(init.headers as any) };
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  } catch {
+    toast('Could not reach the server. Check your connection and try again.');
+    throw new ApiError(0, 'network error');
+  }
   return parse(res);
 }
 
@@ -151,9 +160,8 @@ export function updateCompany(id: number, body: Partial<CompanyResponse>): Promi
 
 // --- Drivers ---------------------------------------------------------------
 
-export function listDrivers(companyId?: number): Promise<DriverSummary[]> {
-  const qs = companyId != null ? `?company_id=${companyId}` : '';
-  return request(`/api/drivers${qs}`);
+export function listDrivers(companyId?: number, checklist?: boolean): Promise<DriverSummary[]> {
+  return request(`/api/drivers${checklistQuery(companyId, checklist)}`);
 }
 
 export function getDriver(id: number): Promise<DriverDetail> {
@@ -303,9 +311,17 @@ export async function downloadOwnerLicense(companyId: number, baseName: string):
 
 // --- Trucks ----------------------------------------------------------------
 
-export function listTrucks(companyId?: number): Promise<TruckResponse[]> {
-  const qs = companyId != null ? `?company_id=${companyId}` : '';
-  return request(`/api/trucks${qs}`);
+export function listTrucks(companyId?: number, checklist?: boolean): Promise<TruckResponse[]> {
+  return request(`/api/trucks${checklistQuery(companyId, checklist)}`);
+}
+
+// Shared query builder for the company + checklist list filters.
+function checklistQuery(companyId?: number, checklist?: boolean): string {
+  const p = new URLSearchParams();
+  if (companyId != null) p.set('company_id', String(companyId));
+  if (checklist != null) p.set('checklist', String(checklist));
+  const qs = p.toString();
+  return qs ? `?${qs}` : '';
 }
 
 export function createTruck(body: TruckCreate): Promise<TruckResponse> {

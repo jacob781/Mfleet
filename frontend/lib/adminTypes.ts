@@ -139,6 +139,8 @@ export interface DriverSummary {
   email: string;
   phone: string;
   status: string;
+  checklist_checked: boolean;
+  checklist_date?: string | null;
 }
 
 // --- Trucks ----------------------------------------------------------------
@@ -155,6 +157,8 @@ export interface TruckCreate {
   unit_number?: string | null;
   ownership?: TruckOwnership | null;
   owner_driver_id?: number | null;
+  checklist_checked?: boolean;
+  checklist_date?: string | null;
 }
 
 export interface TruckResponse extends TruckCreate {
@@ -172,6 +176,8 @@ export function emptyTruck(companyId: number): TruckCreate {
     unit_number: '',
     ownership: null,
     owner_driver_id: null,
+    checklist_checked: false,
+    checklist_date: null,
   };
 }
 
@@ -199,6 +205,8 @@ export interface DriverUpdate {
   phone?: string;
   status?: string;
   notes?: string | null;
+  checklist_checked?: boolean;
+  checklist_date?: string | null;
 }
 
 export type CompensationType = 'percentage' | 'weekly_flat' | 'per_mile' | 'hourly';

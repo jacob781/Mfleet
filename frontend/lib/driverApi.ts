@@ -1,5 +1,6 @@
 import type { DriverFormValues, FormMeta, EmploymentItem } from './driverTypes';
 import type { Gap } from './employmentGaps';
+import { errorText, toast } from '../components/Toast';
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_URL ||
@@ -23,7 +24,11 @@ async function parse(res: Response): Promise<any> {
   } catch {
     data = text;
   }
-  if (!res.ok) throw new FormError(res.status, data?.detail ?? data);
+  if (!res.ok) {
+    const detail = data?.detail ?? data;
+    toast(errorText(res.status, detail));
+    throw new FormError(res.status, detail);
+  }
   return data;
 }
 

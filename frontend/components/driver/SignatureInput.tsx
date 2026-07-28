@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import SignaturePadLib from 'signature_pad';
 import type { SignatureData } from '../../lib/driverTypes';
+import { useFileDrop } from '../../lib/useFileDrop';
 
 const SIGNATURE_FONTS = [
   'Alex Brush', 'Allura', 'Great Vibes', 'Mr Dafoe',
@@ -40,6 +41,7 @@ const SignatureInput: React.FC<Props> = ({ label, signerFirstName, value, onChan
   const [font, setFont] = useState(SIGNATURE_FONTS[0]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const drop = useFileDrop((f) => onFile(f));
 
   const emit = (dataUrl: string | null) => {
     if (!dataUrl) return onChange(null);
@@ -83,9 +85,8 @@ const SignatureInput: React.FC<Props> = ({ label, signerFirstName, value, onChan
   };
 
   // ── Upload mode ────────────────────────────────────────────
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFile = (file?: File | null) => {
     setUploadError(null);
-    const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) return setUploadError('Please choose an image file.');
     if (file.size > 5 * 1024 * 1024) return setUploadError('Image too large (max 5 MB).');
@@ -161,18 +162,22 @@ const SignatureInput: React.FC<Props> = ({ label, signerFirstName, value, onChan
       )}
 
       {mode === 'upload' && (
-        <div>
+        <div
+          {...drop.props}
+          className={'rounded-lg border-2 border-dashed p-2 transition-colors ' +
+            (drop.over ? 'border-mfleet-blue bg-mfleet-blue/5' : 'border-transparent')}
+        >
           <div className="flex items-center gap-3 mb-2">
             <label className="inline-flex items-center gap-2 rounded-lg bg-mfleet-blue px-4 min-h-11 text-sm font-semibold text-white cursor-pointer">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0-12l-4 4m4-4l4 4" />
               </svg>
               {fileName ? 'Choose another' : 'Upload image'}
-              <input type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
+              <input type="file" accept="image/*" capture="environment" onChange={(e) => onFile(e.target.files?.[0])} className="hidden" />
             </label>
             <span className="text-sm text-gray-500 truncate">{fileName || 'No file selected'}</span>
           </div>
-          <p className="text-xs text-gray-400 mb-2">Take a photo or pick a PNG/JPG of your signature (max 5 MB).</p>
+          <p className="text-xs text-gray-400 mb-2">Take a photo, drag &amp; drop, or pick a PNG/JPG of your signature (max 5 MB).</p>
           {uploadError && <span className="block text-sm text-red-600 mb-2">{uploadError}</span>}
           {value?.image_base64 && (
             <div className="rounded-lg border border-gray-200 p-2 bg-white">

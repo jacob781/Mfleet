@@ -1,10 +1,12 @@
 import React from 'react';
-import type { UseFormRegister } from 'react-hook-form';
-import { Field, TextInput } from './ui';
+import type { Control, UseFormRegister } from 'react-hook-form';
+import { Field, TextInput, inputBase } from './ui';
+import { DateField } from '../DateInput';
 import { maskedRegister } from '../../lib/masks';
 
 interface CompanyFieldsProps {
   register: UseFormRegister<any>;
+  control: Control<any>;
   // Scoped RHF errors subtree; typed loosely since it's nested/standalone.
   errors?: any;
   /** Register-name prefix when nested in a larger form, e.g. "new_company". */
@@ -16,7 +18,7 @@ interface CompanyFieldsProps {
  * page (prefix omitted) and nested inside the create-application form
  * (prefix="new_company"). Field names mirror CompanyCreate in schemas.py.
  */
-const CompanyFields: React.FC<CompanyFieldsProps> = ({ register, errors, prefix }) => {
+const CompanyFields: React.FC<CompanyFieldsProps> = ({ register, control, errors, prefix }) => {
   const name = (f: string) => (prefix ? `${prefix}.${f}` : f);
   const err = (f: string) => (errors as any)?.[f]?.message as string | undefined;
 
@@ -77,7 +79,7 @@ const CompanyFields: React.FC<CompanyFieldsProps> = ({ register, errors, prefix 
         <TextInput {...register(name('owner_name'))} placeholder="John Doe" />
       </Field>
       <Field label="Owner date of birth" error={err('owner_dob')}>
-        <TextInput type="date" {...register(name('owner_dob'))} />
+        <DateField name={name('owner_dob')} control={control} className={inputBase} />
       </Field>
 
       <Field label="Owner SSN" error={err('owner_ssn')}>

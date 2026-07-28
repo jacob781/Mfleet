@@ -76,6 +76,7 @@ const CompaniesPage: React.FC = () => {
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -169,7 +170,7 @@ const CompaniesPage: React.FC = () => {
         <Card className="p-6">
           <h2 className="mb-4 text-lg font-semibold text-mfleet-gray-dark">New company</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <CompanyFields register={register} errors={errors} />
+            <CompanyFields register={register} control={control} errors={errors} />
             {formError && (
               <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
             )}
@@ -329,7 +330,7 @@ const CompaniesPage: React.FC = () => {
           drawerEditing ? (
             /* ── Edit mode ─────────────────────────────────────── */
             <form onSubmit={onEditSubmit} className="flex flex-col gap-4">
-              <CompanyFields register={editForm.register} errors={editForm.formState.errors} />
+              <CompanyFields register={editForm.register} control={editForm.control} errors={editForm.formState.errors} />
               {editError && (
                 <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</div>
               )}

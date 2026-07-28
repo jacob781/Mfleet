@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Button, Spinner, StatusBadge, TextInput } from './ui';
+import { Button, Spinner, StatusBadge, cn, inputBase } from './ui';
+import { DateInput } from '../DateInput';
+import { useFileDrop } from '../../lib/useFileDrop';
 
 // One card per manager-side document: shows the current file's status + view/
 // download on top, and a replace-file + expiry row below. Used for truck
@@ -17,6 +19,7 @@ const ManagerDocUpload: React.FC<{
   const [file, setFile] = useState<File | null>(null);
   const [expiry, setExpiry] = useState(currentExpiry ?? '');
   const [busy, setBusy] = useState(false);
+  const drop = useFileDrop(setFile);
 
   // Show Save once something changed; keep it visible but disabled with a hint
   // when it can't save (never hide it). A doc needs a file — either just picked
@@ -32,6 +35,9 @@ const ManagerDocUpload: React.FC<{
     try {
       await onSave(file, expiry);
       setFile(null);
+    } catch {
+      // The API layer already toasted the reason; keep the picked file so the
+      // manager can just hit Save again.
     } finally {
       setBusy(false);
     }
@@ -69,11 +75,19 @@ const ManagerDocUpload: React.FC<{
 
       {/* Replace / upload */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="min-w-[180px] flex-1 cursor-pointer truncate rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs hover:bg-gray-100">
+        <label
+          {...drop.props}
+          className={cn(
+            'min-w-[180px] flex-1 cursor-pointer truncate rounded-md border border-dashed px-3 py-2 text-xs',
+            drop.over ? 'border-mfleet-blue bg-mfleet-blue/5' : 'border-gray-300 bg-gray-50 hover:bg-gray-100',
+          )}
+        >
           {file ? (
             <span className="font-medium text-mfleet-gray-dark">{file.name}</span>
           ) : (
-            <span className="text-gray-500">{hasFile ? 'Replace current file…' : 'Choose PDF or image…'}</span>
+            <span className="text-gray-500">
+              {drop.over ? 'Drop to attach' : hasFile ? 'Replace file — drop or click…' : 'Drop PDF/image here or click…'}
+            </span>
           )}
           <input
             type="file"
@@ -84,11 +98,10 @@ const ManagerDocUpload: React.FC<{
         </label>
         <div className="flex items-center gap-1">
           <span className="text-xs text-gray-400">Expires</span>
-          <TextInput
-            type="date"
+          <DateInput
             value={expiry}
-            onChange={(e) => setExpiry(e.target.value)}
-            className="w-36"
+            onChange={setExpiry}
+            className={cn(inputBase, 'w-36')}
           />
         </div>
         {dirty && (

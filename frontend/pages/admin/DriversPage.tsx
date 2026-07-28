@@ -28,6 +28,7 @@ import {
 } from '../../components/admin/ui';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
+import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
 
 const DRIVER_STATUSES = ['Pending', 'Active', 'Terminated'];
 
@@ -43,6 +44,7 @@ const DriversPage: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [companyFilter, setCompanyFilter] = useState('');
+  const [checklistFilter, setChecklistFilter] = useState(''); // '' | 'yes' | 'no'
   const [selected, setSelected] = useState<DriverSummary | null>(null);
   const [detail, setDetail] = useState<DriverDetail | null>(null);
   const [saving, setSaving] = useState(false);
@@ -101,7 +103,10 @@ const DriversPage: React.FC = () => {
 
   const refresh = () => {
     setLoading(true);
-    listDrivers(companyFilter ? Number(companyFilter) : undefined)
+    listDrivers(
+      companyFilter ? Number(companyFilter) : undefined,
+      checklistFilter === '' ? undefined : checklistFilter === 'yes',
+    )
       .then(setDrivers)
       .catch(() => setDrivers([]))
       .finally(() => setLoading(false));
@@ -118,6 +123,8 @@ const DriversPage: React.FC = () => {
         email: draft.email,
         phone: draft.phone,
         status: draft.status,
+        checklist_checked: draft.checklist_checked,
+        checklist_date: draft.checklist_date ?? null,
       });
       setSelected(null);
       setEditing(false);
@@ -131,7 +138,7 @@ const DriversPage: React.FC = () => {
     listCompanies().then(setCompanies).catch(() => setCompanies([]));
   }, []);
 
-  useEffect(refresh, [companyFilter]);
+  useEffect(refresh, [companyFilter, checklistFilter]);
 
   // Deep-link from the alerts page: ?focus=<driverId> opens that driver's drawer once.
   const [searchParams] = useSearchParams();
@@ -156,15 +163,24 @@ const DriversPage: React.FC = () => {
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold text-mfleet-gray-dark">Drivers</h1>
 
-      <div className="w-56">
-        <SelectInput value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
-          <option value="">All companies</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </SelectInput>
+      <div className="flex gap-3">
+        <div className="w-56">
+          <SelectInput value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
+            <option value="">All companies</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </SelectInput>
+        </div>
+        <div className="w-48">
+          <SelectInput value={checklistFilter} onChange={(e) => setChecklistFilter(e.target.value)}>
+            <option value="">All checklists</option>
+            <option value="yes">Checklist done</option>
+            <option value="no">Checklist pending</option>
+          </SelectInput>
+        </div>
       </div>
 
       <Card className="overflow-hidden">
@@ -185,6 +201,7 @@ const DriversPage: React.FC = () => {
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Checklist</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -213,6 +230,9 @@ const DriversPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge value={d.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <ChecklistCell checked={d.checklist_checked} date={d.checklist_date} />
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
@@ -280,6 +300,11 @@ const DriversPage: React.FC = () => {
                     ))}
                   </SelectInput>
                 </Field>
+                <ChecklistFields
+                  checked={draft.checklist_checked}
+                  date={draft.checklist_date}
+                  onChange={(checked, date) => setDraft({ ...draft, checklist_checked: checked, checklist_date: date })}
+                />
                 <div className="flex justify-end gap-2">
                   <Button variant="secondary" onClick={toggleEdit}>Cancel</Button>
                   <Button onClick={save} disabled={saving}>
@@ -301,6 +326,10 @@ const DriversPage: React.FC = () => {
                 {detail?.dob && (
                   <ReadOnlyField label="Date of birth" value={new Date(detail.dob).toLocaleDateString('en-US')} />
                 )}
+                <div className="col-span-2 flex flex-col gap-0.5">
+                  <span className="text-xs font-medium uppercase tracking-wide text-mfleet-gray">Onboarding checklist</span>
+                  <div><ChecklistCell checked={selected.checklist_checked} date={selected.checklist_date} /></div>
+                </div>
               </div>
             )}
 

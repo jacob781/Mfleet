@@ -52,9 +52,26 @@ def ensure_folder(token: str, name: str, parent_id: str | None) -> str:
     return r.json()["id"]
 
 
+def _find_file(token: str, name: str, parent_id: str) -> str | None:
+    q = f"name='{_esc(name)}' and '{parent_id}' in parents and trashed=false"
+    r = requests.get(FILES_URL, headers=_headers(token),
+                     params={"q": q, "fields": "files(id)", "spaces": "drive"}, timeout=20)
+    r.raise_for_status()
+    found = r.json().get("files", [])
+    return found[0]["id"] if found else None
+
+
 def upload_file(token: str, path: str, name: str, parent_id: str, mime: str = "application/pdf") -> str:
-    meta = {"name": name, "parents": [parent_id]}
+    """Create the file, or replace its content if one with the same name exists
+    in this folder (so re-uploads don't pile up duplicates)."""
+    existing = _find_file(token, name, parent_id)
     with open(path, "rb") as f:
+        if existing:  # PATCH media of the existing file — keeps id/link, drops old content
+            r = requests.patch(f"{UPLOAD_URL}/{existing}", headers={**_headers(token), "Content-Type": mime},
+                               params={"uploadType": "media"}, data=f, timeout=120)
+            r.raise_for_status()
+            return existing
+        meta = {"name": name, "parents": [parent_id]}
         parts = {
             "metadata": ("metadata", json.dumps(meta), "application/json"),
             "file": (name, f, mime),

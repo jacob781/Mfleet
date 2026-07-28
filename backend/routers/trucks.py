@@ -38,10 +38,13 @@ def list_trucks(
     session: Annotated[Session, Depends(get_session)],
     _user: Annotated[User, Depends(get_current_user)],
     company_id: Optional[int] = None,
+    checklist: Optional[bool] = None,
 ) -> List[Truck]:
     stmt = select(Truck)
     if company_id is not None:
         stmt = stmt.where(Truck.company_id == company_id)
+    if checklist is not None:
+        stmt = stmt.where(Truck.checklist_checked == checklist)
     return list(session.exec(stmt).all())
 
 

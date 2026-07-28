@@ -36,6 +36,7 @@ import {
 } from '../../components/admin/ui';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
+import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
 import { TRUCK_MAKES } from '../../lib/truckMakes';
 import { maskedRegister } from '../../lib/masks';
 
@@ -53,6 +54,7 @@ const TrucksPage: React.FC = () => {
   const [drivers, setDrivers] = useState<DriverSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [companyFilter, setCompanyFilter] = useState('');
+  const [checklistFilter, setChecklistFilter] = useState(''); // '' | 'yes' | 'no'
   const [showForm, setShowForm] = useState(false);
   /** The truck whose detail drawer is open (view or edit). */
   const [viewing, setViewing] = useState<TruckResponse | null>(null);
@@ -91,13 +93,16 @@ const TrucksPage: React.FC = () => {
 
   const refresh = () => {
     setLoading(true);
-    listTrucks(companyFilter ? Number(companyFilter) : undefined)
+    listTrucks(
+      companyFilter ? Number(companyFilter) : undefined,
+      checklistFilter === '' ? undefined : checklistFilter === 'yes',
+    )
       .then(setTrucks)
       .catch(() => setTrucks([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(refresh, [companyFilter]);
+  useEffect(refresh, [companyFilter, checklistFilter]);
 
   // Deep-link from the alerts page: ?focus=<truckId> opens that vehicle's drawer once.
   const [searchParams] = useSearchParams();
@@ -162,6 +167,8 @@ const TrucksPage: React.FC = () => {
       unit_number: data.unit_number?.trim() || null,
       ownership: data.ownership || null,
       owner_driver_id: data.owner_driver_id ? Number(data.owner_driver_id) : null,
+      checklist_checked: !!data.checklist_checked,
+      checklist_date: data.checklist_date || null,
     };
     try {
       if (viewing && drawerEditing) {
@@ -276,6 +283,14 @@ const TrucksPage: React.FC = () => {
           </SelectInput>
         </Field>
       </div>
+      <ChecklistFields
+        checked={watch('checklist_checked')}
+        date={watch('checklist_date')}
+        onChange={(checked, date) => {
+          setValue('checklist_checked', checked, { shouldDirty: true });
+          setValue('checklist_date', date, { shouldDirty: true });
+        }}
+      />
       {formError && (
         <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
       )}
@@ -299,15 +314,24 @@ const TrucksPage: React.FC = () => {
         </Button>
       </div>
 
-      <div className="w-56">
-        <SelectInput value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
-          <option value="">All companies</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </SelectInput>
+      <div className="flex gap-3">
+        <div className="w-56">
+          <SelectInput value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
+            <option value="">All companies</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </SelectInput>
+        </div>
+        <div className="w-48">
+          <SelectInput value={checklistFilter} onChange={(e) => setChecklistFilter(e.target.value)}>
+            <option value="">All checklists</option>
+            <option value="yes">Checklist done</option>
+            <option value="no">Checklist pending</option>
+          </SelectInput>
+        </div>
       </div>
 
       {showForm && !viewing && (
@@ -338,6 +362,7 @@ const TrucksPage: React.FC = () => {
                 <th className="px-4 py-3">State</th>
                 <th className="px-4 py-3">Ownership</th>
                 <th className="px-4 py-3">Company</th>
+                <th className="px-4 py-3">Checklist</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -365,6 +390,9 @@ const TrucksPage: React.FC = () => {
                   <td className="px-4 py-3 text-mfleet-gray">{t.state_registered}</td>
                   <td className="px-4 py-3 capitalize text-mfleet-gray">{t.ownership || '—'}</td>
                   <td className="px-4 py-3 text-mfleet-gray">{companyName(t.company_id)}</td>
+                  <td className="px-4 py-3">
+                    <ChecklistCell checked={t.checklist_checked} date={t.checklist_date} />
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
@@ -430,6 +458,10 @@ const TrucksPage: React.FC = () => {
                 ) : (
                   <ReadOnlyField label="Owner" value={`Company (${companyName(viewing.company_id)})`} copyable={false} />
                 )}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium uppercase tracking-wide text-mfleet-gray">Checklist</span>
+                  <div><ChecklistCell checked={viewing.checklist_checked} date={viewing.checklist_date} /></div>
+                </div>
               </div>
             )}
             <div>

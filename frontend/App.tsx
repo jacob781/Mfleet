@@ -7,6 +7,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import PricingPage from './pages/PricingPage';
 import DriverPortal from './pages/DriverPortal';
 import AdminApp from './pages/admin/AdminApp';
+import { Toaster } from './components/Toast';
 import Header from './Header';
 import Footer from './Footer';
 
@@ -30,6 +31,7 @@ const App: React.FC = () => {
     <HelmetProvider>
       <BrowserRouter>
         <ScrollToHash />
+        <Toaster />
         <Routes>
           {/* ── Private pricing page — standalone, no Header/Footer, no nav links ── */}
           <Route path="/pricing" element={<PricingPage />} />

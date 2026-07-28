@@ -75,7 +75,7 @@ export const Field: React.FC<FieldProps> = ({
 
 // --- Inputs ----------------------------------------------------------------
 
-const inputBase =
+export const inputBase =
   'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-mfleet-gray-dark placeholder-gray-400 focus:border-mfleet-blue focus:outline-none focus:ring-1 focus:ring-mfleet-blue';
 
 export const TextInput = React.forwardRef<

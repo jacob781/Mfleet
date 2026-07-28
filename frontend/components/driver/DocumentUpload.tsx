@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { documentUrl, uploadDocument, truckDocumentUrl, uploadTruckDocument, FormError } from '../../lib/driverApi';
+import { useFileDrop } from '../../lib/useFileDrop';
 
 type Status = 'idle' | 'uploading' | 'done' | 'error';
 
@@ -20,6 +21,7 @@ const DocumentUpload: React.FC<{
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const drop = useFileDrop((f) => void upload(f));
 
   const viewUrl = truckIndex != null ? truckDocumentUrl(token, truckIndex, docType) : documentUrl(token, docType);
 
@@ -31,9 +33,7 @@ const DocumentUpload: React.FC<{
     return () => { alive = false; };
   }, [viewUrl]);
 
-  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function upload(file: File) {
     setStatus('uploading');
     setError('');
     try {
@@ -48,7 +48,11 @@ const DocumentUpload: React.FC<{
   }
 
   return (
-    <label className="block mb-4">
+    <label
+      {...drop.props}
+      className={'block mb-4 rounded-lg border-2 border-dashed p-3 transition-colors ' +
+        (drop.over ? 'border-mfleet-blue bg-mfleet-blue/5' : 'border-transparent')}
+    >
       <span className="block text-sm font-medium text-mfleet-gray-dark mb-1">
         {label}{required && <span className="text-red-600"> *</span>}
       </span>
@@ -56,10 +60,11 @@ const DocumentUpload: React.FC<{
         ref={inputRef}
         type="file"
         accept="application/pdf,image/jpeg,image/png"
-        onChange={onPick}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); }}
         className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0
           file:bg-mfleet-blue file:px-4 file:py-2 file:text-white file:cursor-pointer"
       />
+      <span className="block text-xs text-gray-400 mt-1">or drag &amp; drop the file here</span>
       {status === 'uploading' && <span className="block text-sm text-gray-500 mt-1">Uploading…</span>}
       {status === 'done' && (
         <span className="block text-sm text-green-700 mt-1">

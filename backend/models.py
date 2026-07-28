@@ -241,6 +241,10 @@ class Driver(SQLModel, table=True):
     hire_date: date = Field(default_factory=date.today)
     status: str = Field(default="Pending")  # Pending, Active, Terminated
 
+    # Onboarding checklist (docs/tools the driver must have). Set manually by a manager.
+    checklist_checked: bool = Field(default=False)
+    checklist_date: Optional[date] = None
+
     # Manager-only free-form note about this driver.
     notes: Optional[str] = None
 
@@ -271,6 +275,10 @@ class Truck(SQLModel, table=True):
     unit_number: Optional[str] = None          # fleet unit # assigned by the company
     ownership: Optional[str] = None             # "owned" | "leased" (manager-set)
     owner_driver_id: Optional[int] = Field(default=None, foreign_key="driver.id")  # owner-operator who owns it
+
+    # Checklist (equipment/docs the truck must have). Set manually by a manager.
+    checklist_checked: bool = Field(default=False)
+    checklist_date: Optional[date] = None
 
     # Relationships
     company: Company = Relationship(back_populates="trucks")

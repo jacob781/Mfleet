@@ -140,6 +140,8 @@ class TruckCreate(BaseModel):
     unit_number: Optional[str] = Field(default=None, max_length=32)
     ownership: Optional[Literal["owned", "leased"]] = None
     owner_driver_id: Optional[int] = None
+    checklist_checked: bool = False
+    checklist_date: Optional[date] = None
 
 
 class TruckUpdate(BaseModel):
@@ -153,6 +155,8 @@ class TruckUpdate(BaseModel):
     unit_number: Optional[str] = Field(default=None, max_length=32)
     ownership: Optional[Literal["owned", "leased"]] = None
     owner_driver_id: Optional[int] = None
+    checklist_checked: Optional[bool] = None
+    checklist_date: Optional[date] = None
 
 
 class TruckResponse(TruckCreate):
@@ -224,6 +228,8 @@ class DriverSummary(BaseModel):
     email: str
     phone: str
     status: str
+    checklist_checked: bool = False
+    checklist_date: Optional[date] = None
 
     model_config = {"from_attributes": True}
 
@@ -247,6 +253,8 @@ class DriverUpdate(BaseModel):
     phone: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    checklist_checked: Optional[bool] = None
+    checklist_date: Optional[date] = None
 
 
 class DriverDetail(DriverSummary):

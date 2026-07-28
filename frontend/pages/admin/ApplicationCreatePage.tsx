@@ -22,7 +22,8 @@ import {
 import CompanyFields from '../../components/admin/CompanyFields';
 import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
 import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
-import { Button, Card, Field, SelectInput, Spinner, TextInput, Toggle } from '../../components/admin/ui';
+import { Button, Card, Field, SelectInput, Spinner, TextInput, Toggle, inputBase } from '../../components/admin/ui';
+import { DateField } from '../../components/DateInput';
 
 interface CreateForm {
   company_mode: 'existing' | 'new';
@@ -54,6 +55,7 @@ const ApplicationCreatePage: React.FC = () => {
 
   const {
     register,
+    control,
     handleSubmit,
     watch,
     setValue,
@@ -311,7 +313,7 @@ const ApplicationCreatePage: React.FC = () => {
               )}
             </Field>
           ) : (
-            <CompanyFields register={register} errors={errors.new_company} prefix="new_company" />
+            <CompanyFields register={register} control={control} errors={errors.new_company} prefix="new_company" />
           )}
         </Card>
 
@@ -363,7 +365,7 @@ const ApplicationCreatePage: React.FC = () => {
             <Toggle label="Owner-operator (driver owns the truck)" {...register('driver_is_owner')} />
             <Field label="Link expires (optional — defaults to +30 days)" error={errors.expires_at?.message}>
               <div className="w-56">
-                <TextInput type="date" {...register('expires_at')} />
+                <DateField name="expires_at" control={control} className={inputBase} />
               </div>
             </Field>
           </div>

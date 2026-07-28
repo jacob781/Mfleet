@@ -1,6 +1,7 @@
 import React from 'react';
 import { useFormContext, RegisterOptions } from 'react-hook-form';
 import { MASKS } from '../../lib/masks';
+import { DateField } from '../DateInput';
 
 function errorAt(errors: any, name: string): any {
   return name.split('.').reduce((acc, key) => (acc == null ? acc : acc[key]), errors);
@@ -36,9 +37,27 @@ export const TextField: React.FC<
     format?: FormatKind;
   }
 > = ({ name, label, required, type = 'text', inputMode, placeholder, valueAsNumber, autoComplete, format }) => {
-  const { register, formState: { errors } } = useFormContext();
+  const { register, control, formState: { errors } } = useFormContext();
   const err = errorAt(errors, name);
   const fmt = format ? MASKS[format] : null;
+  // Dates are typed as MM/DD/YYYY (see DateInput) — native pickers follow the
+  // browser locale, which is not always US.
+  if (type === 'date') {
+    return (
+      <label className="block mb-4">
+        <span className="block text-sm font-medium text-mfleet-gray-dark mb-1">
+          {label}{required && <span className="text-red-600"> *</span>}
+        </span>
+        <DateField
+          name={name}
+          control={control}
+          rules={{ required: required ? `${label} is required` : false }}
+          className={inputCls}
+        />
+        {err && <span className="block text-sm text-red-600 mt-1">{String(err.message || 'Invalid')}</span>}
+      </label>
+    );
+  }
   const rules: RegisterOptions = {
     required: required ? `${label} is required` : false,
     valueAsNumber: !!valueAsNumber,
