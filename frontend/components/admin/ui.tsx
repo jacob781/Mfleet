@@ -152,8 +152,8 @@ export const StatusBadge: React.FC<{ value: string | null | undefined }> = ({ va
 
 // --- Drawer (right slide-over) ---------------------------------------------
 
-// Right-anchored slide-over for quick view/edit/documents; click the backdrop or
-// the X to close. ponytail: CSS transition, no animation lib.
+// Right-anchored slide-over for quick view/edit/documents; close with the X, the
+// backdrop, or Esc. ponytail: CSS transition, no animation lib.
 export const Drawer: React.FC<{
   open: boolean;
   title: React.ReactNode;
@@ -161,7 +161,16 @@ export const Drawer: React.FC<{
   children: React.ReactNode;
   /** Optional element rendered to the right of the title (e.g. edit button). */
   headerRight?: React.ReactNode;
-}> = ({ open, title, onClose, children, headerRight }) => (
+}> = ({ open, title, onClose, children, headerRight }) => {
+  // Esc closes the drawer, like the backdrop and the X.
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  return (
   <div className={cn('fixed inset-0 z-50', !open && 'pointer-events-none')}>
     <div
       onClick={onClose}
@@ -190,7 +199,8 @@ export const Drawer: React.FC<{
       <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
     </div>
   </div>
-);
+  );
+};
 
 // --- ReadOnlyField ---------------------------------------------------------
 
