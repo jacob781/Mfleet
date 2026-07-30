@@ -1,9 +1,10 @@
 """API request/response DTOs (kept separate from the SQLModel tables)."""
 
+import re
 from datetime import date, datetime
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, computed_field
+from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
 
 from models import SsnStr, TinStr, doc_status
 
@@ -260,19 +261,34 @@ class DriverApplicationBrief(BaseModel):
     model_config = {"from_attributes": True}
 
 
+def _blank_or_email(value: Optional[str]) -> Optional[str]:
+    """Manager-added drivers often have no contacts yet — blank is stored rather
+    than a fake address. Anything non-blank still has to look like an email.
+    The driver's own application validates its fields separately and keeps
+    requiring both (see routers/driver_form.py)."""
+    if value is None:
+        return None
+    value = value.strip()
+    if value and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
+        raise ValueError("Enter a valid email")
+    return value
+
+
 class DriverCreate(BaseModel):
     """Manager adds a driver directly, outside the application flow."""
     company_id: int
     first_name: str = Field(min_length=1)
     middle_name: Optional[str] = None
     last_name: str = Field(min_length=1)
-    email: EmailStr
-    phone: str
+    email: str = ""
+    phone: str = ""
     dob: Optional[date] = None
     status: str = "Pending"
     notes: Optional[str] = None
     checklist_checked: bool = False
     checklist_date: Optional[date] = None
+
+    _check_email = field_validator("email")(_blank_or_email)
 
 
 class DriverUpdate(BaseModel):
@@ -280,12 +296,14 @@ class DriverUpdate(BaseModel):
     first_name: Optional[str] = Field(default=None, min_length=1)
     middle_name: Optional[str] = None
     last_name: Optional[str] = Field(default=None, min_length=1)
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None       # "" clears it; contacts stay optional here
     phone: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
     checklist_checked: Optional[bool] = None
     checklist_date: Optional[date] = None
+
+    _check_email = field_validator("email")(_blank_or_email)
 
 
 class DriverDetail(DriverSummary):

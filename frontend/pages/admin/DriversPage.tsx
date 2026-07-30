@@ -261,18 +261,19 @@ const DriversPage: React.FC = () => {
                 className={inputBase}
               />
             </Field>
-            <Field label="Email" required>
+            <Field label="Email">
               <TextInput
                 type="email"
                 value={creating.email}
                 onChange={(e) => setCreating({ ...creating, email: e.target.value })}
+                placeholder="Optional — add it later"
               />
             </Field>
-            <Field label="Phone" required>
+            <Field label="Phone">
               <TextInput
                 value={creating.phone}
                 onChange={(e) => setCreating({ ...creating, phone: maskPhone(e.target.value) })}
-                placeholder="(555) 123-4567"
+                placeholder="Optional — add it later"
               />
             </Field>
           </div>
@@ -280,7 +281,7 @@ const DriversPage: React.FC = () => {
             <Button variant="secondary" onClick={() => setCreating(null)}>Cancel</Button>
             <Button
               onClick={saveNew}
-              disabled={saving || !creating.first_name || !creating.last_name || !creating.email || !creating.phone}
+              disabled={saving || !creating.first_name || !creating.last_name}
             >
               {saving ? <Spinner className="h-4 w-4 text-white" /> : 'Create driver'}
             </Button>
@@ -366,11 +367,11 @@ const DriversPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-mfleet-gray">{companyName(d.company_id)}</td>
                   <td className="px-4 py-3 text-mfleet-gray">
-                    {d.email}
+                    {d.email || '—'}
                     <CopyButton text={d.email} />
                   </td>
                   <td className="px-4 py-3 text-mfleet-gray">
-                    {d.phone}
+                    {d.phone || '—'}
                     <CopyButton text={d.phone} />
                   </td>
                   <td className="px-4 py-3">
