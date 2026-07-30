@@ -239,13 +239,13 @@ const DriversPage: React.FC = () => {
             <Field label="First name" required>
               <TextInput
                 value={creating.first_name}
-                onChange={(e) => setCreating({ ...creating, first_name: e.target.value })}
+                onChange={(e) => setCreating({ ...creating, first_name: e.target.value.toUpperCase() })}
               />
             </Field>
             <Field label="Last name" required>
               <TextInput
                 value={creating.last_name}
-                onChange={(e) => setCreating({ ...creating, last_name: e.target.value })}
+                onChange={(e) => setCreating({ ...creating, last_name: e.target.value.toUpperCase() })}
               />
             </Field>
             <Field label="Middle name">
