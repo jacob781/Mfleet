@@ -3,6 +3,7 @@ import { Button, Spinner, StatusBadge, cn, inputBase } from './ui';
 import { DateInput } from '../DateInput';
 import { useFileDrop } from '../../lib/useFileDrop';
 import { isoToUs } from '../../lib/masks';
+import { toast } from '../Toast';
 
 // One card per manager-side document: shows the current file's status + view/
 // download on top, and a replace-file + expiry row below. Used for truck
@@ -21,6 +22,47 @@ const ManagerDocUpload: React.FC<{
   const [expiry, setExpiry] = useState(currentExpiry ?? '');
   const [busy, setBusy] = useState(false);
   const drop = useFileDrop(setFile);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Clearing has to reset the input too, or picking the same file again fires no
+  // change event and the card looks stuck on empty.
+  const clearFile = () => {
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  // Attach whatever image is on the clipboard — a screenshot or a photo copied
+  // from a chat — without saving it to disk first. The zone itself stays a plain
+  // label so one click still opens the picker and dragging a file in still works.
+  // ponytail: images only; the clipboard API never hands over a copied PDF, and
+  // for those the drop zone is the shorter path anyway.
+  const pasteFromClipboard = async () => {
+    if (!navigator.clipboard?.read) {
+      toast('This browser cannot read the clipboard — drop the file here instead.');
+      return;
+    }
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find((t) => t.startsWith('image/'));
+        if (type) {
+          const blob = await item.getType(type);
+          setFile(new File([blob], `pasted.${type.split('/')[1] || 'png'}`, { type }));
+          return;
+        }
+      }
+      toast('No image in the clipboard — copy a photo first, or drop the file here.');
+    } catch {
+      toast('Clipboard access was blocked — allow it in the address bar, or drop the file here.');
+    }
+  };
+
+  // Preview what is attached before it goes anywhere: images as a thumbnail,
+  // anything else by name. Nothing uploads until Save, so this is the check.
+  const preview = React.useMemo(
+    () => (file && file.type.startsWith('image/') ? URL.createObjectURL(file) : null),
+    [file],
+  );
+  React.useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   // Show Save once something changed; keep it visible but disabled with a hint
   // when it can't save (never hide it). A doc needs a file — either just picked
@@ -39,7 +81,7 @@ const ManagerDocUpload: React.FC<{
     setBusy(true);
     try {
       await onSave(file, expiry);
-      setFile(null);
+      clearFile();
     } catch {
       // The API layer already toasted the reason; keep the picked file so the
       // manager can just hit Save again.
@@ -86,24 +128,48 @@ const ManagerDocUpload: React.FC<{
         <label
           {...drop.props}
           className={cn(
-            'min-w-[180px] flex-1 cursor-pointer truncate rounded-md border border-dashed px-3 py-2 text-xs',
+            // No `truncate` here: it clips overflow, and the clear button sits on
+            // the corner of this border. The file name truncates on its own span.
+            'relative min-w-[180px] flex-1 cursor-pointer rounded-md border border-dashed px-3 py-2 text-xs',
             drop.over ? 'border-mfleet-blue bg-mfleet-blue/5' : 'border-gray-300 bg-gray-50 hover:bg-gray-100',
           )}
         >
           {file ? (
-            <span className="font-medium text-mfleet-gray-dark">{file.name}</span>
+            <span className="flex items-center gap-2">
+              {preview && <img src={preview} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />}
+              <span className="truncate font-medium text-mfleet-gray-dark">{file.name}</span>
+              {/* Drop the attachment without saving. preventDefault stops the click
+                  from reaching the label, which would reopen the file picker. */}
+              <button
+                type="button"
+                title="Remove"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); clearFile(); }}
+                className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-sm leading-none text-mfleet-gray shadow-sm hover:bg-gray-100 hover:text-mfleet-gray-dark"
+              >
+                ×
+              </button>
+            </span>
           ) : (
             <span className="text-gray-500">
-              {drop.over ? 'Drop to attach' : hasFile ? 'Replace file — drop or click…' : 'Drop PDF/image here or click…'}
+              {drop.over ? 'Drop to attach' : hasFile ? 'Replace current file…' : 'Drop PDF/image here or click…'}
             </span>
           )}
           <input
+            ref={inputRef}
             type="file"
             accept="application/pdf,image/*"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="hidden"
           />
         </label>
+        <button
+          type="button"
+          onClick={pasteFromClipboard}
+          title="Attach the image currently in the clipboard"
+          className="shrink-0 rounded-md border border-gray-300 px-2 py-2 text-xs text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-gray-dark"
+        >
+          Paste
+        </button>
         <div className="flex items-center gap-1">
           <span className="text-xs text-gray-400">Expires</span>
           <DateInput
