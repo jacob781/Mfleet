@@ -29,7 +29,11 @@ const ManagerDocUpload: React.FC<{
   const willHaveFile = !!file || !!hasFile;
   const missingExpiry = requireExpiry && !expiry;
   const canSave = dirty && !missingExpiry && willHaveFile;
-  const hint = !willHaveFile ? 'Attach a file to save' : missingExpiry ? 'Set expiry to save' : null;
+  // A half-typed date reads as empty, so on a document that already has one the
+  // hint must say "finish typing", not "you forgot to set it".
+  const hint = !willHaveFile ? 'Attach a file to save'
+    : missingExpiry ? (currentExpiry ? 'Finish the date (MM/DD/YYYY) to save' : 'Set expiry to save')
+    : null;
 
   const save = async () => {
     setBusy(true);
