@@ -16,7 +16,7 @@ import jwt
 
 ALGORITHM = "HS256"
 _DEFAULT_TOKEN_EXPIRE_MINUTES = 60
-_DEFAULT_REFRESH_EXPIRE_MINUTES = 180
+_DEFAULT_REFRESH_EXPIRE_MINUTES = 24 * 60   # rotation renews it, so this is "time away", not session length
 _FILE_TOKEN_EXPIRE_MINUTES = 15
 
 
