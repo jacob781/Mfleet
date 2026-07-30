@@ -34,6 +34,8 @@ import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
 import { DocFilterSelect, parseDocFilter } from '../../components/admin/DocFilter';
+import { DocIndicator } from '../../components/admin/DocIndicator';
+import { ListCount, SortHeader, byText, useListView } from '../../components/admin/listView';
 import { DateInput } from '../../components/DateInput';
 
 const DRIVER_STATUSES = ['Pending', 'Active', 'Terminated'];
@@ -168,6 +170,18 @@ const DriversPage: React.FC = () => {
     return (id: number) => map.get(id) ?? `#${id}`;
   }, [companies]);
 
+  const fullName = (d: DriverSummary) =>
+    `${d.first_name} ${d.middle_name ? `${d.middle_name} ` : ''}${d.last_name}`.replace(/\s+/g, ' ').trim();
+
+  const { query, setQuery, sort, toggleSort, visible } = useListView(
+    drivers,
+    (d) => [fullName(d), companyName(d.company_id), d.email, d.phone, d.status],
+    {
+      name: byText(fullName),
+      company: byText((d) => companyName(d.company_id)),
+    },
+  );
+
   const openCreate = () => {
     setSelected(null);
     setCreating(emptyDriver(companyFilter ? Number(companyFilter) : companies[0]?.id ?? 0));
@@ -295,6 +309,14 @@ const DriversPage: React.FC = () => {
         <div className="w-72">
           <DocFilterSelect docs={DRIVER_DOCS} value={docFilter} onChange={setDocFilter} />
         </div>
+        <div className="w-64">
+          <TextInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, email, phone…"
+          />
+        </div>
+        <ListCount visible={visible.length} total={drivers.length} noun="drivers" />
       </div>
 
       <Card className="overflow-hidden">
@@ -302,30 +324,36 @@ const DriversPage: React.FC = () => {
           <div className="flex justify-center py-16">
             <Spinner className="h-6 w-6" />
           </div>
-        ) : drivers.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="py-16 text-center text-sm text-mfleet-gray">
-            No drivers match. Add one above, or they appear here once an application is completed.
+            {drivers.length === 0
+              ? 'No drivers yet. Add one above, or they appear here once an application is completed.'
+              : `No drivers match “${query}”.`}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-mfleet-gray">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Company</th>
+                <th className="w-12 px-4 py-3">#</th>
+                <SortHeader label="Name" col="name" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Company" col="company" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Documents</th>
                 <th className="px-4 py-3">Checklist</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {drivers.map((d) => (
+              {visible.map((d, i) => (
                 <tr
                   key={d.id}
                   onClick={() => openDriver(d)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
+                  {/* Numbers the rows on screen, so they stay 1..N under any filter or sort. */}
+                  <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
                   <td className="px-4 py-3 font-medium text-mfleet-gray-dark">
                     {d.first_name} {d.middle_name ? `${d.middle_name} ` : ''}
                     {d.last_name}
@@ -344,6 +372,9 @@ const DriversPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge value={d.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <DocIndicator flags={d.doc_flags} />
                   </td>
                   <td className="px-4 py-3">
                     <ChecklistCell checked={d.checklist_checked} date={d.checklist_date} />

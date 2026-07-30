@@ -38,6 +38,8 @@ import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
 import { DocFilterSelect, parseDocFilter } from '../../components/admin/DocFilter';
+import { DocIndicator } from '../../components/admin/DocIndicator';
+import { ListCount, SortHeader, byNumber, byText, useListView } from '../../components/admin/listView';
 import { TRUCK_MAKES } from '../../lib/truckMakes';
 import { maskedRegister } from '../../lib/masks';
 
@@ -126,6 +128,17 @@ const TrucksPage: React.FC = () => {
     companies.forEach((c) => map.set(c.id, c.name));
     return (id: number) => map.get(id) ?? `#${id}`;
   }, [companies]);
+
+  const { query, setQuery, sort, toggleSort, visible } = useListView(
+    trucks,
+    (t) => [t.unit_number, t.make, t.year, t.vin, t.plate_number, t.state_registered,
+            t.ownership, companyName(t.company_id)],
+    {
+      unit_number: byText((t) => t.unit_number),
+      year: byNumber((t) => t.year),
+      company: byText((t) => companyName(t.company_id)),
+    },
+  );
 
   const driverName = useMemo(() => {
     const map = new Map<number, string>();
@@ -338,6 +351,14 @@ const TrucksPage: React.FC = () => {
         <div className="w-64">
           <DocFilterSelect docs={TRUCK_DOCS} value={docFilter} onChange={setDocFilter} />
         </div>
+        <div className="w-64">
+          <TextInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search unit, make, VIN, plate…"
+          />
+        </div>
+        <ListCount visible={visible.length} total={trucks.length} noun="vehicles" />
       </div>
 
       {showForm && !viewing && (
@@ -352,33 +373,39 @@ const TrucksPage: React.FC = () => {
           <div className="flex justify-center py-16">
             <Spinner className="h-6 w-6" />
           </div>
-        ) : trucks.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="py-16 text-center text-sm text-mfleet-gray">
-            No vehicles yet. Add one to start building the fleet.
+            {trucks.length === 0
+              ? 'No vehicles yet. Add one to start building the fleet.'
+              : `No vehicles match “${query}”.`}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-mfleet-gray">
-                <th className="px-4 py-3">Unit No</th>
+                <th className="w-12 px-4 py-3">#</th>
+                <SortHeader label="Unit No" col="unit_number" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">Make</th>
-                <th className="px-4 py-3">Year</th>
+                <SortHeader label="Year" col="year" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">VIN</th>
                 <th className="px-4 py-3">Plate</th>
                 <th className="px-4 py-3">State</th>
                 <th className="px-4 py-3">Ownership</th>
-                <th className="px-4 py-3">Company</th>
+                <SortHeader label="Company" col="company" sort={sort} onSort={toggleSort} />
+                <th className="px-4 py-3">Documents</th>
                 <th className="px-4 py-3">Checklist</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {trucks.map((t) => (
+              {visible.map((t, i) => (
                 <tr
                   key={t.id}
                   onClick={() => openView(t)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
+                  {/* Numbers the rows on screen, so they stay 1..N under any filter or sort. */}
+                  <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
                   <td className="px-4 py-3 text-mfleet-gray">
                     {t.unit_number || '—'}
                     {t.unit_number && <CopyButton text={t.unit_number} />}
@@ -396,6 +423,9 @@ const TrucksPage: React.FC = () => {
                   <td className="px-4 py-3 text-mfleet-gray">{t.state_registered}</td>
                   <td className="px-4 py-3 capitalize text-mfleet-gray">{t.ownership || '—'}</td>
                   <td className="px-4 py-3 text-mfleet-gray">{companyName(t.company_id)}</td>
+                  <td className="px-4 py-3">
+                    <DocIndicator flags={t.doc_flags} />
+                  </td>
                   <td className="px-4 py-3">
                     <ChecklistCell checked={t.checklist_checked} date={t.checklist_date} />
                   </td>

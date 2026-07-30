@@ -11,7 +11,7 @@ import uploads
 from database import get_session
 from dependencies import get_current_user
 from models import ComplianceDocument, Truck, User
-from routers.compliance import doc_response, owners_with_file
+from routers.compliance import doc_flags, doc_response, owners_with_file
 from schemas import ComplianceDocumentResponse, TruckCreate, TruckResponse, TruckUpdate
 
 router = APIRouter(prefix="/api/trucks", tags=["Trucks"])
@@ -41,9 +41,10 @@ def list_trucks(
     checklist: Optional[bool] = None,
     doc: Optional[str] = None,
     has_doc: Optional[bool] = None,
-) -> List[Truck]:
+) -> List[TruckResponse]:
     """`doc` + `has_doc` filter by document on file, e.g. doc=registration&has_doc=false
-    lists vehicles missing their cab card."""
+    lists vehicles missing their cab card. Each row carries its document health
+    (doc_state/doc_note) for the list indicator."""
     stmt = select(Truck)
     if company_id is not None:
         stmt = stmt.where(Truck.company_id == company_id)
@@ -54,7 +55,18 @@ def list_trucks(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
         sub = owners_with_file(ComplianceDocument.truck_id, uploads.DOC_TYPES[doc])
         stmt = stmt.where(Truck.id.in_(sub)) if has_doc else stmt.where(Truck.id.not_in(sub))
-    return list(session.exec(stmt).all())
+
+    trucks = list(session.exec(stmt).all())
+    flags = doc_flags(
+        session, ComplianceDocument.truck_id, [t.id for t in trucks],
+        {k: uploads.DOC_TYPES[k] for k in TRUCK_DOC_TYPES},
+    )
+    out = []
+    for truck in trucks:
+        row = TruckResponse.model_validate(truck)
+        row.doc_flags = flags[truck.id]
+        out.append(row)
+    return out
 
 
 @router.patch("/{truck_id}", response_model=TruckResponse)

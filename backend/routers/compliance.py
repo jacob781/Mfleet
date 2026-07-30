@@ -2,7 +2,7 @@
 expiring/expired documents as alerts for the admin bell + email digest."""
 
 from datetime import date, timedelta
-from typing import Annotated, List
+from typing import Annotated, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
@@ -12,7 +12,7 @@ import uploads
 from database import get_session
 from dependencies import get_current_user, get_current_user_file
 from models import EXPIRY_SOON_DAYS, Company, ComplianceDocument, Driver, Truck, User, doc_status
-from schemas import AlertItem, ComplianceDocumentResponse
+from schemas import AlertItem, ComplianceDocumentResponse, DocFlag
 
 router = APIRouter(prefix="/api/compliance", tags=["Compliance"])
 
@@ -26,6 +26,36 @@ def owners_with_file(column, doc_label: str):
         ComplianceDocument.file_path.is_not(None),
         column.is_not(None),   # a NULL in the set would make NOT IN match nothing
     )
+
+
+def doc_flags(session, column, owner_ids: List[int], doc_types: Dict[str, str]) -> Dict[int, List[DocFlag]]:
+    """Per-owner document problems for the list badges, in ONE query.
+    {owner_id: [DocFlag(doc=<doc_type key>, state=missing|expired|expiring)]} —
+    only what's wrong; an empty list means every required document is valid.
+    `doc_types` maps the doc_type key to its ComplianceDocument.document_type label."""
+    if not owner_ids:
+        return {}
+    rows = session.exec(select(ComplianceDocument).where(column.in_(owner_ids))).all()
+    by_owner: Dict[int, Dict[str, ComplianceDocument]] = {}
+    for row in rows:
+        by_owner.setdefault(getattr(row, column.key), {})[row.document_type] = row
+
+    out: Dict[int, List[DocFlag]] = {}
+    for owner_id in owner_ids:
+        docs = by_owner.get(owner_id, {})
+        flags: List[DocFlag] = []
+        for key, label in doc_types.items():
+            row = docs.get(label)
+            if row is None or not row.file_path:   # an expiry without a file is not a document
+                flags.append(DocFlag(doc=key, state="missing"))
+                continue
+            status = doc_status(row.expiry_date)
+            if status == "Expired":
+                flags.append(DocFlag(doc=key, state="expired"))
+            elif status == "Expiring Soon":
+                flags.append(DocFlag(doc=key, state="expiring"))
+        out[owner_id] = flags
+    return out
 
 
 def doc_response(doc: ComplianceDocument) -> ComplianceDocumentResponse:

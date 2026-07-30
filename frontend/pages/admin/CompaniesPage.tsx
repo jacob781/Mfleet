@@ -21,7 +21,8 @@ import CompanyFields from '../../components/admin/CompanyFields';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
 import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
-import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, SelectInput, Spinner } from '../../components/admin/ui';
+import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, SelectInput, Spinner, TextInput } from '../../components/admin/ui';
+import { ListCount, SortHeader, byText, useListView } from '../../components/admin/listView';
 
 const CompaniesPage: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
@@ -130,6 +131,17 @@ const CompaniesPage: React.FC = () => {
 
   useEffect(refresh, [licenseFilter]);
 
+  const location = (c: CompanyResponse) => `${c.address_city}, ${c.address_state}`;
+
+  const { query, setQuery, sort, toggleSort, visible } = useListView(
+    companies,
+    (c) => [c.name, c.dot_number, c.mc_number, location(c), c.phone],
+    {
+      name: byText((c) => c.name),
+      location: byText(location),
+    },
+  );
+
   const onDeleteCompany = async () => {
     if (!pendingDelete) return;
     if (deleteMode === 'reassign' && !deleteTarget) return;
@@ -167,12 +179,22 @@ const CompaniesPage: React.FC = () => {
         </Button>
       </div>
 
-      <div className="w-72">
-        <SelectInput value={licenseFilter} onChange={(e) => setLicenseFilter(e.target.value)}>
-          <option value="">All companies</option>
-          <option value="yes">Owner's license: on file</option>
-          <option value="no">Owner's license: missing</option>
-        </SelectInput>
+      <div className="flex gap-3">
+        <div className="w-72">
+          <SelectInput value={licenseFilter} onChange={(e) => setLicenseFilter(e.target.value)}>
+            <option value="">All companies</option>
+            <option value="yes">Owner's license: on file</option>
+            <option value="no">Owner's license: missing</option>
+          </SelectInput>
+        </div>
+        <div className="w-64">
+          <TextInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, DOT, MC, city…"
+          />
+        </div>
+        <ListCount visible={visible.length} total={companies.length} noun="companies" />
       </div>
 
       {showForm && (
@@ -242,18 +264,21 @@ const CompaniesPage: React.FC = () => {
           <div className="flex justify-center py-16">
             <Spinner className="h-6 w-6" />
           </div>
-        ) : companies.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="py-16 text-center text-sm text-mfleet-gray">
-            No companies yet. Add one to start creating applications.
+            {companies.length === 0
+              ? 'No companies yet. Add one to start creating applications.'
+              : `No companies match “${query}”.`}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-mfleet-gray">
-                <th className="px-4 py-3">Name</th>
+                <th className="w-12 px-4 py-3">#</th>
+                <SortHeader label="Name" col="name" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">DOT</th>
                 <th className="px-4 py-3">MC</th>
-                <th className="px-4 py-3">Location</th>
+                <SortHeader label="Location" col="location" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Fines</th>
                 <th className="px-4 py-3">Fees</th>
@@ -261,12 +286,14 @@ const CompaniesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {companies.map((c) => (
+              {visible.map((c, i) => (
                 <tr
                   key={c.id}
                   onClick={() => openViewCompany(c)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
+                  {/* Numbers the rows on screen, so they stay 1..N under any filter or sort. */}
+                  <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
                   <td className="px-4 py-3 font-medium text-mfleet-gray-dark">
                     {c.name}
                     <CopyButton text={c.name} />

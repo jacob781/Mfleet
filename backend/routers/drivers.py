@@ -14,7 +14,7 @@ import uploads
 from database import get_session
 from dependencies import get_current_user
 from models import Company, ComplianceDocument, Driver, DriverApplication, User
-from routers.compliance import doc_response, owners_with_file
+from routers.compliance import doc_flags, doc_response, owners_with_file
 from schemas import (
     ComplianceDocumentResponse,
     DriverApplicationBrief,
@@ -35,9 +35,10 @@ def list_drivers(
     checklist: Optional[bool] = None,
     doc: Optional[str] = None,
     has_doc: Optional[bool] = None,
-) -> List[Driver]:
+) -> List[DriverSummary]:
     """`doc` + `has_doc` filter by document on file, e.g. doc=cdl&has_doc=false lists
-    drivers with no licence copy on record."""
+    drivers with no licence copy on record. Each row carries its document health
+    (doc_state/doc_note) for the list indicator."""
     stmt = select(Driver)
     if company_id is not None:
         stmt = stmt.where(Driver.company_id == company_id)
@@ -48,7 +49,18 @@ def list_drivers(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
         sub = owners_with_file(ComplianceDocument.driver_id, uploads.DOC_TYPES[doc])
         stmt = stmt.where(Driver.id.in_(sub)) if has_doc else stmt.where(Driver.id.not_in(sub))
-    return list(session.exec(stmt).all())
+
+    drivers = list(session.exec(stmt).all())
+    flags = doc_flags(
+        session, ComplianceDocument.driver_id, [d.id for d in drivers],
+        {k: uploads.DOC_TYPES[k] for k in sorted(DRIVER_DOC_TYPES)},
+    )
+    out = []
+    for driver in drivers:
+        row = DriverSummary.model_validate(driver)
+        row.doc_flags = flags[driver.id]
+        out.append(row)
+    return out
 
 
 @router.post("", response_model=DriverDetail, status_code=status.HTTP_201_CREATED)
