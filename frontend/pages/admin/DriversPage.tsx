@@ -289,6 +289,17 @@ const DriversPage: React.FC = () => {
       )}
 
       <div className="flex gap-3">
+        <div className="w-80">
+          <TextInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, email, phone…"
+          />
+        </div>
+        <ListCount visible={visible.length} total={drivers.length} noun="drivers" />
+      </div>
+
+      <div className="flex gap-3">
         <div className="w-56">
           <SelectInput value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
             <option value="">All companies</option>
@@ -309,14 +320,6 @@ const DriversPage: React.FC = () => {
         <div className="w-72">
           <DocFilterSelect docs={DRIVER_DOCS} value={docFilter} onChange={setDocFilter} />
         </div>
-        <div className="w-64">
-          <TextInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, email, phone…"
-          />
-        </div>
-        <ListCount visible={visible.length} total={drivers.length} noun="drivers" />
       </div>
 
       <Card className="overflow-hidden">

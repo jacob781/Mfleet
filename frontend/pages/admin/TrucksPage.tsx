@@ -132,7 +132,7 @@ const TrucksPage: React.FC = () => {
   const { query, setQuery, sort, toggleSort, visible } = useListView(
     trucks,
     (t) => [t.unit_number, t.make, t.year, t.vin, t.plate_number, t.state_registered,
-            t.ownership, companyName(t.company_id)],
+            companyName(t.company_id)],
     {
       unit_number: byText((t) => t.unit_number),
       year: byNumber((t) => t.year),
@@ -331,6 +331,17 @@ const TrucksPage: React.FC = () => {
       </div>
 
       <div className="flex gap-3">
+        <div className="w-80">
+          <TextInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search unit, make, VIN, plate…"
+          />
+        </div>
+        <ListCount visible={visible.length} total={trucks.length} noun="vehicles" />
+      </div>
+
+      <div className="flex gap-3">
         <div className="w-56">
           <SelectInput value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
             <option value="">All companies</option>
@@ -351,14 +362,6 @@ const TrucksPage: React.FC = () => {
         <div className="w-64">
           <DocFilterSelect docs={TRUCK_DOCS} value={docFilter} onChange={setDocFilter} />
         </div>
-        <div className="w-64">
-          <TextInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search unit, make, VIN, plate…"
-          />
-        </div>
-        <ListCount visible={visible.length} total={trucks.length} noun="vehicles" />
       </div>
 
       {showForm && !viewing && (
@@ -390,7 +393,6 @@ const TrucksPage: React.FC = () => {
                 <th className="px-4 py-3">VIN</th>
                 <th className="px-4 py-3">Plate</th>
                 <th className="px-4 py-3">State</th>
-                <th className="px-4 py-3">Ownership</th>
                 <SortHeader label="Company" col="company" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">Documents</th>
                 <th className="px-4 py-3">Checklist</th>
@@ -421,7 +423,6 @@ const TrucksPage: React.FC = () => {
                     <CopyButton text={t.plate_number} />
                   </td>
                   <td className="px-4 py-3 text-mfleet-gray">{t.state_registered}</td>
-                  <td className="px-4 py-3 capitalize text-mfleet-gray">{t.ownership || '—'}</td>
                   <td className="px-4 py-3 text-mfleet-gray">{companyName(t.company_id)}</td>
                   <td className="px-4 py-3">
                     <DocIndicator flags={t.doc_flags} />

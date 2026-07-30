@@ -180,14 +180,7 @@ const CompaniesPage: React.FC = () => {
       </div>
 
       <div className="flex gap-3">
-        <div className="w-72">
-          <SelectInput value={licenseFilter} onChange={(e) => setLicenseFilter(e.target.value)}>
-            <option value="">All companies</option>
-            <option value="yes">Owner's license: on file</option>
-            <option value="no">Owner's license: missing</option>
-          </SelectInput>
-        </div>
-        <div className="w-64">
+        <div className="w-80">
           <TextInput
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -195,6 +188,16 @@ const CompaniesPage: React.FC = () => {
           />
         </div>
         <ListCount visible={visible.length} total={companies.length} noun="companies" />
+      </div>
+
+      <div className="flex gap-3">
+        <div className="w-72">
+          <SelectInput value={licenseFilter} onChange={(e) => setLicenseFilter(e.target.value)}>
+            <option value="">All companies</option>
+            <option value="yes">Owner's license: on file</option>
+            <option value="no">Owner's license: missing</option>
+          </SelectInput>
+        </div>
       </div>
 
       {showForm && (
