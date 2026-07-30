@@ -11,6 +11,12 @@ from models import SsnStr, TinStr, doc_status
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    # Only the login/refresh pair carries this; the file-token endpoint does not.
+    refresh_token: Optional[str] = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class UserCreate(BaseModel):
@@ -130,6 +136,12 @@ class CompanyUpdate(BaseModel):
 
 # --- Trucks ------------------------------------------------------------------
 
+class DocFlag(BaseModel):
+    """One thing wrong with a required document, for the list badges."""
+    doc: str      # doc_type key: cdl, medical_cert, annual_inspection, registration
+    state: str    # missing | expired | expiring
+
+
 class TruckCreate(BaseModel):
     company_id: int
     make: str = Field(min_length=1, max_length=100)
@@ -161,6 +173,8 @@ class TruckUpdate(BaseModel):
 
 class TruckResponse(TruckCreate):
     id: int
+    # Problem documents for the list badges; filled by the router (see doc_flags).
+    doc_flags: List[DocFlag] = []
 
     model_config = {"from_attributes": True}
 
@@ -230,6 +244,8 @@ class DriverSummary(BaseModel):
     status: str
     checklist_checked: bool = False
     checklist_date: Optional[date] = None
+    # Problem documents for the list badges; filled by the router (see doc_flags).
+    doc_flags: List[DocFlag] = []
 
     model_config = {"from_attributes": True}
 

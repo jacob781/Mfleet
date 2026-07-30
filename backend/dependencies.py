@@ -26,7 +26,9 @@ def _user_from_token(token: Optional[str], session: Session, require_scope: Opti
         raise _credentials_exception
     try:
         payload = security.decode_access_token(token)
-        if require_scope is not None and payload.get("scope") != require_scope:
+        # Session tokens carry no scope; a file token ("file") must never pass as
+        # one — it rides in URLs, so it stays confined to document reads.
+        if payload.get("scope") != require_scope:
             raise _credentials_exception
         subject = payload.get("sub")
         if subject is None:

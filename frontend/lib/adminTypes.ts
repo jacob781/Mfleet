@@ -3,6 +3,8 @@
 export interface Token {
   access_token: string;
   token_type: string;
+  /** Present on login/refresh; absent on the short-lived file token. */
+  refresh_token?: string | null;
 }
 
 export interface UserResponse {
@@ -81,6 +83,12 @@ export interface CompanyResponse extends CompanyCreate {
   fees_schedule: FeesSchedule | null;
 }
 
+/** One thing wrong with a required document, for the list badges. */
+export interface DocFlag {
+  doc: string;    // doc_type key: cdl, medical_cert, annual_inspection, registration
+  state: string;  // missing | expired | expiring
+}
+
 // --- Compliance documents & alerts -----------------------------------------
 
 export interface ComplianceDocument {
@@ -141,6 +149,8 @@ export interface DriverSummary {
   status: string;
   checklist_checked: boolean;
   checklist_date?: string | null;
+  /** Problem documents for the list badges; empty means everything is valid. */
+  doc_flags?: DocFlag[];
 }
 
 // --- Trucks ----------------------------------------------------------------
@@ -163,6 +173,8 @@ export interface TruckCreate {
 
 export interface TruckResponse extends TruckCreate {
   id: number;
+  /** Problem documents for the list badges; empty means everything is valid. */
+  doc_flags?: DocFlag[];
 }
 
 export function emptyTruck(companyId: number): TruckCreate {

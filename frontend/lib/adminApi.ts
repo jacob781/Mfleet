@@ -27,15 +27,25 @@ const API_BASE =
   ((import.meta as any).env?.PROD ? '' : 'http://localhost:8000');
 
 const TOKEN_KEY = 'mfleet_token';
+const REFRESH_KEY = 'mfleet_refresh';
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
+export function getRefresh(): string | null {
+  return localStorage.getItem(REFRESH_KEY);
+}
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
+/** Store a login/refresh response: short-lived access token + rotating refresh token. */
+export function setTokens(t: Token): void {
+  setToken(t.access_token);
+  if (t.refresh_token) localStorage.setItem(REFRESH_KEY, t.refresh_token);
+}
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
 }
 
 export class ApiError extends Error {
@@ -76,7 +86,40 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function request(path: string, init: RequestInit = {}): Promise<any> {
+/**
+ * Exchange the refresh token for a new pair. Rotation means the old refresh token
+ * is blacklisted server-side, so this must never run twice in parallel — a single
+ * in-flight promise is shared by every request that hits a 401 at the same time.
+ */
+let renewal: Promise<boolean> | null = null;
+
+function renewSession(): Promise<boolean> {
+  if (!renewal) {
+    const refresh = getRefresh();
+    const run = !refresh
+      ? Promise.resolve(false)
+      : fetch(`${API_BASE}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh }),
+        })
+          .then(async (res) => {
+            if (res.ok) {
+              setTokens(await res.json());
+              return true;
+            }
+            // Rotation is single-use, so a second tab that raced us gets refused
+            // here — but it already wrote a fresh pair to localStorage, and that
+            // one is good. Only a token nobody replaced means the session is over.
+            return getRefresh() !== refresh;
+          })
+          .catch(() => false);
+    renewal = run.finally(() => { renewal = null; });
+  }
+  return renewal;
+}
+
+async function request(path: string, init: RequestInit = {}, retry = true): Promise<any> {
   const headers: Record<string, string> = { ...authHeaders(), ...(init.headers as any) };
   let res: Response;
   try {
@@ -84,6 +127,11 @@ async function request(path: string, init: RequestInit = {}): Promise<any> {
   } catch {
     toast('Could not reach the server. Check your connection and try again.');
     throw new ApiError(0, 'network error');
+  }
+  // Access token died mid-session: renew silently and replay the call once. Only
+  // if that fails does parse() clear the session and send the manager to login.
+  if (res.status === 401 && retry && !path.startsWith('/api/auth/') && getRefresh()) {
+    if (await renewSession()) return request(path, init, false);
   }
   return parse(res);
 }
@@ -108,6 +156,15 @@ export async function login(email: string, password: string): Promise<Token> {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form.toString(),
   });
+}
+
+/** Retire the refresh token server-side so it can't be replayed after logout. */
+export function logoutSession(): Promise<void> {
+  const refresh = getRefresh();
+  if (!refresh) return Promise.resolve();
+  return jsonRequest('/api/auth/logout', 'POST', { refresh_token: refresh })
+    .then(() => undefined)
+    .catch(() => undefined);
 }
 
 export function getMe(): Promise<UserResponse> {

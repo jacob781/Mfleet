@@ -6,7 +6,8 @@ import {
   getMe,
   getToken,
   login as apiLogin,
-  setToken,
+  logoutSession,
+  setTokens,
 } from './adminApi';
 
 interface AuthState {
@@ -46,13 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const token = await apiLogin(email, password);
-    setToken(token.access_token);
+    setTokens(await apiLogin(email, password));
     const u = await getMe();
     setUser(u);
   }, []);
 
   const logout = useCallback(() => {
+    void logoutSession();   // blacklist the refresh token; local state drops either way
     clearToken();
     setUser(null);
   }, []);

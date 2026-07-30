@@ -326,6 +326,20 @@ class User(SQLModel, table=True):
     applications: List["DriverApplication"] = Relationship(back_populates="created_by")
 
 
+class RevokedToken(SQLModel, table=True):
+    """Blacklisted refresh-token ids. A refresh token is single-use: exchanging it
+    lands its `jti` here, so replaying it (or a stolen copy) is rejected; logging
+    out blacklists it early. Rows are purged once the token would have expired."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    jti: str = Field(sa_column=Column(String, unique=True, index=True, nullable=False))
+    user_id: int = Field(foreign_key="users.id")
+    expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    revoked_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),
+    )
+
+
 class EmployerVerification(SQLModel, table=True):
     """One prior-employer verification packet per application × employer. The driver's
     employment_history supplies name/phone but no email — the manager adds/edits the

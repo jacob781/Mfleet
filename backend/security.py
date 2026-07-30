@@ -7,6 +7,7 @@ even before configuration is loaded.
 """
 
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -15,6 +16,7 @@ import jwt
 
 ALGORITHM = "HS256"
 _DEFAULT_TOKEN_EXPIRE_MINUTES = 60
+_DEFAULT_REFRESH_EXPIRE_MINUTES = 180
 _FILE_TOKEN_EXPIRE_MINUTES = 15
 
 
@@ -53,6 +55,19 @@ def create_access_token(subject: Any, expires_delta: Optional[timedelta] = None)
     )
     payload = {"sub": str(subject), "exp": expire}
     return jwt.encode(payload, _secret(), algorithm=ALGORITHM)
+
+
+def _refresh_expire_minutes() -> int:
+    return int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES", str(_DEFAULT_REFRESH_EXPIRE_MINUTES)))
+
+
+def create_refresh_token(subject: Any) -> tuple[str, str, datetime]:
+    """Create a rotating refresh token: scope 'refresh' plus a unique `jti` so a
+    spent (or logged-out) token can be blacklisted. Returns (token, jti, expiry)."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=_refresh_expire_minutes())
+    jti = uuid.uuid4().hex
+    payload = {"sub": str(subject), "exp": expire, "scope": "refresh", "jti": jti}
+    return jwt.encode(payload, _secret(), algorithm=ALGORITHM), jti, expire
 
 
 def create_file_token(subject: Any) -> str:
