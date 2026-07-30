@@ -322,7 +322,7 @@ const DriversPage: React.FC = () => {
         </div>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         {loading ? (
           <div className="flex justify-center py-16">
             <Spinner className="h-6 w-6" />
@@ -334,7 +334,7 @@ const DriversPage: React.FC = () => {
               : `No drivers match “${query}”.`}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full whitespace-nowrap text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-mfleet-gray">
                 <th className="w-12 px-4 py-3">#</th>
