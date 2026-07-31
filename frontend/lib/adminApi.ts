@@ -330,6 +330,15 @@ export async function downloadDocument(docId: number, baseName: string): Promise
   saveBlob(await fetchFileBlob(`/api/compliance/documents/${docId}/file`), baseName);
 }
 
+export function documentBlob(docId: number): Promise<Blob> {
+  return fetchFileBlob(`/api/compliance/documents/${docId}/file`);
+}
+
+/** Turn a stored photo 90° (positive = clockwise). Replaces the file on the server. */
+export function rotateDocument(docId: number, deg: number): Promise<ComplianceDocument> {
+  return request(`/api/compliance/documents/${docId}/rotate?deg=${deg}`, { method: 'POST' });
+}
+
 // Driver-uploaded documents served per application (by doc_type, e.g. "cdl").
 export function openApplicationDocumentInTab(appId: number, docType: string): void {
   openFileInTab(`/api/applications/${appId}/documents/${docType}`);

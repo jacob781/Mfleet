@@ -100,6 +100,7 @@ export interface ComplianceDocument {
   expiry_date: string;
   status: string;      // Valid | Expiring Soon | Expired
   has_file: boolean;
+  is_image: boolean;   // photo (preview + rotate available), not a PDF
 }
 
 export interface AlertItem {

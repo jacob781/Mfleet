@@ -3,6 +3,8 @@ import { Button, Spinner, StatusBadge, cn, inputBase } from './ui';
 import { DateInput } from '../DateInput';
 import { useFileDrop } from '../../lib/useFileDrop';
 import { isoToUs } from '../../lib/masks';
+import { documentBlob, rotateDocument } from '../../lib/adminApi';
+import ImageEditor from './ImageEditor';
 import { toast } from '../Toast';
 
 // One card per manager-side document: shows the current file's status + view/
@@ -14,15 +16,49 @@ const ManagerDocUpload: React.FC<{
   hasFile?: boolean;
   status?: string;
   requireExpiry?: boolean;
+  /** Compliance document id + photo flag — turns on the stored-photo preview and rotation. */
+  docId?: number;
+  isImage?: boolean;
   onView?: () => void;
   onDownload?: () => void;
   onSave: (file: File | null, expiry: string) => Promise<void>;
-}> = ({ label, currentExpiry, hasFile, status, requireExpiry, onView, onDownload, onSave }) => {
+}> = ({ label, currentExpiry, hasFile, status, requireExpiry, docId, isImage, onView, onDownload, onSave }) => {
   const [file, setFile] = useState<File | null>(null);
   const [expiry, setExpiry] = useState(currentExpiry ?? '');
   const [busy, setBusy] = useState(false);
+  const [cropping, setCropping] = useState(false);
   const drop = useFileDrop(setFile);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Stored photo: shown small so a sideways scan is obvious, and re-fetched after
+  // each rotation (`spin` bumps) because the server replaced the file in place.
+  const [spin, setSpin] = useState(0);
+  const [stored, setStored] = useState<string | null>(null);
+  React.useEffect(() => {
+    if (!docId || !isImage || !hasFile) { setStored(null); return; }
+    let url = '';
+    let alive = true;
+    documentBlob(docId)
+      .then((b) => {
+        url = URL.createObjectURL(b);
+        if (alive) setStored(url); else URL.revokeObjectURL(url);
+      })
+      .catch(() => {});
+    return () => { alive = false; if (url) URL.revokeObjectURL(url); };
+  }, [docId, isImage, hasFile, spin]);
+
+  const rotate = async (deg: number) => {
+    if (!docId) return;
+    setBusy(true);
+    try {
+      await rotateDocument(docId, deg);
+      setSpin((n) => n + 1);
+    } catch {
+      // adminApi already toasted the reason
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // Clearing has to reset the input too, or picking the same file again fires no
   // change event and the card looks stuck on empty.
@@ -103,6 +139,20 @@ const ManagerDocUpload: React.FC<{
         </div>
         {hasFile ? (
           <div className="flex items-center gap-1">
+            {docId && isImage && (
+              <>
+                <button type="button" title="Rotate left" disabled={busy} onClick={() => rotate(-90)} className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue disabled:opacity-40">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8a9 9 0 1 1 0 8" /><polyline points="3 3 3 8 8 8" />
+                  </svg>
+                </button>
+                <button type="button" title="Rotate right" disabled={busy} onClick={() => rotate(90)} className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue disabled:opacity-40">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 8a9 9 0 1 0 0 8" /><polyline points="21 3 21 8 16 8" />
+                  </svg>
+                </button>
+              </>
+            )}
             {onView && (
               <button type="button" title="View" onClick={onView} className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -122,6 +172,16 @@ const ManagerDocUpload: React.FC<{
           <span className="text-xs text-mfleet-gray">No file yet</span>
         )}
       </div>
+
+      {/* Stored photo — click opens the full-size view */}
+      {stored && (
+        <img
+          src={stored}
+          alt={label}
+          onClick={onView}
+          className={cn('max-h-40 w-fit rounded border border-gray-200 object-contain', onView && 'cursor-zoom-in')}
+        />
+      )}
 
       {/* Replace / upload */}
       <div className="flex flex-wrap items-center gap-2">
@@ -148,6 +208,20 @@ const ManagerDocUpload: React.FC<{
               >
                 ×
               </button>
+              {/* Crop/rotate the picked photo before it is uploaded — sits under the
+                  clear button, on the same corner. */}
+              {preview && (
+                <button
+                  type="button"
+                  title="Crop & rotate"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCropping(true); }}
+                  className="absolute -right-2 top-4 flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-mfleet-gray shadow-sm hover:bg-gray-100 hover:text-mfleet-gray-dark"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              )}
             </span>
           ) : (
             <span className="text-gray-500">
@@ -178,6 +252,13 @@ const ManagerDocUpload: React.FC<{
             className={cn(inputBase, 'w-36')}
           />
         </div>
+        {cropping && file && (
+          <ImageEditor
+            file={file}
+            onCancel={() => setCropping(false)}
+            onApply={(f) => { setFile(f); setCropping(false); }}
+          />
+        )}
         {dirty && (
           <div className="flex items-center gap-2">
             <Button onClick={save} disabled={busy || !canSave}>

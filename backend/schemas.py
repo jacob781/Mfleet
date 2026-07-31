@@ -191,6 +191,7 @@ class ComplianceDocumentResponse(BaseModel):
     expiry_date: date
     status: str          # live status (Valid / Expiring Soon / Expired)
     has_file: bool       # whether a file is attached to download
+    is_image: bool = False   # a photo (rotatable + previewable), not a PDF
 
     model_config = {"from_attributes": True}
 

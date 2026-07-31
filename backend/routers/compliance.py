@@ -69,6 +69,7 @@ def doc_response(doc: ComplianceDocument) -> ComplianceDocumentResponse:
         expiry_date=doc.expiry_date,
         status=doc_status(doc.expiry_date),
         has_file=bool(doc.file_path),
+        is_image=bool(doc.file_path) and doc.file_path.lower().endswith(".jpg"),
     )
 
 
@@ -85,6 +86,25 @@ def download_document(
     if not path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File missing")
     return uploads.file_response(path)
+
+
+@router.post("/documents/{doc_id}/rotate", response_model=ComplianceDocumentResponse)
+def rotate_document(
+    doc_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+    deg: int = 90,
+) -> ComplianceDocumentResponse:
+    """Rotate a stored photo 90° at a time. The file is replaced on disk, so every
+    place that serves it (drawer preview, contract merge) picks the new one up."""
+    doc = session.get(ComplianceDocument, doc_id)
+    if not doc or not doc.file_path:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document file not found")
+    try:
+        uploads.rotate(doc.file_path, deg)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return doc_response(doc)
 
 
 def collect_alerts(session: Session, days: int = EXPIRY_SOON_DAYS) -> List[AlertItem]:

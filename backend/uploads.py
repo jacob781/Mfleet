@@ -29,7 +29,7 @@ DOC_TYPES = {
 }
 
 MAX_BYTES = 15 * 1024 * 1024   # 15 MB raw upload cap (HEIC/high-res photos run big)
-JPEG_QUALITY = 90              # visually lossless for documents, strong size win
+JPEG_QUALITY = 85              # ~a third smaller than 90, no visible difference on a scan
 MAX_EDGE = 2600               # cap long edge — plenty to read any scanned document
 
 
@@ -60,6 +60,24 @@ def _to_jpeg(data: bytes) -> bytes:
     out = BytesIO()
     img.save(out, "JPEG", quality=JPEG_QUALITY, optimize=True)
     return out.getvalue()
+
+
+def rotate(rel_path: str, degrees: int) -> None:
+    """Turn a stored photo in place, clockwise, in 90° steps — phone shots of a CDL
+    land sideways often enough that re-uploading them is the wrong fix.
+    ponytail: images only; PDFs would need PyMuPDF and nobody has asked."""
+    if degrees % 90:
+        raise ValueError("rotation must be a multiple of 90 degrees")
+    path = resolve(rel_path)
+    if path.suffix.lower() != ".jpg":
+        raise ValueError("only photos can be rotated (PDFs are stored as uploaded)")
+    if not path.exists():
+        raise ValueError("file missing")
+    # Read into memory first: saving over a path Pillow still has open fails on Windows.
+    img = Image.open(BytesIO(path.read_bytes())).rotate(-degrees, expand=True)
+    out = BytesIO()
+    img.save(out, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    path.write_bytes(out.getvalue())
 
 
 def _root() -> Path:
@@ -179,3 +197,26 @@ def remove_dir(rel_dir: str) -> None:
         return
     if p.is_dir():
         shutil.rmtree(p, ignore_errors=True)
+
+
+if __name__ == "__main__":   # python uploads.py — self-check for the rotation path
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        os.environ["UPLOADS_DIR"] = tmp
+        buf = BytesIO()
+        Image.new("RGB", (40, 20), "white").save(buf, "JPEG")
+        rel = _save_into(Path("selfcheck"), "cdl", buf.getvalue())
+        rotate(rel, 90)
+        assert Image.open(resolve(rel)).size == (20, 40), "90° must swap the edges"
+        rotate(rel, 180)
+        assert Image.open(resolve(rel)).size == (20, 40), "180° must keep the edges"
+        rotate(rel, -90)
+        assert Image.open(resolve(rel)).size == (40, 20), "back where we started"
+        for bad in (45, 1):
+            try:
+                rotate(rel, bad)
+                raise AssertionError(f"{bad}° must be rejected")
+            except ValueError:
+                pass
+        print("uploads rotate self-check OK")

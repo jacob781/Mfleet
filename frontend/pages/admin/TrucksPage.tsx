@@ -514,6 +514,8 @@ const TrucksPage: React.FC = () => {
                       currentExpiry={doc?.expiry_date}
                       hasFile={doc?.has_file}
                       status={doc?.status}
+                      docId={doc?.id}
+                      isImage={doc?.is_image}
                       onView={doc?.has_file ? () => openDocumentInTab(doc.id) : undefined}
                       onDownload={doc?.has_file ? () => downloadDocument(doc.id, doc.document_type) : undefined}
                       onSave={async (f, e) => {
