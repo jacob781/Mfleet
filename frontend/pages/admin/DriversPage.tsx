@@ -129,7 +129,7 @@ const DriversPage: React.FC = () => {
     try {
       await updateDriver(draft.id, {
         first_name: draft.first_name,
-        middle_name: draft.middle_name,
+        middle_name: draft.middle_name || null,   // cleared field must null the column, not store ''
         last_name: draft.last_name,
         email: draft.email,
         phone: draft.phone,
@@ -426,6 +426,12 @@ const DriversPage: React.FC = () => {
                       onChange={(e) => setDraft({ ...draft, last_name: e.target.value })}
                     />
                   </Field>
+                  <Field label="Middle name">
+                    <TextInput
+                      value={draft.middle_name ?? ''}
+                      onChange={(e) => setDraft({ ...draft, middle_name: e.target.value })}
+                    />
+                  </Field>
                 </div>
                 <Field label="Email">
                   <TextInput
@@ -466,9 +472,7 @@ const DriversPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <ReadOnlyField label="First name" value={selected.first_name} />
                 <ReadOnlyField label="Last name" value={selected.last_name} />
-                {selected.middle_name && (
-                  <ReadOnlyField label="Middle name" value={selected.middle_name} />
-                )}
+                <ReadOnlyField label="Middle name" value={selected.middle_name} />
                 <ReadOnlyField label="Status" value={selected.status} copyable={false} />
                 <ReadOnlyField label="Email" value={selected.email} className="col-span-2" />
                 <ReadOnlyField label="Phone" value={selected.phone} />
@@ -495,6 +499,8 @@ const DriversPage: React.FC = () => {
                       currentExpiry={doc?.expiry_date}
                       hasFile={doc?.has_file}
                       status={doc?.status}
+                      docId={doc?.id}
+                      isImage={doc?.is_image}
                       onView={doc?.has_file ? () => openDocumentInTab(doc.id) : undefined}
                       onDownload={doc?.has_file ? () => downloadDocument(doc.id, doc.document_type) : undefined}
                       onSave={async (f, e) => {
