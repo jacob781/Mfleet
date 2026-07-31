@@ -53,6 +53,8 @@ const ManagerDocUpload: React.FC<{
     try {
       await rotateDocument(docId, deg);
       setSpin((n) => n + 1);
+      // Say it out loud: this one action does not go through Save.
+      toast('Photo rotated and saved.');
     } catch {
       // adminApi already toasted the reason
     } finally {
@@ -100,9 +102,10 @@ const ManagerDocUpload: React.FC<{
   );
   React.useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
-  // Show Save once something changed; keep it visible but disabled with a hint
-  // when it can't save (never hide it). A doc needs a file — either just picked
-  // or already on record; a date alone must not create a fileless record.
+  // Save is always on screen, disabled with a hint when there is nothing to do —
+  // a button that comes and goes as a date is typed reads like a silent autosave.
+  // A doc needs a file (just picked or already on record); a date alone must not
+  // create a fileless record.
   const dirty = !!file || expiry !== (currentExpiry ?? '');
   const willHaveFile = !!file || !!hasFile;
   const missingExpiry = requireExpiry && !expiry;
@@ -111,6 +114,7 @@ const ManagerDocUpload: React.FC<{
   // hint must say "finish typing", not "you forgot to set it".
   const hint = !willHaveFile ? 'Attach a file to save'
     : missingExpiry ? (currentExpiry ? 'Finish the date (MM/DD/YYYY) to save' : 'Set expiry to save')
+    : !dirty ? 'No changes'
     : null;
 
   const save = async () => {
@@ -139,20 +143,6 @@ const ManagerDocUpload: React.FC<{
         </div>
         {hasFile ? (
           <div className="flex items-center gap-1">
-            {docId && isImage && (
-              <>
-                <button type="button" title="Rotate left" disabled={busy} onClick={() => rotate(-90)} className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue disabled:opacity-40">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 8a9 9 0 1 1 0 8" /><polyline points="3 3 3 8 8 8" />
-                  </svg>
-                </button>
-                <button type="button" title="Rotate right" disabled={busy} onClick={() => rotate(90)} className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue disabled:opacity-40">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 8a9 9 0 1 0 0 8" /><polyline points="21 3 21 8 16 8" />
-                  </svg>
-                </button>
-              </>
-            )}
             {onView && (
               <button type="button" title="View" onClick={onView} className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -173,14 +163,32 @@ const ManagerDocUpload: React.FC<{
         )}
       </div>
 
-      {/* Stored photo — click opens the full-size view */}
+      {/* Stored photo — click opens the full-size view. The rotate buttons sit on the
+          photo itself: they act on it alone and take effect immediately, unlike the
+          file/expiry row below, which waits for Save. */}
       {stored && (
-        <img
-          src={stored}
-          alt={label}
-          onClick={onView}
-          className={cn('max-h-40 w-fit rounded border border-gray-200 object-contain', onView && 'cursor-zoom-in')}
-        />
+        <div className="relative w-fit">
+          <img
+            src={stored}
+            alt={label}
+            onClick={onView}
+            className={cn('max-h-40 rounded border border-gray-200 object-contain', onView && 'cursor-zoom-in')}
+          />
+          {docId && isImage && (
+            <div className="absolute right-1 top-1 flex gap-1">
+              <button type="button" title="Rotate left (saved right away)" disabled={busy} onClick={() => rotate(-90)} className="rounded-md bg-white/85 p-1 text-mfleet-gray-dark shadow-sm hover:bg-white disabled:opacity-40">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 8a9 9 0 1 1 0 8" /><polyline points="3 3 3 8 8 8" />
+                </svg>
+              </button>
+              <button type="button" title="Rotate right (saved right away)" disabled={busy} onClick={() => rotate(90)} className="rounded-md bg-white/85 p-1 text-mfleet-gray-dark shadow-sm hover:bg-white disabled:opacity-40">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 8a9 9 0 1 0 0 8" /><polyline points="21 3 21 8 16 8" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Replace / upload */}
@@ -259,14 +267,14 @@ const ManagerDocUpload: React.FC<{
             onApply={(f) => { setFile(f); setCropping(false); }}
           />
         )}
-        {dirty && (
-          <div className="flex items-center gap-2">
-            <Button onClick={save} disabled={busy || !canSave}>
-              {busy ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
-            </Button>
-            {hint && <span className="text-xs text-amber-600">{hint}</span>}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Button onClick={save} disabled={busy || !canSave}>
+            {busy ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
+          </Button>
+          {hint && (
+            <span className={cn('text-xs', dirty ? 'text-amber-600' : 'text-gray-400')}>{hint}</span>
+          )}
+        </div>
       </div>
     </div>
   );
