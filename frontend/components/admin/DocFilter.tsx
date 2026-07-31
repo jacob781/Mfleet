@@ -20,6 +20,8 @@ export const DocFilterSelect: React.FC<{
 }> = ({ docs, value, onChange }) => (
   <SelectInput value={value} onChange={(e) => onChange(e.target.value)}>
     <option value="">All documents</option>
+    {/* The catch-all: anything the list badges would flag — missing, expired or expiring. */}
+    <option value="any:no">⚠ Any document problem</option>
     {docs.map((d) => (
       <React.Fragment key={d.key}>
         <option value={`${d.key}:yes`}>{d.label}: on file</option>

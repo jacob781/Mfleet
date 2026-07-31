@@ -37,14 +37,15 @@ def list_drivers(
     has_doc: Optional[bool] = None,
 ) -> List[DriverSummary]:
     """`doc` + `has_doc` filter by document on file, e.g. doc=cdl&has_doc=false lists
-    drivers with no licence copy on record. Each row carries its document health
-    (doc_state/doc_note) for the list indicator."""
+    drivers with no licence copy on record. doc=any is the catch-all: has_doc=false
+    lists everyone with at least one document problem (missing, expired or expiring).
+    Each row carries its document health (doc_state/doc_note) for the list indicator."""
     stmt = select(Driver)
     if company_id is not None:
         stmt = stmt.where(Driver.company_id == company_id)
     if checklist is not None:
         stmt = stmt.where(Driver.checklist_checked == checklist)
-    if doc is not None and has_doc is not None:
+    if doc is not None and has_doc is not None and doc != "any":
         if doc not in DRIVER_DOC_TYPES:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
         sub = owners_with_file(ComplianceDocument.driver_id, uploads.DOC_TYPES[doc])
@@ -60,6 +61,9 @@ def list_drivers(
         row = DriverSummary.model_validate(driver)
         row.doc_flags = flags[driver.id]
         out.append(row)
+    # "any" filters on the flags themselves — they are already computed, no extra query.
+    if doc == "any" and has_doc is not None:
+        out = [r for r in out if bool(r.doc_flags) != has_doc]
     return out
 
 

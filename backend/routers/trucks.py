@@ -43,14 +43,15 @@ def list_trucks(
     has_doc: Optional[bool] = None,
 ) -> List[TruckResponse]:
     """`doc` + `has_doc` filter by document on file, e.g. doc=registration&has_doc=false
-    lists vehicles missing their cab card. Each row carries its document health
-    (doc_state/doc_note) for the list indicator."""
+    lists vehicles missing their cab card. doc=any is the catch-all: has_doc=false lists
+    every truck with at least one document problem (missing, expired or expiring).
+    Each row carries its document health (doc_state/doc_note) for the list indicator."""
     stmt = select(Truck)
     if company_id is not None:
         stmt = stmt.where(Truck.company_id == company_id)
     if checklist is not None:
         stmt = stmt.where(Truck.checklist_checked == checklist)
-    if doc is not None and has_doc is not None:
+    if doc is not None and has_doc is not None and doc != "any":
         if doc not in TRUCK_DOC_TYPES:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
         sub = owners_with_file(ComplianceDocument.truck_id, uploads.DOC_TYPES[doc])
@@ -66,6 +67,9 @@ def list_trucks(
         row = TruckResponse.model_validate(truck)
         row.doc_flags = flags[truck.id]
         out.append(row)
+    # "any" filters on the flags themselves — they are already computed, no extra query.
+    if doc == "any" and has_doc is not None:
+        out = [r for r in out if bool(r.doc_flags) != has_doc]
     return out
 
 
