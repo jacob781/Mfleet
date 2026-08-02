@@ -21,7 +21,7 @@ from models import (
     DriverApplication,
     User,
 )
-from routers.compliance import doc_flags, doc_response, owners_with_file
+from routers.compliance import DRIVER_DOC_TYPES, doc_flags, doc_response, owners_with_file
 from schemas import (
     ComplianceDocumentResponse,
     DriverApplicationBrief,
@@ -163,9 +163,6 @@ def list_driver_documents(
         select(ComplianceDocument).where(ComplianceDocument.driver_id == driver_id)
     ).all()
     return [doc_response(d) for d in docs]
-
-
-DRIVER_DOC_TYPES = {"cdl", "medical_cert"}
 
 
 @router.post("/{driver_id}/documents/{doc_type}", response_model=ComplianceDocumentResponse)

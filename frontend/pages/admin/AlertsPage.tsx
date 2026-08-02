@@ -16,12 +16,15 @@ const AlertsPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const when = (days: number) =>
-    days < 0 ? `expired ${-days}d ago` : days === 0 ? 'expires today' : `in ${days}d`;
+  const when = (days: number | null) =>
+    days == null ? 'never uploaded'
+    : days < 0 ? `expired ${-days}d ago`
+    : days === 0 ? 'expires today'
+    : `in ${days}d`;
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-mfleet-gray-dark">Expiry alerts</h1>
+      <h1 className="text-2xl font-bold text-mfleet-gray-dark">Compliance alerts</h1>
 
       <Card className="overflow-hidden">
         {loading ? (
@@ -30,7 +33,7 @@ const AlertsPage: React.FC = () => {
           </div>
         ) : alerts.length === 0 ? (
           <div className="py-16 text-center text-sm text-mfleet-gray">
-            Nothing expiring in the next 30 days. 🎉
+            Every required document is on file and valid for the next 30 days. 🎉
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -46,7 +49,7 @@ const AlertsPage: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {alerts.map((a) => (
                 <tr
-                  key={a.document_id}
+                  key={`${a.subject_kind}-${a.driver_id ?? a.truck_id ?? a.company_id}-${a.document_type}`}
                   onClick={() =>
                     a.subject_kind === 'driver'
                       ? navigate(`/admin/drivers?focus=${a.driver_id}`)
@@ -63,7 +66,7 @@ const AlertsPage: React.FC = () => {
                     {a.subject}
                   </td>
                   <td className="px-4 py-3 text-mfleet-gray">{a.document_type}</td>
-                  <td className="px-4 py-3 text-mfleet-gray">{a.expiry_date}</td>
+                  <td className="px-4 py-3 text-mfleet-gray">{a.expiry_date ?? '—'}</td>
                   <td className="px-4 py-3 text-mfleet-gray">{when(a.days_left)}</td>
                   <td className="px-4 py-3">
                     <StatusBadge value={a.status} />

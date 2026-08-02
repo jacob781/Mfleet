@@ -104,11 +104,12 @@ export interface ComplianceDocument {
 }
 
 export interface AlertItem {
-  document_id: number;
+  /** Null for a document that was never uploaded — there is no row to point at. */
+  document_id: number | null;
   document_type: string;
-  expiry_date: string;
-  status: string;      // Expiring Soon | Expired
-  days_left: number;
+  expiry_date: string | null;
+  status: string;      // Missing | Expiring Soon | Expired
+  days_left: number | null;
   subject: string;
   subject_kind: 'driver' | 'truck' | 'company';
   driver_id: number | null;

@@ -197,12 +197,13 @@ class ComplianceDocumentResponse(BaseModel):
 
 
 class AlertItem(BaseModel):
-    """An expiring/expired compliance document with context for the alerts list."""
-    document_id: int
+    """A compliance document that needs attention, with context for the alerts list.
+    A document that was never uploaded has no row and no dates — hence the nulls."""
+    document_id: Optional[int] = None
     document_type: str
-    expiry_date: date
-    status: str          # Expiring Soon | Expired
-    days_left: int       # negative if already expired
+    expiry_date: Optional[date] = None
+    status: str          # Missing | Expiring Soon | Expired
+    days_left: Optional[int] = None   # negative if already expired
     subject: str         # driver name, truck label, or company name
     subject_kind: Literal["driver", "truck", "company"]
     driver_id: Optional[int] = None

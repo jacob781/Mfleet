@@ -11,13 +11,10 @@ import uploads
 from database import get_session
 from dependencies import get_current_user
 from models import ComplianceDocument, Truck, User
-from routers.compliance import doc_flags, doc_response, owners_with_file
+from routers.compliance import TRUCK_DOC_TYPES, doc_flags, doc_response, owners_with_file
 from schemas import ComplianceDocumentResponse, TruckCreate, TruckResponse, TruckUpdate
 
 router = APIRouter(prefix="/api/trucks", tags=["Trucks"])
-
-# Truck document types a manager can attach (path key -> handled by uploads.DOC_TYPES).
-TRUCK_DOC_TYPES = ("annual_inspection", "registration")
 
 
 @router.post("", response_model=TruckResponse, status_code=status.HTTP_201_CREATED)

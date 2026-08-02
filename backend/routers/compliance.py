@@ -26,6 +26,12 @@ from schemas import AlertItem, ComplianceDocumentResponse, DocFlag
 router = APIRouter(prefix="/api/compliance", tags=["Compliance"])
 
 
+# Which document types each side of the fleet must have. Defined here because both
+# the drivers and trucks routers already import from this module.
+DRIVER_DOC_TYPES = {"cdl", "medical_cert"}
+TRUCK_DOC_TYPES = ("annual_inspection", "registration")
+
+
 def owners_with_file(column, doc_label: str):
     """Sub-select of driver_id/truck_id values that have a FILE on record for this
     document type — powers the has/hasn't list filters. An expiry row without a
@@ -116,8 +122,12 @@ def rotate_document(
     return doc_response(doc)
 
 
-def collect_alerts(session: Session, days: int = EXPIRY_SOON_DAYS) -> List[AlertItem]:
+def collect_alerts(
+    session: Session, days: int = EXPIRY_SOON_DAYS, include_missing: bool = False,
+) -> List[AlertItem]:
     """Documents expiring within `days` or already expired, most urgent first.
+    With `include_missing`, documents that were never uploaded are listed too — they
+    have no row and no dates, so they cannot come out of the expiry query.
     Shared by the alerts endpoint and the email digest script."""
     today = date.today()
     cutoff = today + timedelta(days=days)
@@ -179,8 +189,65 @@ def collect_alerts(session: Session, days: int = EXPIRY_SOON_DAYS) -> List[Alert
                 company_id=c.id,
             )
         )
-    alerts.sort(key=lambda a: a.expiry_date)
+    if include_missing:
+        alerts += _missing_alerts(session)
+    # Missing documents first (no date at all), then by how soon the rest expire.
+    alerts.sort(key=lambda a: (a.expiry_date is not None, a.expiry_date or today))
     return alerts
+
+
+def _missing_alerts(session: Session) -> List[AlertItem]:
+    """One item per required document that has no file on record. Reuses doc_flags,
+    the same source the list badges are drawn from, so the two never disagree."""
+    out: List[AlertItem] = []
+
+    drivers = list(session.exec(
+        select(Driver).where(Driver.status != DRIVER_TERMINATED)
+    ).all())
+    flags = doc_flags(
+        session, ComplianceDocument.driver_id, [d.id for d in drivers],
+        {k: uploads.DOC_TYPES[k] for k in sorted(DRIVER_DOC_TYPES)},
+    )
+    for drv in drivers:
+        for flag in flags[drv.id]:
+            if flag.state != "missing":
+                continue   # expired/expiring already came out of the expiry query
+            out.append(AlertItem(
+                document_type=uploads.DOC_TYPES[flag.doc],
+                status="Missing",
+                subject=f"{drv.first_name} {drv.last_name}".strip(),
+                subject_kind="driver",
+                driver_id=drv.id,
+                company_id=drv.company_id,
+            ))
+
+    trucks = list(session.exec(select(Truck)).all())
+    flags = doc_flags(
+        session, ComplianceDocument.truck_id, [t.id for t in trucks],
+        {k: uploads.DOC_TYPES[k] for k in TRUCK_DOC_TYPES},
+    )
+    for trk in trucks:
+        for flag in flags[trk.id]:
+            if flag.state != "missing":
+                continue
+            out.append(AlertItem(
+                document_type=uploads.DOC_TYPES[flag.doc],
+                status="Missing",
+                subject=f"{trk.make} {trk.year} ({trk.plate_number})".strip(),
+                subject_kind="truck",
+                truck_id=trk.id,
+                company_id=trk.company_id,
+            ))
+
+    for c in session.exec(select(Company).where(Company.owner_license_path.is_(None))).all():
+        out.append(AlertItem(
+            document_type="Owner License",
+            status="Missing",
+            subject=c.name,
+            subject_kind="company",
+            company_id=c.id,
+        ))
+    return out
 
 
 @router.get("/alerts", response_model=List[AlertItem])
@@ -189,4 +256,6 @@ def list_alerts(
     _user: Annotated[User, Depends(get_current_user)],
     days: int = EXPIRY_SOON_DAYS,
 ) -> List[AlertItem]:
-    return collect_alerts(session, days)
+    # The screen is "what needs attention", so a document nobody uploaded belongs on
+    # it. The nightly email keeps to expiries (see notify_expiring.py).
+    return collect_alerts(session, days, include_missing=True)
