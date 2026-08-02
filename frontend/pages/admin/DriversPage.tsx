@@ -173,7 +173,7 @@ const DriversPage: React.FC = () => {
   const fullName = (d: DriverSummary) =>
     `${d.first_name} ${d.middle_name ? `${d.middle_name} ` : ''}${d.last_name}`.replace(/\s+/g, ' ').trim();
 
-  const { query, setQuery, sort, toggleSort, visible } = useListView(
+  const { query, setQuery, sort, toggleSort, visible, searchRef } = useListView(
     drivers,
     (d) => [fullName(d), companyName(d.company_id), d.email, d.phone, d.status],
     {
@@ -292,6 +292,7 @@ const DriversPage: React.FC = () => {
       <div className="flex gap-3">
         <div className="w-80">
           <TextInput
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, email, phone…"

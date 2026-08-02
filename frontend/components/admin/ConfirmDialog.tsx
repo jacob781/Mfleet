@@ -14,7 +14,9 @@ const ConfirmDialog: React.FC<{
 }> = ({ open, title, message, confirmLabel = 'Delete', busy, onConfirm, onCancel }) => {
   if (!open) return null;
   return (
+    // data-overlay-open stops type-to-search from grabbing keys behind the dialog.
     <div
+      data-overlay-open
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onCancel}
     >

@@ -20,6 +20,30 @@ export function useListView<T>(
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState<SortState>(null);
 
+  // Type anywhere on the list and the search box takes over — no click first.
+  // Attach `searchRef` to the search input. Deliberately inert while a drawer or
+  // dialog is up, while another field has focus, or with a shortcut key held, so
+  // typing never lands somewhere the manager cannot see. Esc undoes a stray start.
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (document.querySelector('[data-overlay-open]')) return;
+      const el = document.activeElement as HTMLElement | null;
+      const typing = el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+      if (e.key === 'Escape' && el === searchRef.current) {
+        setQuery('');
+        searchRef.current?.blur();
+        return;
+      }
+      // Single printable characters only — Tab, Enter, F5 and the arrows stay theirs.
+      if (typing || e.key.length !== 1) return;
+      searchRef.current?.focus();   // the keypress itself then lands in the box
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   // Click cycles ascending -> descending -> back to the server's order.
   const toggleSort = (key: string) =>
     setSort((s) => (s?.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : null));
@@ -35,7 +59,7 @@ export function useListView<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, query, sort]);
 
-  return { query, setQuery, sort, toggleSort, visible };
+  return { query, setQuery, sort, toggleSort, visible, searchRef };
 }
 
 /** Case-insensitive text sort; digits compare numerically ("2" before "10") and

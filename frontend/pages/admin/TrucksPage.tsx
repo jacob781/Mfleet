@@ -129,7 +129,7 @@ const TrucksPage: React.FC = () => {
     return (id: number) => map.get(id) ?? `#${id}`;
   }, [companies]);
 
-  const { query, setQuery, sort, toggleSort, visible } = useListView(
+  const { query, setQuery, sort, toggleSort, visible, searchRef } = useListView(
     trucks,
     (t) => [t.unit_number, t.make, t.year, t.vin, t.plate_number, t.state_registered,
             companyName(t.company_id)],
@@ -333,6 +333,7 @@ const TrucksPage: React.FC = () => {
       <div className="flex gap-3">
         <div className="w-80">
           <TextInput
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search unit, make, VIN, plate…"

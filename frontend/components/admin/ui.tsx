@@ -171,7 +171,8 @@ export const Drawer: React.FC<{
   }, [open, onClose]);
 
   return (
-  <div className={cn('fixed inset-0 z-50', !open && 'pointer-events-none')}>
+  // data-overlay-open marks "a panel is up" for the type-to-search handler.
+  <div data-overlay-open={open ? '' : undefined} className={cn('fixed inset-0 z-50', !open && 'pointer-events-none')}>
     <div
       onClick={onClose}
       className={cn(
