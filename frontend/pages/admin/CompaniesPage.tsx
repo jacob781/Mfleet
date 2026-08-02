@@ -496,20 +496,18 @@ const CompaniesPage: React.FC = () => {
                 </select>
               )}
             </div>
-            {/* Typing the name is the brake on the cascade; reassigning loses nothing,
-                so it stays a single click. */}
-            {deleteMode === 'cascade' && (
-              <label className="mt-4 block">
-                <span className="text-xs text-mfleet-gray">
-                  Type <span className="font-semibold text-mfleet-gray-dark">{pendingDelete.name}</span> to confirm
-                </span>
-                <TextInput
-                  value={typedName}
-                  onChange={(e) => setTypedName(e.target.value)}
-                  className="mt-1"
-                />
-              </label>
-            )}
+            {/* Either way the company record itself is gone for good, so the name is
+                typed in both modes. */}
+            <label className="mt-4 block">
+              <span className="text-xs text-mfleet-gray">
+                Type <span className="font-semibold text-mfleet-gray-dark">{pendingDelete.name}</span> to confirm
+              </span>
+              <TextInput
+                value={typedName}
+                onChange={(e) => setTypedName(e.target.value)}
+                className="mt-1"
+              />
+            </label>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setPendingDelete(null)} disabled={deleting}>Cancel</Button>
               <Button
@@ -518,8 +516,7 @@ const CompaniesPage: React.FC = () => {
                 disabled={
                   deleting ||
                   (deleteMode === 'reassign' && !deleteTarget) ||
-                  (deleteMode === 'cascade' &&
-                    typedName.trim().toLowerCase() !== pendingDelete.name.trim().toLowerCase())
+                  typedName.trim().toLowerCase() !== pendingDelete.name.trim().toLowerCase()
                 }
               >
                 {deleting ? <Spinner className="h-4 w-4 text-white" /> : deleteMode === 'reassign' ? 'Move & delete' : 'Delete all'}

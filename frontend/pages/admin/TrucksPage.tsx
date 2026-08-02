@@ -535,7 +535,9 @@ const TrucksPage: React.FC = () => {
       <ConfirmDialog
         open={!!pendingDelete}
         title="Delete vehicle?"
-        message={pendingDelete ? `${pendingDelete.make} ${pendingDelete.year} (${pendingDelete.plate_number}) will be permanently removed.` : ''}
+        message={pendingDelete
+          ? `${pendingDelete.make} ${pendingDelete.year} (${pendingDelete.plate_number}) will be permanently removed, along with its documents and their files.`
+          : ''}
         busy={deleting}
         onConfirm={onDelete}
         onCancel={() => setPendingDelete(null)}
