@@ -39,6 +39,42 @@
     background-color: #1f2937;
 }
 
+/* Toast entry. The row is a 0fr -> 1fr grid track, so the new toast unfolds and
+   pushes the stack above it up smoothly; the body slides in from the right at the
+   same time. Both are compositor-cheap and run once per toast. */
+.toast-enter {
+    display: grid;
+    grid-template-rows: 1fr;
+    animation: toast-unfold 0.18s ease-out;
+}
+
+.toast-enter>* {
+    min-height: 0;
+    animation: toast-slide-in 0.28s ease-out;
+}
+
+@keyframes toast-unfold {
+    from {
+        grid-template-rows: 0fr;
+    }
+
+    to {
+        grid-template-rows: 1fr;
+    }
+}
+
+@keyframes toast-slide-in {
+    from {
+        opacity: 0.2;
+        transform: translateX(1.5rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 /* Marquee animations */
 @keyframes marquee {
     0% {

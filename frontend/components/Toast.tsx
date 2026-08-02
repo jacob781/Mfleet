@@ -36,19 +36,36 @@ export const Toaster: React.FC = () => {
     return () => { emit = null; };
   }, []);
 
+  const dismiss = (id: number) => setMsgs((cur) => cur.filter((x) => x.id !== id));
+
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2">
+      {/* New toasts land at the bottom. The wrapper grows from nothing (toast-enter),
+          which lifts the older ones instead of teleporting them. */}
       {msgs.map((m) => (
-        <div
-          key={m.id}
-          role="alert"
-          onClick={() => setMsgs((cur) => cur.filter((x) => x.id !== m.id))}
-          className={
-            'pointer-events-auto cursor-pointer rounded-lg px-4 py-3 text-sm text-white shadow-lg ' +
-            (m.kind === 'error' ? 'bg-red-600' : 'bg-green-600')
-          }
-        >
-          {m.text}
+        <div key={m.id} className="toast-enter">
+          <div className="overflow-hidden">
+            <div
+              role="alert"
+              onClick={() => dismiss(m.id)}
+              className={
+                'pointer-events-auto flex cursor-pointer items-start gap-3 rounded-lg px-4 py-3 text-sm text-white shadow-lg ' +
+                (m.kind === 'error' ? 'bg-red-600' : 'bg-green-600')
+              }
+            >
+              <span className="flex-1">{m.text}</span>
+              <button
+                type="button"
+                aria-label="Dismiss"
+                onClick={(e) => { e.stopPropagation(); dismiss(m.id); }}
+                className="-mr-1 -mt-0.5 shrink-0 rounded p-0.5 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       ))}
     </div>
