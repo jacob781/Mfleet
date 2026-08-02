@@ -54,7 +54,7 @@ const ManagerDocUpload: React.FC<{
       await rotateDocument(docId, deg);
       setSpin((n) => n + 1);
       // Say it out loud: this one action does not go through Save.
-      toast('Photo rotated and saved.');
+      toast('Photo rotated and saved.', 'success');
     } catch {
       // adminApi already toasted the reason
     } finally {
@@ -176,12 +176,12 @@ const ManagerDocUpload: React.FC<{
           />
           {docId && isImage && (
             <div className="absolute right-1 top-1 flex gap-1">
-              <button type="button" title="Rotate left (saved right away)" disabled={busy} onClick={() => rotate(-90)} className="rounded-md bg-white/85 p-1 text-mfleet-gray-dark shadow-sm hover:bg-white disabled:opacity-40">
+              <button type="button" title="Rotate left (saved right away)" disabled={busy} onClick={() => rotate(-90)} className="rounded-md bg-black/55 p-1 text-white shadow-sm hover:bg-black/75 disabled:opacity-40">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 8a9 9 0 1 1 0 8" /><polyline points="3 3 3 8 8 8" />
                 </svg>
               </button>
-              <button type="button" title="Rotate right (saved right away)" disabled={busy} onClick={() => rotate(90)} className="rounded-md bg-white/85 p-1 text-mfleet-gray-dark shadow-sm hover:bg-white disabled:opacity-40">
+              <button type="button" title="Rotate right (saved right away)" disabled={busy} onClick={() => rotate(90)} className="rounded-md bg-black/55 p-1 text-white shadow-sm hover:bg-black/75 disabled:opacity-40">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 8a9 9 0 1 0 0 8" /><polyline points="21 3 21 8 16 8" />
                 </svg>
