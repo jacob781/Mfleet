@@ -15,7 +15,7 @@ import {
 } from '../../lib/adminApi';
 import type { ComplianceDocument, CompanyResponse, DriverCreate, DriverDetail, DriverSummary, TruckResponse } from '../../lib/adminTypes';
 import { emptyDriver } from '../../lib/adminTypes';
-import { maskPhone } from '../../lib/masks';
+import { isoToUs, maskPhone } from '../../lib/masks';
 import {
   Button,
   Card,
@@ -54,6 +54,7 @@ const DriversPage: React.FC = () => {
   const [companyFilter, setCompanyFilter] = useState('');
   const [checklistFilter, setChecklistFilter] = useState(''); // '' | 'yes' | 'no'
   const [docFilter, setDocFilter] = useState(''); // '' | '<doc_type>:yes|no'
+  const [statusFilter, setStatusFilter] = useState(''); // '' = every status
   const [creating, setCreating] = useState<DriverCreate | null>(null);
   const [selected, setSelected] = useState<DriverSummary | null>(null);
   const [detail, setDetail] = useState<DriverDetail | null>(null);
@@ -66,6 +67,25 @@ const DriversPage: React.FC = () => {
   const [docsReload, setDocsReload] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<DriverSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [pendingTerminate, setPendingTerminate] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
+
+  // Terminate / reactivate is a status flip, not an edit: it saves on its own and the
+  // backend stamps (or clears) the termination date.
+  const changeStatus = async (next: string) => {
+    if (!selected) return;
+    setStatusBusy(true);
+    try {
+      const updated = await updateDriver(selected.id, { status: next });
+      const patch = { status: updated.status, termination_date: updated.termination_date };
+      setSelected({ ...selected, ...patch });
+      setDraft((d) => (d ? { ...d, ...patch } : d));
+      setPendingTerminate(false);
+      refresh();
+    } finally {
+      setStatusBusy(false);
+    }
+  };
 
   const onDeleteDriver = async () => {
     if (!pendingDelete) return;
@@ -117,6 +137,7 @@ const DriversPage: React.FC = () => {
       companyFilter ? Number(companyFilter) : undefined,
       checklistFilter === '' ? undefined : checklistFilter === 'yes',
       parseDocFilter(docFilter),
+      statusFilter || undefined,
     )
       .then(setDrivers)
       .catch(() => setDrivers([]))
@@ -134,6 +155,12 @@ const DriversPage: React.FC = () => {
         email: draft.email,
         phone: draft.phone,
         status: draft.status,
+        hire_date: draft.hire_date || null,
+        // Only sent to correct an existing date — otherwise the backend stamps or
+        // clears it from the status itself.
+        ...(draft.status === 'Terminated' && draft.termination_date
+          ? { termination_date: draft.termination_date }
+          : {}),
         checklist_checked: draft.checklist_checked,
         checklist_date: draft.checklist_date ?? null,
       });
@@ -149,7 +176,7 @@ const DriversPage: React.FC = () => {
     listCompanies().then(setCompanies).catch(() => setCompanies([]));
   }, []);
 
-  useEffect(refresh, [companyFilter, checklistFilter, docFilter]);
+  useEffect(refresh, [companyFilter, checklistFilter, docFilter, statusFilter]);
 
   // Deep-link from the alerts page: ?focus=<driverId> opens that driver's drawer once.
   const [searchParams] = useSearchParams();
@@ -196,6 +223,7 @@ const DriversPage: React.FC = () => {
         company_id: Number(creating.company_id),
         middle_name: creating.middle_name || null,
         dob: creating.dob || null,
+        hire_date: creating.hire_date || null,   // null = the server dates it today
       });
       setCreating(null);
       refresh();
@@ -261,6 +289,13 @@ const DriversPage: React.FC = () => {
                 className={inputBase}
               />
             </Field>
+            <Field label="Hire date">
+              <DateInput
+                value={creating.hire_date}
+                onChange={(iso) => setCreating({ ...creating, hire_date: iso })}
+                className={inputBase}
+              />
+            </Field>
             <Field label="Email">
               <TextInput
                 type="email"
@@ -319,6 +354,12 @@ const DriversPage: React.FC = () => {
             <option value="no">Checklist pending</option>
           </SelectInput>
         </div>
+        <div className="w-44">
+          <SelectInput value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">All statuses</option>
+            {DRIVER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </SelectInput>
+        </div>
         <div className="w-72">
           <DocFilterSelect docs={DRIVER_DOCS} value={docFilter} onChange={setDocFilter} />
         </div>
@@ -347,7 +388,6 @@ const DriversPage: React.FC = () => {
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Documents</th>
                 <th className="px-4 py-3">Checklist</th>
-                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -383,18 +423,6 @@ const DriversPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <ChecklistCell checked={d.checklist_checked} date={d.checklist_date} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      title="Delete"
-                      onClick={(e) => { e.stopPropagation(); setPendingDelete(d); }}
-                      className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-red-50 hover:text-red-600"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
-                      </svg>
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -456,6 +484,24 @@ const DriversPage: React.FC = () => {
                     ))}
                   </SelectInput>
                 </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Hire date">
+                    <DateInput
+                      value={draft.hire_date}
+                      onChange={(iso) => setDraft({ ...draft, hire_date: iso })}
+                      className={inputBase}
+                    />
+                  </Field>
+                  {draft.status === 'Terminated' && (
+                    <Field label="Termination date">
+                      <DateInput
+                        value={draft.termination_date}
+                        onChange={(iso) => setDraft({ ...draft, termination_date: iso })}
+                        className={inputBase}
+                      />
+                    </Field>
+                  )}
+                </div>
                 <ChecklistFields
                   checked={draft.checklist_checked}
                   date={draft.checklist_date}
@@ -478,7 +524,11 @@ const DriversPage: React.FC = () => {
                 <ReadOnlyField label="Email" value={selected.email} className="col-span-2" />
                 <ReadOnlyField label="Phone" value={selected.phone} />
                 {detail?.dob && (
-                  <ReadOnlyField label="Date of birth" value={new Date(detail.dob).toLocaleDateString('en-US')} />
+                  <ReadOnlyField label="Date of birth" value={isoToUs(detail.dob)} />
+                )}
+                <ReadOnlyField label="Hire date" value={isoToUs(selected.hire_date)} copyable={false} />
+                {selected.termination_date && (
+                  <ReadOnlyField label="Termination date" value={isoToUs(selected.termination_date)} copyable={false} />
                 )}
                 <div className="col-span-2 flex flex-col gap-0.5">
                   <span className="text-xs font-medium uppercase tracking-wide text-mfleet-gray">Onboarding checklist</span>
@@ -562,16 +612,47 @@ const DriversPage: React.FC = () => {
                 </ul>
               )}
             </div>
+
+            {/* Leaving the company and erasing the record are different things, so they
+                live apart from the form and away from the row click. */}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-4">
+              {selected.status === 'Terminated' ? (
+                <Button variant="secondary" onClick={() => changeStatus('Active')} disabled={statusBusy}>
+                  {statusBusy ? <Spinner className="h-4 w-4" /> : 'Reactivate driver'}
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => setPendingTerminate(true)} disabled={statusBusy}>
+                  Terminate driver
+                </Button>
+              )}
+              <Button variant="danger" onClick={() => setPendingDelete(selected)} disabled={statusBusy}>
+                Delete permanently
+              </Button>
+            </div>
           </div>
         )}
       </Drawer>
 
       <ConfirmDialog
-        open={!!pendingDelete}
-        title="Delete driver?"
-        message={pendingDelete
-          ? `${pendingDelete.first_name} ${pendingDelete.last_name} will be permanently removed, along with their applications, documents, and any trucks they own.`
+        open={pendingTerminate}
+        title="Terminate driver?"
+        message={selected
+          ? `${fullName(selected)} will be marked Terminated as of today and stop raising document alerts. Their record stays; you can reactivate them later.`
           : ''}
+        confirmLabel="Terminate"
+        busy={statusBusy}
+        onConfirm={() => changeStatus('Terminated')}
+        onCancel={() => setPendingTerminate(false)}
+      />
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete driver permanently?"
+        message={pendingDelete
+          ? `${fullName(pendingDelete)} will be erased for good — applications and their PDFs, documents and files, and any trucks they own.\n\nTo keep the record, terminate them instead.`
+          : ''}
+        confirmPhrase={pendingDelete?.last_name}
+        confirmLabel="Delete forever"
         busy={deleting}
         onConfirm={onDeleteDriver}
         onCancel={() => setPendingDelete(null)}

@@ -13,7 +13,14 @@ import cascade
 import uploads
 from database import get_session
 from dependencies import get_current_user
-from models import Company, ComplianceDocument, Driver, DriverApplication, User
+from models import (
+    DRIVER_TERMINATED,
+    Company,
+    ComplianceDocument,
+    Driver,
+    DriverApplication,
+    User,
+)
 from routers.compliance import doc_flags, doc_response, owners_with_file
 from schemas import (
     ComplianceDocumentResponse,
@@ -35,14 +42,18 @@ def list_drivers(
     checklist: Optional[bool] = None,
     doc: Optional[str] = None,
     has_doc: Optional[bool] = None,
+    driver_status: Optional[str] = None,
 ) -> List[DriverSummary]:
     """`doc` + `has_doc` filter by document on file, e.g. doc=cdl&has_doc=false lists
     drivers with no licence copy on record. doc=any is the catch-all: has_doc=false
     lists everyone with at least one document problem (missing, expired or expiring).
+    `driver_status` narrows to one Driver.status value (Pending/Active/Terminated).
     Each row carries its document health (doc_state/doc_note) for the list indicator."""
     stmt = select(Driver)
     if company_id is not None:
         stmt = stmt.where(Driver.company_id == company_id)
+    if driver_status:
+        stmt = stmt.where(Driver.status == driver_status)
     if checklist is not None:
         stmt = stmt.where(Driver.checklist_checked == checklist)
     if doc is not None and has_doc is not None and doc != "any":
@@ -76,7 +87,9 @@ def create_driver(
     """Add a driver by hand, without going through an application."""
     if not session.get(Company, body.company_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Company not found")
-    driver = Driver(**body.model_dump())
+    # exclude_none keeps hire_date on the model default (today) when it wasn't given —
+    # passing None explicitly would hit the NOT NULL column.
+    driver = Driver(**body.model_dump(exclude_none=True))
     session.add(driver)
     session.commit()
     session.refresh(driver)
@@ -110,8 +123,16 @@ def update_driver(
     driver = session.get(Driver, driver_id)
     if not driver:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Driver not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    for field, value in data.items():
         setattr(driver, field, value)
+    # Terminating stamps the leaving date, coming back clears it — unless the manager
+    # sent a date of their own in the same request (correcting an old record).
+    if "status" in data and "termination_date" not in data:
+        if data["status"] == DRIVER_TERMINATED:
+            driver.termination_date = driver.termination_date or date.today()
+        else:
+            driver.termination_date = None
     session.add(driver)
     session.commit()
     session.refresh(driver)

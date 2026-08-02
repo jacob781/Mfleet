@@ -219,9 +219,11 @@ export function updateCompany(id: number, body: Partial<CompanyResponse>): Promi
 // --- Drivers ---------------------------------------------------------------
 
 export function listDrivers(
-  companyId?: number, checklist?: boolean, doc?: DocFilter,
+  companyId?: number, checklist?: boolean, doc?: DocFilter, driverStatus?: string,
 ): Promise<DriverSummary[]> {
-  return request(`/api/drivers${listQuery(companyId, checklist, doc)}`);
+  const qs = listQuery(companyId, checklist, doc);
+  const status = driverStatus ? `${qs ? '&' : '?'}driver_status=${encodeURIComponent(driverStatus)}` : '';
+  return request(`/api/drivers${qs}${status}`);
 }
 
 export function createDriver(body: DriverCreate): Promise<DriverDetail> {

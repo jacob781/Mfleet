@@ -11,7 +11,16 @@ from sqlmodel import Session, select
 import uploads
 from database import get_session
 from dependencies import get_current_user, get_current_user_file
-from models import EXPIRY_SOON_DAYS, Company, ComplianceDocument, Driver, Truck, User, doc_status
+from models import (
+    DRIVER_TERMINATED,
+    EXPIRY_SOON_DAYS,
+    Company,
+    ComplianceDocument,
+    Driver,
+    Truck,
+    User,
+    doc_status,
+)
 from schemas import AlertItem, ComplianceDocumentResponse, DocFlag
 
 router = APIRouter(prefix="/api/compliance", tags=["Compliance"])
@@ -124,6 +133,8 @@ def collect_alerts(session: Session, days: int = EXPIRY_SOON_DAYS) -> List[Alert
             drv = session.get(Driver, d.driver_id)
             if drv is None:
                 continue
+            if drv.status == DRIVER_TERMINATED:
+                continue   # they left; their expiring CDL is nobody's problem now
             subject = f"{drv.first_name} {drv.last_name}".strip()
             kind, company_id = "driver", drv.company_id
         elif d.truck_id is not None:

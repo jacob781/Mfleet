@@ -148,6 +148,8 @@ export interface DriverSummary {
   email: string;
   phone: string;
   status: string;
+  hire_date?: string | null;
+  termination_date?: string | null;
   checklist_checked: boolean;
   checklist_date?: string | null;
   /** Problem documents for the list badges; empty means everything is valid. */
@@ -218,6 +220,7 @@ export interface DriverCreate {
   email: string;
   phone: string;
   dob?: string | null;
+  hire_date?: string | null;
   status: string;
   notes?: string | null;
   checklist_checked: boolean;
@@ -233,6 +236,7 @@ export function emptyDriver(companyId: number): DriverCreate {
     email: '',
     phone: '',
     dob: '',
+    hire_date: '',
     status: 'Pending',
     notes: '',
     checklist_checked: false,
@@ -247,6 +251,8 @@ export interface DriverUpdate {
   email?: string;
   phone?: string;
   status?: string;
+  hire_date?: string | null;
+  termination_date?: string | null;
   notes?: string | null;
   checklist_checked?: boolean;
   checklist_date?: string | null;

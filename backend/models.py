@@ -60,6 +60,11 @@ def _new_token() -> str:
 # Days before expiry a document counts as "Expiring Soon" (drives alerts + emails).
 EXPIRY_SOON_DAYS = 30
 
+# Driver.status values. A terminated driver is kept for the record but stops
+# raising document alerts.
+DRIVER_STATUSES = ("Pending", "Active", "Terminated")
+DRIVER_TERMINATED = "Terminated"
+
 
 def doc_status(expiry: date, today: Optional[date] = None) -> str:
     """Live compliance status from the expiry date — the stored column drifts, so
@@ -240,6 +245,8 @@ class Driver(SQLModel, table=True):
     dob: Optional[date] = None
     hire_date: date = Field(default_factory=date.today)
     status: str = Field(default="Pending")  # Pending, Active, Terminated
+    # Stamped when the status goes to Terminated, cleared when the driver comes back.
+    termination_date: Optional[date] = None
 
     # Onboarding checklist (docs/tools the driver must have). Set manually by a manager.
     checklist_checked: bool = Field(default=False)

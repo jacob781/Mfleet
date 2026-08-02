@@ -244,6 +244,8 @@ class DriverSummary(BaseModel):
     email: str
     phone: str
     status: str
+    hire_date: Optional[date] = None
+    termination_date: Optional[date] = None
     checklist_checked: bool = False
     checklist_date: Optional[date] = None
     # Problem documents for the list badges; filled by the router (see doc_flags).
@@ -284,6 +286,7 @@ class DriverCreate(BaseModel):
     email: str = ""
     phone: str = ""
     dob: Optional[date] = None
+    hire_date: Optional[date] = None     # defaults to today in the model
     status: str = "Pending"
     notes: Optional[str] = None
     checklist_checked: bool = False
@@ -300,6 +303,9 @@ class DriverUpdate(BaseModel):
     email: Optional[str] = None       # "" clears it; contacts stay optional here
     phone: Optional[str] = None
     status: Optional[str] = None
+    hire_date: Optional[date] = None
+    # Sent explicitly only to correct it; otherwise the router stamps it from status.
+    termination_date: Optional[date] = None
     notes: Optional[str] = None
     checklist_checked: Optional[bool] = None
     checklist_date: Optional[date] = None
