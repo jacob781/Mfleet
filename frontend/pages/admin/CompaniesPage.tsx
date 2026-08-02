@@ -6,6 +6,8 @@ import {
   downloadOwnerLicense,
   openOwnerLicenseInTab,
   listCompanies,
+  listDrivers,
+  listTrucks,
   updateCompany,
   uploadOwnerLicense,
 } from '../../lib/adminApi';
@@ -33,6 +35,9 @@ const CompaniesPage: React.FC = () => {
   const [deleteMode, setDeleteMode] = useState<'cascade' | 'reassign'>('cascade');
   const [deleteTarget, setDeleteTarget] = useState<string>('');
   const [deleting, setDeleting] = useState(false);
+  /** What a cascade delete would take with it — loaded when the dialog opens. */
+  const [collateral, setCollateral] = useState<{ drivers: string[]; trucks: string[] } | null>(null);
+  const [typedName, setTypedName] = useState('');
   const [editingFines, setEditingFines] = useState<CompanyResponse | null>(null);
   const [savingFines, setSavingFines] = useState(false);
   const fineDraft = useRef<FineSchedule | null>(null);
@@ -141,6 +146,22 @@ const CompaniesPage: React.FC = () => {
       location: byText(location),
     },
   );
+
+  // Open the delete dialog and load exactly who goes down with the company. The two
+  // list endpoints already filter by company, so this needs no new API.
+  const askDelete = (c: CompanyResponse) => {
+    setPendingDelete(c);
+    setDeleteMode('cascade');
+    setDeleteTarget('');
+    setTypedName('');
+    setCollateral(null);
+    Promise.all([listDrivers(c.id), listTrucks(c.id)])
+      .then(([ds, ts]) => setCollateral({
+        drivers: ds.map((d) => `${d.first_name} ${d.last_name}`.trim()),
+        trucks: ts.map((t) => `${t.make} ${t.year}${t.unit_number ? ` · Unit ${t.unit_number}` : ''} (${t.plate_number})`),
+      }))
+      .catch(() => setCollateral({ drivers: [], trucks: [] }));
+  };
 
   const onDeleteCompany = async () => {
     if (!pendingDelete) return;
@@ -345,7 +366,7 @@ const CompaniesPage: React.FC = () => {
                     <button
                       type="button"
                       title="Delete"
-                      onClick={(e) => { e.stopPropagation(); setPendingDelete(c); setDeleteMode('cascade'); setDeleteTarget(''); }}
+                      onClick={(e) => { e.stopPropagation(); askDelete(c); }}
                       className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-red-50 hover:text-red-600"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -433,6 +454,26 @@ const CompaniesPage: React.FC = () => {
             <p className="mt-2 text-sm text-mfleet-gray">
               This company has drivers, vehicles and applications. Choose what to do with them:
             </p>
+
+            {/* Name what is at stake before the choice, not after it. */}
+            {collateral === null ? (
+              <p className="mt-3 text-xs text-mfleet-gray">Checking what belongs to this company…</p>
+            ) : (
+              <div className="mt-3 max-h-40 overflow-y-auto rounded-lg bg-red-50 p-3 text-xs text-red-800">
+                <p className="font-semibold">
+                  {collateral.drivers.length} driver{collateral.drivers.length === 1 ? '' : 's'} and{' '}
+                  {collateral.trucks.length} vehicle{collateral.trucks.length === 1 ? '' : 's'} belong to it:
+                </p>
+                {collateral.drivers.length + collateral.trucks.length === 0 ? (
+                  <p className="mt-1">Nothing else is attached — only the company record itself.</p>
+                ) : (
+                  <ul className="mt-1 list-disc pl-4">
+                    {collateral.drivers.map((n) => <li key={`d-${n}`}>{n}</li>)}
+                    {collateral.trucks.map((n) => <li key={`t-${n}`}>{n}</li>)}
+                  </ul>
+                )}
+              </div>
+            )}
             <div className="mt-4 flex flex-col gap-3">
               <label className="flex items-start gap-2 text-sm">
                 <input type="radio" className="mt-1" checked={deleteMode === 'cascade'} onChange={() => setDeleteMode('cascade')} />
@@ -455,9 +496,32 @@ const CompaniesPage: React.FC = () => {
                 </select>
               )}
             </div>
+            {/* Typing the name is the brake on the cascade; reassigning loses nothing,
+                so it stays a single click. */}
+            {deleteMode === 'cascade' && (
+              <label className="mt-4 block">
+                <span className="text-xs text-mfleet-gray">
+                  Type <span className="font-semibold text-mfleet-gray-dark">{pendingDelete.name}</span> to confirm
+                </span>
+                <TextInput
+                  value={typedName}
+                  onChange={(e) => setTypedName(e.target.value)}
+                  className="mt-1"
+                />
+              </label>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setPendingDelete(null)} disabled={deleting}>Cancel</Button>
-              <Button variant="danger" onClick={onDeleteCompany} disabled={deleting || (deleteMode === 'reassign' && !deleteTarget)}>
+              <Button
+                variant="danger"
+                onClick={onDeleteCompany}
+                disabled={
+                  deleting ||
+                  (deleteMode === 'reassign' && !deleteTarget) ||
+                  (deleteMode === 'cascade' &&
+                    typedName.trim().toLowerCase() !== pendingDelete.name.trim().toLowerCase())
+                }
+              >
                 {deleting ? <Spinner className="h-4 w-4 text-white" /> : deleteMode === 'reassign' ? 'Move & delete' : 'Delete all'}
               </Button>
             </div>
