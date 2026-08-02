@@ -41,7 +41,13 @@ export function maskState(v: string): string {
 // renders in the *browser's* locale (dd.mm.yyyy on a non-US Chrome) and there is
 // no way to force US order, so dates are typed as masked text instead.
 export function maskDate(v: string): string {
-  const d = digitsOnly(v).slice(0, 8);
+  let d = digitsOnly(v).slice(0, 8);
+  // MM/DD typed one digit at a time: a month opening with 2-9 can only be that
+  // single month (3 -> 03), same for a day opening with 4-9. Padding here also
+  // fixes a pasted "3/5/2026". Re-running on the padded text is a no-op — the
+  // leading digit is a 0 by then.
+  if (d[0] >= '2') d = `0${d}`.slice(0, 8);
+  if (d.length > 2 && d[2] >= '4') d = `${d.slice(0, 2)}0${d.slice(2)}`.slice(0, 8);
   if (d.length <= 2) return d;
   if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
   return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
