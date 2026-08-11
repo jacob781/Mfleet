@@ -25,6 +25,9 @@ python-dotenv==1.2.1
 # ─── HTTP client (Google OAuth / Drive / Gmail REST) ──────
 requests==2.32.3
 
+# ─── Telegram bot (bot.py only; reminders go out via requests) ─
+aiogram==3.30.0
+
 # ─── Rate limiting ────────────────────────────────────────
 slowapi==0.1.9
 

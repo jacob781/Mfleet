@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from sqlmodel import Session
 
 import mailer
+import notify_telegram
 from database import get_engine
 from models import EXPIRY_SOON_DAYS
 from routers.compliance import collect_alerts
@@ -46,9 +47,14 @@ def main() -> int:
     with Session(get_engine()) as session:
         alerts = collect_alerts(session, args.days)
 
-    if not alerts:
-        print("No expiring documents — nothing to send.")
-        return 0
+        if not alerts:
+            print("No expiring documents — nothing to send.")
+            return 0
+
+        # Drivers hear about their own documents in their Telegram group; the manager
+        # gets the full digest by email below either way.
+        count = notify_telegram.send_reminders(session, alerts, dry_run=args.dry_run)
+        print(f"Telegram: {count} driver reminder(s).")
 
     body = _format(alerts)
     if args.dry_run:

@@ -2,7 +2,7 @@ import uuid
 from typing import List, Optional, Literal, Dict, Annotated
 from datetime import date, datetime, timezone, timedelta
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import BigInteger, Column, String, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from pydantic import BaseModel, EmailStr, model_validator, AfterValidator
 
@@ -387,6 +387,70 @@ class GoogleAccount(SQLModel, table=True):
     connected_at: Optional[datetime] = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+
+
+# --- Telegram -----------------------------------------------------------------
+# Drivers live in per-company Telegram groups; the bot posts expiry reminders there
+# and mentions the driver. A driver registers himself by tapping a button in the
+# group, so linking is self-service — see TelegramLink.status for how it lands.
+
+class TelegramGroup(SQLModel, table=True):
+    """A Telegram group the bot was added to, mapped to the company it serves.
+    Several groups may point at the same company (shifts, regions), so company_id
+    is deliberately not unique. chat_id is Telegram's own id — negative for groups."""
+    # BigInteger throughout: a supergroup chat_id (-100…) and Telegram user ids do
+    # not fit in a 32-bit column.
+    chat_id: int = Field(sa_column=Column(BigInteger, primary_key=True, autoincrement=False))
+    company_id: Optional[int] = Field(default=None, foreign_key="company.id")
+    title: Optional[str] = None            # group name, for the admin list
+    registered_by: Optional[int] = Field(  # tg user id of whoever picked the company
+        default=None, sa_column=Column(BigInteger, nullable=True),
+    )
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),
+    )
+
+
+# TelegramLink.status
+TG_DRAFT = "draft"          # registration started, still answering questions
+TG_LINKED = "linked"        # matched an existing driver, or we created one
+TG_CONFLICT = "conflict"    # ambiguous or already taken — a human must look
+
+class TelegramLink(SQLModel, table=True):
+    """A Telegram account claiming to be a driver. One account per driver and one
+    driver per account: the unique tg_user_id stops a second registration, and a
+    driver already linked elsewhere lands as TG_CONFLICT instead of being stolen."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tg_user_id: int = Field(sa_column=Column(BigInteger, unique=True, nullable=False))
+    tg_username: Optional[str] = None      # may be absent; mentions use tg_user_id anyway
+    tg_name: Optional[str] = None          # display name from the Telegram profile
+    # Where they registered — alerts go back to this group, so a driver who sits in
+    # several groups is still messaged exactly once.
+    home_chat_id: Optional[int] = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+    driver_id: Optional[int] = Field(default=None, foreign_key="driver.id")
+    status: str = Field(default=TG_LINKED)
+    # What they typed, kept verbatim so a manager can see the claim behind the link.
+    claimed_name: Optional[str] = None
+    claimed_dob: Optional[date] = None
+    claimed_truck: Optional[str] = None    # unit number or VIN tail we could not resolve
+    note: Optional[str] = None             # why it is a conflict, or company mismatch
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),
+    )
+
+
+class TruckDriver(SQLModel, table=True):
+    """Who drives which truck — many-to-many, because a truck can run team drivers
+    and a driver can move between trucks. Distinct from Truck.owner_driver_id, which
+    is about ownership, not who is behind the wheel."""
+    truck_id: Optional[int] = Field(default=None, foreign_key="truck.id", primary_key=True)
+    driver_id: Optional[int] = Field(default=None, foreign_key="driver.id", primary_key=True)
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),
     )
 
 
