@@ -6,6 +6,7 @@ import {
   downloadDocument,
   getDriver,
   listCompanies,
+  listDriverDocumentHistory,
   listDriverDocuments,
   listDrivers,
   listTrucks,
@@ -32,6 +33,7 @@ import {
 } from '../../components/admin/ui';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
+import DocHistory from '../../components/admin/DocHistory';
 import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
 import { DocFilterSelect, parseDocFilter } from '../../components/admin/DocFilter';
 import { DocIndicator } from '../../components/admin/DocIndicator';
@@ -54,8 +56,12 @@ const EVENT_DOT: Record<EmploymentEventKind, string> = {
 
 // Manager-uploadable driver documents. `typeLabel` matches ComplianceDocument.document_type.
 const DRIVER_DOCS = [
-  { key: 'cdl', label: 'Driver license (CDL)', typeLabel: 'CDL' },
-  { key: 'medical_cert', label: "Medical examiner's certificate", typeLabel: 'Medical Cert' },
+  // `details` are the fields printed on that document — a licence carries a number
+  // and the holder's address, a medical certificate does not.
+  { key: 'cdl', label: 'Driver license (CDL)', typeLabel: 'CDL',
+    details: ['issue', 'number', 'address'] as const },
+  { key: 'medical_cert', label: "Medical examiner's certificate", typeLabel: 'Medical Cert',
+    details: ['issue', 'number'] as const },
 ] as const;
 
 const DriversPage: React.FC = () => {
@@ -79,6 +85,7 @@ const DriversPage: React.FC = () => {
   const [docsReload, setDocsReload] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<DriverSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [historyFor, setHistoryFor] = useState<{ docType: string; label: string } | null>(null);
   const [pendingTerminate, setPendingTerminate] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
 
@@ -578,7 +585,7 @@ const DriversPage: React.FC = () => {
             <div>
               <h3 className="mb-2 mt-2 text-sm font-semibold text-mfleet-gray-dark">Documents</h3>
               <div className="flex flex-col gap-2">
-                {DRIVER_DOCS.map(({ key, label, typeLabel }) => {
+                {DRIVER_DOCS.map(({ key, label, typeLabel, details }) => {
                   const doc = driverDocs.find((d) => d.document_type === typeLabel);
                   return (
                     <ManagerDocUpload
@@ -590,10 +597,15 @@ const DriversPage: React.FC = () => {
                       status={doc?.status}
                       docId={doc?.id}
                       isImage={doc?.is_image}
+                      detailFields={details}
+                      currentIssue={doc?.issue_date}
+                      currentNumber={doc?.document_number}
+                      currentAddress={doc?.address}
+                      onHistory={() => setHistoryFor({ docType: key, label })}
                       onView={doc?.has_file ? () => openDocumentInTab(doc.id) : undefined}
                       onDownload={doc?.has_file ? () => downloadDocument(doc.id, doc.document_type) : undefined}
-                      onSave={async (f, e) => {
-                        await uploadDriverDocument(selected.id, key, f, e);
+                      onSave={async (f, v) => {
+                        await uploadDriverDocument(selected.id, key, f, v);
                         setDocsReload((k) => k + 1);
                       }}
                     />
@@ -695,6 +707,14 @@ const DriversPage: React.FC = () => {
         onConfirm={onDeleteDriver}
         onCancel={() => setPendingDelete(null)}
       />
+
+      {historyFor && selected && (
+        <DocHistory
+          title={historyFor.label}
+          load={() => listDriverDocumentHistory(selected.id, historyFor.docType)}
+          onClose={() => setHistoryFor(null)}
+        />
+      )}
     </div>
   );
 };

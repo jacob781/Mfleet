@@ -360,17 +360,28 @@ export async function downloadApplicationDocument(appId: number, docType: string
 }
 
 // Manager-side multipart upload (auth header only; browser sets the multipart boundary).
-function uploadForm(path: string, file: File | null, expiry: string): Promise<any> {
+/** Details printed on the document; all optional, blank fields are simply not sent. */
+export interface DocFields {
+  expiry: string;
+  issue?: string;
+  number?: string;
+  address?: string;
+}
+
+function uploadForm(path: string, file: File | null, values: DocFields | string): Promise<any> {
+  const v: DocFields = typeof values === 'string' ? { expiry: values } : values;
   const fd = new FormData();
   if (file) fd.append('file', file);
-  if (expiry) fd.append('expiry', expiry);
+  for (const [key, val] of Object.entries(v)) {
+    if (val) fd.append(key, val);
+  }
   return request(path, { method: 'POST', body: fd });
 }
 
 export function uploadTruckDocument(
-  truckId: number, docType: string, file: File | null, expiry: string,
+  truckId: number, docType: string, file: File | null, values: DocFields,
 ): Promise<ComplianceDocument> {
-  return uploadForm(`/api/trucks/${truckId}/documents/${docType}`, file, expiry);
+  return uploadForm(`/api/trucks/${truckId}/documents/${docType}`, file, values);
 }
 
 export function uploadOwnerLicense(
@@ -380,9 +391,22 @@ export function uploadOwnerLicense(
 }
 
 export function uploadDriverDocument(
-  driverId: number, docType: string, file: File | null, expiry: string,
+  driverId: number, docType: string, file: File | null, values: DocFields,
 ): Promise<ComplianceDocument> {
-  return uploadForm(`/api/drivers/${driverId}/documents/${docType}`, file, expiry);
+  return uploadForm(`/api/drivers/${driverId}/documents/${docType}`, file, values);
+}
+
+// Every version of one document, newest first (see the routers for the ordering).
+export function listDriverDocumentHistory(
+  driverId: number, docType: string,
+): Promise<ComplianceDocument[]> {
+  return request(`/api/drivers/${driverId}/documents/${docType}/history`);
+}
+
+export function listTruckDocumentHistory(
+  truckId: number, docType: string,
+): Promise<ComplianceDocument[]> {
+  return request(`/api/trucks/${truckId}/documents/${docType}/history`);
 }
 
 export function openOwnerLicenseInTab(companyId: number): void {

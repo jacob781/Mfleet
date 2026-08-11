@@ -39,6 +39,7 @@ from models import (
     Truck,
 )
 from pdf_service import employment_gaps, generate_application_pdf, generate_preview_pdf
+from routers.compliance import current_docs
 from rate_limit import limiter
 
 router = APIRouter(prefix="/api/form", tags=["Driver Form"])
@@ -85,7 +86,7 @@ def _upsert_compliance(
         else ComplianceDocument.truck_id == truck_id
     )
     existing = session.exec(
-        select(ComplianceDocument).where(owner, ComplianceDocument.document_type == doc_type)
+        current_docs().where(owner, ComplianceDocument.document_type == doc_type)
     ).first()
     if existing is not None:
         existing.expiry_date = expiry
@@ -98,7 +99,8 @@ def _upsert_compliance(
                 driver_id=driver_id,
                 truck_id=truck_id,
                 document_type=doc_type,
-                issue_date=date.today(),
+                # No issue date: the form never asks for the one printed on the
+                # document, and stamping today's would date the history wrongly.
                 expiry_date=expiry,
                 file_path=file_path,
             )

@@ -10,6 +10,17 @@ import { toast } from '../Toast';
 // One card per manager-side document: shows the current file's status + view/
 // download on top, and a replace-file + expiry row below. Used for truck
 // documents and the company owner's license.
+/** Optional details printed on the document itself. Cards that only track a file and
+ *  an expiry (the company owner's licence) leave this out and look unchanged. */
+export type DocDetail = 'issue' | 'number' | 'address';
+
+export interface DocValues {
+  expiry: string;
+  issue?: string;
+  number?: string;
+  address?: string;
+}
+
 const ManagerDocUpload: React.FC<{
   label: string;
   currentExpiry?: string | null;
@@ -19,14 +30,36 @@ const ManagerDocUpload: React.FC<{
   /** Compliance document id + photo flag — turns on the stored-photo preview and rotation. */
   docId?: number;
   isImage?: boolean;
+  detailFields?: ReadonlyArray<DocDetail>;
+  currentIssue?: string | null;
+  currentNumber?: string | null;
+  currentAddress?: string | null;
+  /** Opens the version history for this document; hidden when not provided. */
+  onHistory?: () => void;
   onView?: () => void;
   onDownload?: () => void;
-  onSave: (file: File | null, expiry: string) => Promise<void>;
-}> = ({ label, currentExpiry, hasFile, status, requireExpiry, docId, isImage, onView, onDownload, onSave }) => {
+  onSave: (file: File | null, values: DocValues) => Promise<void>;
+}> = ({
+  label, currentExpiry, hasFile, status, requireExpiry, docId, isImage,
+  detailFields = [], currentIssue, currentNumber, currentAddress,
+  onHistory, onView, onDownload, onSave,
+}) => {
   const [file, setFile] = useState<File | null>(null);
   const [expiry, setExpiry] = useState(currentExpiry ?? '');
+  const [issue, setIssue] = useState(currentIssue ?? '');
+  const [number, setNumber] = useState(currentNumber ?? '');
+  const [address, setAddress] = useState(currentAddress ?? '');
   const [busy, setBusy] = useState(false);
   const [cropping, setCropping] = useState(false);
+
+  // The card renders before the document has been fetched, so the initial state above
+  // sees empty props and a stored expiry never reached its input. Seed the inputs when
+  // the values arrive (and again after a save replaces them). Typing is not disturbed:
+  // an effect only runs when the prop it watches actually changes.
+  React.useEffect(() => { setExpiry(currentExpiry ?? ''); }, [currentExpiry]);
+  React.useEffect(() => { setIssue(currentIssue ?? ''); }, [currentIssue]);
+  React.useEffect(() => { setNumber(currentNumber ?? ''); }, [currentNumber]);
+  React.useEffect(() => { setAddress(currentAddress ?? ''); }, [currentAddress]);
   const drop = useFileDrop(setFile);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -106,7 +139,11 @@ const ManagerDocUpload: React.FC<{
   // a button that comes and goes as a date is typed reads like a silent autosave.
   // A doc needs a file (just picked or already on record); a date alone must not
   // create a fileless record.
-  const dirty = !!file || expiry !== (currentExpiry ?? '');
+  const dirty = !!file
+    || expiry !== (currentExpiry ?? '')
+    || issue !== (currentIssue ?? '')
+    || number !== (currentNumber ?? '')
+    || address !== (currentAddress ?? '');
   const willHaveFile = !!file || !!hasFile;
   const missingExpiry = requireExpiry && !expiry;
   const canSave = dirty && !missingExpiry && willHaveFile;
@@ -120,7 +157,7 @@ const ManagerDocUpload: React.FC<{
   const save = async () => {
     setBusy(true);
     try {
-      await onSave(file, expiry);
+      await onSave(file, { expiry, issue, number, address });
       clearFile();
     } catch {
       // The API layer already toasted the reason; keep the picked file so the
@@ -276,6 +313,48 @@ const ManagerDocUpload: React.FC<{
           )}
         </div>
       </div>
+
+      {/* What is printed on the document. All optional — a document is often on file
+          long before anyone types its details, and none of this gates Save. */}
+      {detailFields.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {detailFields.includes('issue') && (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-400">Issued</span>
+              <DateInput value={issue} onChange={setIssue} className={cn(inputBase, 'w-36')} />
+            </div>
+          )}
+          {detailFields.includes('number') && (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-400">No.</span>
+              <input
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                className={cn(inputBase, 'w-40')}
+              />
+            </div>
+          )}
+          {detailFields.includes('address') && (
+            <div className="flex min-w-[200px] flex-1 items-center gap-1">
+              <span className="text-xs text-gray-400">Address</span>
+              <input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className={cn(inputBase, 'flex-1')}
+              />
+            </div>
+          )}
+          {onHistory && (
+            <button
+              type="button"
+              onClick={onHistory}
+              className="ml-auto text-xs text-mfleet-blue hover:underline"
+            >
+              History
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

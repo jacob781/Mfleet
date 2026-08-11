@@ -8,6 +8,7 @@ import {
   downloadDocument,
   listCompanies,
   listDrivers,
+  listTruckDocumentHistory,
   listTruckDocuments,
   listTrucks,
   openDocumentInTab,
@@ -36,6 +37,7 @@ import {
 } from '../../components/admin/ui';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
+import DocHistory from '../../components/admin/DocHistory';
 import { ChecklistCell, ChecklistFields } from '../../components/admin/Checklist';
 import { DocFilterSelect, parseDocFilter } from '../../components/admin/DocFilter';
 import { DocIndicator } from '../../components/admin/DocIndicator';
@@ -45,8 +47,12 @@ import { maskedRegister } from '../../lib/masks';
 
 // Manager-uploadable truck documents. `typeLabel` matches ComplianceDocument.document_type.
 const TRUCK_DOCS = [
-  { key: 'annual_inspection', label: 'Annual inspection', typeLabel: 'Annual Inspection' },
-  { key: 'registration', label: 'Registration (cab card)', typeLabel: 'Registration' },
+  // `details`: the date printed on the document plus its own number. No address —
+  // that belongs to the carrier, not the vehicle.
+  { key: 'annual_inspection', label: 'Annual inspection', typeLabel: 'Annual Inspection',
+    details: ['issue', 'number'] as const },
+  { key: 'registration', label: 'Registration (cab card)', typeLabel: 'Registration',
+    details: ['issue', 'number'] as const },
 ] as const;
 
 
@@ -69,6 +75,7 @@ const TrucksPage: React.FC = () => {
   const [truckDocs, setTruckDocs] = useState<ComplianceDocument[]>([]);
   const [pendingDelete, setPendingDelete] = useState<TruckResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [historyFor, setHistoryFor] = useState<{ docType: string; label: string } | null>(null);
 
   useEffect(() => {
     if (!viewing) { setTruckDocs([]); return; }
@@ -505,7 +512,7 @@ const TrucksPage: React.FC = () => {
             <div>
               <h3 className="mb-2 text-sm font-semibold text-mfleet-gray-dark">Documents</h3>
               <div className="flex flex-col gap-2">
-                {TRUCK_DOCS.map(({ key, label, typeLabel }) => {
+                {TRUCK_DOCS.map(({ key, label, typeLabel, details }) => {
                   const doc = truckDocs.find((d) => d.document_type === typeLabel);
                   return (
                     <ManagerDocUpload
@@ -517,10 +524,14 @@ const TrucksPage: React.FC = () => {
                       status={doc?.status}
                       docId={doc?.id}
                       isImage={doc?.is_image}
+                      detailFields={details}
+                      currentIssue={doc?.issue_date}
+                      currentNumber={doc?.document_number}
+                      onHistory={() => setHistoryFor({ docType: key, label })}
                       onView={doc?.has_file ? () => openDocumentInTab(doc.id) : undefined}
                       onDownload={doc?.has_file ? () => downloadDocument(doc.id, doc.document_type) : undefined}
-                      onSave={async (f, e) => {
-                        await uploadTruckDocument(viewing.id, key, f, e);
+                      onSave={async (f, v) => {
+                        await uploadTruckDocument(viewing.id, key, f, v);
                         setDocsReload((k) => k + 1);
                       }}
                     />
@@ -545,6 +556,14 @@ const TrucksPage: React.FC = () => {
         onConfirm={onDelete}
         onCancel={() => setPendingDelete(null)}
       />
+
+      {historyFor && viewing && (
+        <DocHistory
+          title={historyFor.label}
+          load={() => listTruckDocumentHistory(viewing.id, historyFor.docType)}
+          onClose={() => setHistoryFor(null)}
+        />
+      )}
     </div>
   );
 };

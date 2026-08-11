@@ -11,7 +11,16 @@ import uploads
 from database import get_session
 from dependencies import get_current_user
 from models import ComplianceDocument, Truck, User
-from routers.compliance import TRUCK_DOC_TYPES, doc_flags, doc_response, owners_with_file
+from routers.compliance import (
+    TRUCK_DOC_TYPES,
+    current_docs,
+    parse_date,
+    doc_flags,
+    doc_response,
+    owners_with_file,
+    upsert_version,
+)
+
 from schemas import ComplianceDocumentResponse, TruckCreate, TruckResponse, TruckUpdate
 
 router = APIRouter(prefix="/api/trucks", tags=["Trucks"])
@@ -95,7 +104,7 @@ def list_truck_documents(
     _user: Annotated[User, Depends(get_current_user)],
 ) -> List[ComplianceDocumentResponse]:
     docs = session.exec(
-        select(ComplianceDocument).where(ComplianceDocument.truck_id == truck_id)
+        current_docs().where(ComplianceDocument.truck_id == truck_id)
     ).all()
     return [doc_response(d) for d in docs]
 
@@ -108,20 +117,19 @@ def upsert_truck_document(
     _user: Annotated[User, Depends(get_current_user)],
     file: Annotated[Optional[UploadFile], File()] = None,
     expiry: Annotated[Optional[str], Form()] = None,
+    issue: Annotated[Optional[str], Form()] = None,
+    number: Annotated[Optional[str], Form()] = None,
 ) -> ComplianceDocumentResponse:
-    """Manager attaches/updates a truck document (annual inspection or registration):
-    saves the file and/or sets the expiry, upserting the ComplianceDocument for alerts."""
+    """Manager attaches/updates a truck document (annual inspection or registration).
+    A new file starts a new version and keeps the old one; without a file this edits
+    the current record. See compliance.upsert_version."""
     truck = session.get(Truck, truck_id)
     if not truck:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Truck not found")
     if doc_type not in TRUCK_DOC_TYPES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
-    exp: Optional[date] = None
-    if expiry:
-        try:
-            exp = date.fromisoformat(expiry[:10])
-        except ValueError:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid expiry date")
+    exp = parse_date(expiry, "expiry")
+    iss = parse_date(issue, "issue")
     file_path = None
     if file is not None:
         try:
@@ -129,28 +137,35 @@ def upsert_truck_document(
         except ValueError as exc:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-    label = uploads.DOC_TYPES[doc_type]
-    row = session.exec(
-        select(ComplianceDocument).where(
-            ComplianceDocument.truck_id == truck_id,
-            ComplianceDocument.document_type == label,
-        )
-    ).first()
-    if row is None:
-        if exp is None:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Expiry date is required")
-        row = ComplianceDocument(truck_id=truck_id, document_type=label,
-                                 issue_date=date.today(), expiry_date=exp, file_path=file_path)
-        session.add(row)
-    else:
-        if exp is not None:
-            row.expiry_date = exp
-        if file_path:
-            row.file_path = file_path
-    session.add(row)
+    row = upsert_version(
+        session, ComplianceDocument.truck_id == truck_id,
+        truck_id=truck_id, label=uploads.DOC_TYPES[doc_type],
+        file_path=file_path, expiry=exp, issue=iss, number=(number or None),
+    )
     session.commit()
     session.refresh(row)
     return doc_response(row)
+
+
+@router.get("/{truck_id}/documents/{doc_type}/history",
+            response_model=List[ComplianceDocumentResponse])
+def truck_document_history(
+    truck_id: int,
+    doc_type: str,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> List[ComplianceDocumentResponse]:
+    """Every version of one truck document, newest first — see the driver equivalent."""
+    if doc_type not in TRUCK_DOC_TYPES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
+    rows = session.exec(
+        select(ComplianceDocument).where(
+            ComplianceDocument.truck_id == truck_id,
+            ComplianceDocument.document_type == uploads.DOC_TYPES[doc_type],
+        )
+    ).all()
+    rows = sorted(rows, key=lambda d: (d.issue_date or date.min, d.id), reverse=True)
+    return [doc_response(d) for d in rows]
 
 
 @router.delete("/{truck_id}", status_code=status.HTTP_204_NO_CONTENT)

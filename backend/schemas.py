@@ -187,8 +187,11 @@ class ComplianceDocumentResponse(BaseModel):
     driver_id: Optional[int] = None
     truck_id: Optional[int] = None
     document_type: str
-    issue_date: date
+    issue_date: Optional[date] = None    # printed on the document; not always known
     expiry_date: date
+    document_number: Optional[str] = None
+    address: Optional[str] = None
+    superseded_at: Optional[datetime] = None   # set = an old version, kept for the record
     status: str          # live status (Valid / Expiring Soon / Expired)
     has_file: bool       # whether a file is attached to download
     is_image: bool = False   # a photo (rotatable + previewable), not a PDF

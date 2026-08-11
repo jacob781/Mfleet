@@ -1,8 +1,8 @@
 """Compliance documents: serve uploaded files (login-gated) and surface
 expiring/expired documents as alerts for the admin bell + email digest."""
 
-from datetime import date, timedelta
-from typing import Annotated, Dict, List
+from datetime import date, datetime, timedelta, timezone
+from typing import Annotated, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
@@ -32,6 +32,22 @@ DRIVER_DOC_TYPES = {"cdl", "medical_cert"}
 TRUCK_DOC_TYPES = ("annual_inspection", "registration")
 
 
+def parse_date(raw: Optional[str], label: str) -> Optional[date]:
+    """Form fields arrive as text; blank means "not given", not "clear it"."""
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw[:10])
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Invalid {label} date")
+
+
+def current_docs():
+    """Base select over the version in force. Superseded rows are history: they must
+    never reach an alert, a badge or a list filter."""
+    return select(ComplianceDocument).where(ComplianceDocument.superseded_at.is_(None))
+
+
 def owners_with_file(column, doc_label: str):
     """Sub-select of driver_id/truck_id values that have a FILE on record for this
     document type — powers the has/hasn't list filters. An expiry row without a
@@ -39,6 +55,7 @@ def owners_with_file(column, doc_label: str):
     return select(column).where(
         ComplianceDocument.document_type == doc_label,
         ComplianceDocument.file_path.is_not(None),
+        ComplianceDocument.superseded_at.is_(None),
         column.is_not(None),   # a NULL in the set would make NOT IN match nothing
     )
 
@@ -50,7 +67,7 @@ def doc_flags(session, column, owner_ids: List[int], doc_types: Dict[str, str]) 
     `doc_types` maps the doc_type key to its ComplianceDocument.document_type label."""
     if not owner_ids:
         return {}
-    rows = session.exec(select(ComplianceDocument).where(column.in_(owner_ids))).all()
+    rows = session.exec(current_docs().where(column.in_(owner_ids))).all()
     by_owner: Dict[int, Dict[str, ComplianceDocument]] = {}
     for row in rows:
         by_owner.setdefault(getattr(row, column.key), {})[row.document_type] = row
@@ -73,6 +90,62 @@ def doc_flags(session, column, owner_ids: List[int], doc_types: Dict[str, str]) 
     return out
 
 
+def upsert_version(
+    session: Session,
+    owner_filter,
+    *,
+    driver_id: Optional[int] = None,
+    truck_id: Optional[int] = None,
+    label: str,
+    file_path: Optional[str],
+    expiry: Optional[date],
+    issue: Optional[date] = None,
+    number: Optional[str] = None,
+    address: Optional[str] = None,
+) -> ComplianceDocument:
+    """Attach a document, keeping what was there before.
+
+    A NEW FILE means a new version: the row in force is stamped `superseded_at` and a
+    fresh one takes its place, so the old licence stays openable. Without a file this
+    is a correction — the current row is edited in place, because fixing a typo in an
+    expiry date should not manufacture a second licence.
+
+    The caller commits.
+    """
+    current = session.exec(
+        current_docs().where(owner_filter, ComplianceDocument.document_type == label)
+    ).first()
+
+    if current is not None and not file_path:
+        if expiry is not None:
+            current.expiry_date = expiry
+        for field, value in (("issue_date", issue), ("document_number", number),
+                             ("address", address)):
+            if value is not None:
+                setattr(current, field, value)
+        session.add(current)
+        return current
+
+    if current is not None:
+        current.superseded_at = datetime.now(timezone.utc)
+        session.add(current)
+        # Carry over anything the new upload did not restate, so a renewal that only
+        # supplies a file does not silently blank the details we already had.
+        expiry = expiry if expiry is not None else current.expiry_date
+        number = number if number is not None else current.document_number
+        address = address if address is not None else current.address
+    if expiry is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Expiry date is required")
+
+    row = ComplianceDocument(
+        driver_id=driver_id, truck_id=truck_id, document_type=label,
+        issue_date=issue, expiry_date=expiry, document_number=number,
+        address=address, file_path=file_path,
+    )
+    session.add(row)
+    return row
+
+
 def doc_response(doc: ComplianceDocument) -> ComplianceDocumentResponse:
     """Map a ComplianceDocument to its API DTO with live (recomputed) status."""
     return ComplianceDocumentResponse(
@@ -82,6 +155,9 @@ def doc_response(doc: ComplianceDocument) -> ComplianceDocumentResponse:
         document_type=doc.document_type,
         issue_date=doc.issue_date,
         expiry_date=doc.expiry_date,
+        document_number=doc.document_number,
+        address=doc.address,
+        superseded_at=doc.superseded_at,
         status=doc_status(doc.expiry_date),
         has_file=bool(doc.file_path),
         is_image=bool(doc.file_path) and doc.file_path.lower().endswith(".jpg"),
@@ -132,7 +208,7 @@ def collect_alerts(
     today = date.today()
     cutoff = today + timedelta(days=days)
     docs = session.exec(
-        select(ComplianceDocument)
+        current_docs()
         .where(ComplianceDocument.expiry_date != None)  # noqa: E711 - null = no date, skip
         .where(ComplianceDocument.expiry_date <= cutoff)
         .order_by(ComplianceDocument.expiry_date)

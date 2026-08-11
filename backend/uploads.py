@@ -9,6 +9,7 @@ by URL.
 """
 import os
 import shutil
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
@@ -86,9 +87,13 @@ def _root() -> Path:
     return d
 
 
-def _save_into(rel_dir: Path, doc_type: str, data: bytes) -> str:
-    """Validate + store a document under rel_dir/<doc_type>.<ext>. Returns the path
-    relative to UPLOADS_DIR (stored in the DB). Raises ValueError on bad type/size."""
+def _save_into(rel_dir: Path, doc_type: str, data: bytes, versioned: bool = False) -> str:
+    """Validate + store a document under rel_dir. Returns the path relative to
+    UPLOADS_DIR (stored in the DB). Raises ValueError on bad type/size.
+
+    `versioned` writes `<doc_type>_<stamp>.<ext>` and leaves earlier files alone, so a
+    renewed licence does not destroy the copy the previous record points at. Without
+    it the old behaviour stands: one file per doc_type, overwritten in place."""
     if doc_type not in DOC_TYPES:
         raise ValueError(f"unknown document type: {doc_type}")
     if not data:
@@ -106,15 +111,23 @@ def _save_into(rel_dir: Path, doc_type: str, data: bytes) -> str:
         except Exception as exc:  # corrupt/unreadable image
             raise ValueError(f"could not read image: {exc}")
         ext = "jpg"
-    rel = rel_dir / f"{doc_type}.{ext}"
+    stem = f"{doc_type}_{_stamp()}" if versioned else doc_type
+    rel = rel_dir / f"{stem}.{ext}"
     dest = _root() / rel
     dest.parent.mkdir(parents=True, exist_ok=True)
-    # One current file per doc_type: drop any prior copy with a different extension.
-    for old in dest.parent.glob(f"{doc_type}.*"):
-        if old != dest:
-            old.unlink()
+    if not versioned:
+        # One current file per doc_type: drop any prior copy with a different extension.
+        # The glob deliberately misses `<doc_type>_<stamp>.*`, so archived versions survive.
+        for old in dest.parent.glob(f"{doc_type}.*"):
+            if old != dest:
+                old.unlink()
     dest.write_bytes(payload)
     return str(rel).replace("\\", "/")
+
+
+def _stamp() -> str:
+    """Upload instant, to milliseconds — unique enough to name a version, and it sorts."""
+    return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")[:-3]
 
 
 def save(company_id: int, app_id: int, doc_type: str, data: bytes) -> str:
@@ -133,8 +146,9 @@ def save_app_truck(company_id: int, app_id: int, truck_idx: int, doc_type: str, 
 
 
 def save_truck(truck_id: int, doc_type: str, data: bytes) -> str:
-    """Manager upload for a fleet truck's document."""
-    return _save_into(Path("trucks") / f"truck_{int(truck_id)}", doc_type, data)
+    """Manager upload for a fleet truck's document. Versioned — a renewed inspection
+    must not overwrite the copy the previous record points at."""
+    return _save_into(Path("trucks") / f"truck_{int(truck_id)}", doc_type, data, versioned=True)
 
 
 def save_company(company_id: int, doc_type: str, data: bytes) -> str:
@@ -143,8 +157,9 @@ def save_company(company_id: int, doc_type: str, data: bytes) -> str:
 
 
 def save_driver(driver_id: int, doc_type: str, data: bytes) -> str:
-    """Manager upload for a driver's document (CDL, medical cert)."""
-    return _save_into(Path("drivers") / f"driver_{int(driver_id)}", doc_type, data)
+    """Manager upload for a driver's document (CDL, medical cert). Versioned — the
+    whole point of the history is that the old licence photo stays readable."""
+    return _save_into(Path("drivers") / f"driver_{int(driver_id)}", doc_type, data, versioned=True)
 
 
 def move_to_truck(rel_path: str, truck_id: int, doc_type: str) -> str:

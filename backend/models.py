@@ -337,10 +337,23 @@ class ComplianceDocument(SQLModel, table=True):
     truck_id: Optional[int] = Field(default=None, foreign_key="truck.id")
     
     document_type: str # e.g., "CDL", "Medical Cert", "Annual Inspection"
-    issue_date: date
+    # The date printed on the document. Optional: it is not always known, and the
+    # history is ordered by it because a licence can be replaced before it expires.
+    # (It used to be auto-filled with the upload date, which made it meaningless.)
+    issue_date: Optional[date] = None
     expiry_date: date  # <--- The most important field for your alerts (always set)
-    
+
+    # Optional details read off the document; free text, never used for matching.
+    document_number: Optional[str] = None
+    address: Optional[str] = None
+
     file_path: Optional[str] = None # Path to the stored PDF
+    # Versioning: every upload keeps the previous copy. NULL = the version in force —
+    # exactly one per (owner, document_type). Alerts, badges and downloads all look at
+    # the current one; the rest is history a manager can still open.
+    superseded_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
     # Live status (Valid/Expiring Soon/Expired) is always recomputed from expiry_date
     # via doc_status() on read — never stored, so it can't drift.
 

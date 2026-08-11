@@ -96,8 +96,13 @@ export interface ComplianceDocument {
   driver_id: number | null;
   truck_id: number | null;
   document_type: string;
-  issue_date: string;
+  /** Printed on the document; null when nobody has entered it yet. */
+  issue_date: string | null;
   expiry_date: string;
+  document_number?: string | null;
+  address?: string | null;
+  /** Set on an older version that a newer upload replaced; null = the one in force. */
+  superseded_at?: string | null;
   status: string;      // Valid | Expiring Soon | Expired
   has_file: boolean;
   is_image: boolean;   // photo (preview + rotate available), not a PDF

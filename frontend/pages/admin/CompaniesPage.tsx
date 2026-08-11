@@ -437,8 +437,8 @@ const CompaniesPage: React.FC = () => {
               requireExpiry
               onView={() => openOwnerLicenseInTab(viewing.id)}
               onDownload={() => downloadOwnerLicense(viewing.id, `${viewing.name}_owner_license`)}
-              onSave={async (f, e) => {
-                const updated = await uploadOwnerLicense(viewing.id, f, e);
+              onSave={async (f, v) => {
+                const updated = await uploadOwnerLicense(viewing.id, f, v.expiry);
                 setViewing(updated);
                 refresh();
               }}
