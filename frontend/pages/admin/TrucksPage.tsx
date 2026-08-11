@@ -538,6 +538,9 @@ const TrucksPage: React.FC = () => {
         message={pendingDelete
           ? `${pendingDelete.make} ${pendingDelete.year} (${pendingDelete.plate_number}) will be permanently removed, along with its documents and their files.`
           : ''}
+        // The VIN, not the plate: plates get reassigned, the VIN identifies this
+        // exact vehicle — and it is long enough that nobody deletes one by reflex.
+        confirmPhrase={pendingDelete?.vin}
         busy={deleting}
         onConfirm={onDelete}
         onCancel={() => setPendingDelete(null)}
