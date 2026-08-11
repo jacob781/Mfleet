@@ -93,6 +93,15 @@ function authHeaders(): Record<string, string> {
  */
 let renewal: Promise<boolean> | null = null;
 
+/**
+ * The only endpoints a 401 must NOT trigger a renewal for: /refresh would recurse,
+ * and login/logout have no session to save. Every other /api/auth/* route — /me
+ * above all — has to renew like any other call. Excluding the whole prefix logged
+ * managers out on any reload once the access token had aged past its hour, while
+ * their refresh token was still good for a day.
+ */
+const NO_RENEW = new Set(['/api/auth/login', '/api/auth/refresh', '/api/auth/logout']);
+
 function renewSession(): Promise<boolean> {
   if (!renewal) {
     const refresh = getRefresh();
@@ -130,7 +139,7 @@ async function request(path: string, init: RequestInit = {}, retry = true): Prom
   }
   // Access token died mid-session: renew silently and replay the call once. Only
   // if that fails does parse() clear the session and send the manager to login.
-  if (res.status === 401 && retry && !path.startsWith('/api/auth/') && getRefresh()) {
+  if (res.status === 401 && retry && !NO_RENEW.has(path) && getRefresh()) {
     if (await renewSession()) return request(path, init, false);
   }
   return parse(res);
