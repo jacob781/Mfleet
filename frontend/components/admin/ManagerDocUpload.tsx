@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Button, Spinner, StatusBadge, cn, inputBase } from './ui';
+import { Button, Field, Spinner, StatusBadge, cn, inputBase } from './ui';
 import { DateInput } from '../DateInput';
 import { useFileDrop } from '../../lib/useFileDrop';
-import { isoToUs } from '../../lib/masks';
 import { documentBlob, rotateDocument } from '../../lib/adminApi';
 import ImageEditor from './ImageEditor';
 import { toast } from '../Toast';
@@ -169,17 +168,27 @@ const ManagerDocUpload: React.FC<{
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-gray-200 p-3">
-      {/* Current state */}
+      {/* Header: what this document is, and the actions on the copy already held.
+          The expiry is NOT repeated here — the field below shows it. */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-mfleet-gray-dark">{label}</span>
           {hasFile && status && <StatusBadge value={status} />}
-          {hasFile && currentExpiry && (
-            <span className="text-xs text-mfleet-gray">exp. {isoToUs(currentExpiry)}</span>
-          )}
+          {!hasFile && <span className="text-xs text-mfleet-gray">No file yet</span>}
         </div>
-        {hasFile ? (
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1">
+          {onHistory && (
+            <button
+              type="button"
+              title="Previous versions"
+              onClick={onHistory}
+              className="rounded-lg px-2 py-1.5 text-xs text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue"
+            >
+              History
+            </button>
+          )}
+          {hasFile && (
+            <>
             {onView && (
               <button type="button" title="View" onClick={onView} className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-gray-100 hover:text-mfleet-blue">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -194,22 +203,24 @@ const ManagerDocUpload: React.FC<{
                 </svg>
               </button>
             )}
-          </div>
-        ) : (
-          <span className="text-xs text-mfleet-gray">No file yet</span>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
+      {/* Body: the copy on record beside everything printed on it. Kept together and
+          above the Save row, so nothing that Save writes sits below the button. */}
+      <div className="flex flex-wrap items-start gap-3">
       {/* Stored photo — click opens the full-size view. The rotate buttons sit on the
           photo itself: they act on it alone and take effect immediately, unlike the
-          file/expiry row below, which waits for Save. */}
+          fields, which wait for Save. */}
       {stored && (
-        <div className="relative w-fit">
+        <div className="relative w-fit shrink-0">
           <img
             src={stored}
             alt={label}
             onClick={onView}
-            className={cn('max-h-40 rounded border border-gray-200 object-contain', onView && 'cursor-zoom-in')}
+            className={cn('max-h-32 rounded border border-gray-200 object-contain', onView && 'cursor-zoom-in')}
           />
           {docId && isImage && (
             <div className="absolute right-1 top-1 flex gap-1">
@@ -228,8 +239,42 @@ const ManagerDocUpload: React.FC<{
         </div>
       )}
 
-      {/* Replace / upload */}
-      <div className="flex flex-wrap items-center gap-2">
+        {/* Everything printed on the document, one group, labels above like the rest
+            of the admin. Only the expiry is required; the others are often unknown
+            when the file first arrives, and none of them gate Save. */}
+        <div className="grid min-w-[240px] flex-1 grid-cols-2 gap-x-3 gap-y-2">
+          <Field label="Expires">
+            <DateInput value={expiry} onChange={setExpiry} className={inputBase} />
+          </Field>
+          {detailFields.includes('issue') && (
+            <Field label="Issued">
+              <DateInput value={issue} onChange={setIssue} className={inputBase} />
+            </Field>
+          )}
+          {detailFields.includes('number') && (
+            <Field label="Number">
+              <input
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                className={inputBase}
+              />
+            </Field>
+          )}
+          {detailFields.includes('address') && (
+            <Field label="Address" className="col-span-2">
+              <input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className={inputBase}
+              />
+            </Field>
+          )}
+        </div>
+      </div>
+
+      {/* Change row: attach a replacement, then Save. Last on the card, because Save
+          commits everything above it. */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 pt-2">
         <label
           {...drop.props}
           className={cn(
@@ -289,14 +334,6 @@ const ManagerDocUpload: React.FC<{
         >
           Paste
         </button>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-400">Expires</span>
-          <DateInput
-            value={expiry}
-            onChange={setExpiry}
-            className={cn(inputBase, 'w-36')}
-          />
-        </div>
         {cropping && file && (
           <ImageEditor
             file={file}
@@ -304,57 +341,15 @@ const ManagerDocUpload: React.FC<{
             onApply={(f) => { setFile(f); setCropping(false); }}
           />
         )}
-        <div className="flex items-center gap-2">
-          <Button onClick={save} disabled={busy || !canSave}>
-            {busy ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
-          </Button>
+        <div className="ml-auto flex items-center gap-2">
           {hint && (
             <span className={cn('text-xs', dirty ? 'text-amber-600' : 'text-gray-400')}>{hint}</span>
           )}
+          <Button onClick={save} disabled={busy || !canSave}>
+            {busy ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
+          </Button>
         </div>
       </div>
-
-      {/* What is printed on the document. All optional — a document is often on file
-          long before anyone types its details, and none of this gates Save. */}
-      {detailFields.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {detailFields.includes('issue') && (
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-400">Issued</span>
-              <DateInput value={issue} onChange={setIssue} className={cn(inputBase, 'w-36')} />
-            </div>
-          )}
-          {detailFields.includes('number') && (
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-400">No.</span>
-              <input
-                value={number}
-                onChange={(e) => setNumber(e.target.value)}
-                className={cn(inputBase, 'w-40')}
-              />
-            </div>
-          )}
-          {detailFields.includes('address') && (
-            <div className="flex min-w-[200px] flex-1 items-center gap-1">
-              <span className="text-xs text-gray-400">Address</span>
-              <input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className={cn(inputBase, 'flex-1')}
-              />
-            </div>
-          )}
-          {onHistory && (
-            <button
-              type="button"
-              onClick={onHistory}
-              className="ml-auto text-xs text-mfleet-blue hover:underline"
-            >
-              History
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 };
