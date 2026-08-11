@@ -13,7 +13,7 @@ import {
   updateDriver,
   uploadDriverDocument,
 } from '../../lib/adminApi';
-import type { ComplianceDocument, CompanyResponse, DriverCreate, DriverDetail, DriverSummary, TruckResponse } from '../../lib/adminTypes';
+import type { ComplianceDocument, CompanyResponse, DriverCreate, DriverDetail, DriverSummary, EmploymentEventKind, TruckResponse } from '../../lib/adminTypes';
 import { emptyDriver } from '../../lib/adminTypes';
 import { isoToUs, maskPhone } from '../../lib/masks';
 import {
@@ -39,6 +39,18 @@ import { ListCount, SortHeader, byText, useListView } from '../../components/adm
 import { DateInput } from '../../components/DateInput';
 
 const DRIVER_STATUSES = ['Pending', 'Active', 'Terminated'];
+
+const EVENT_LABEL: Record<EmploymentEventKind, string> = {
+  hired: 'Hired',
+  terminated: 'Terminated',
+  reactivated: 'Reactivated',
+};
+
+const EVENT_DOT: Record<EmploymentEventKind, string> = {
+  hired: 'bg-green-500',
+  terminated: 'bg-red-500',
+  reactivated: 'bg-blue-500',
+};
 
 // Manager-uploadable driver documents. `typeLabel` matches ComplianceDocument.document_type.
 const DRIVER_DOCS = [
@@ -80,6 +92,7 @@ const DriversPage: React.FC = () => {
       const patch = { status: updated.status, termination_date: updated.termination_date };
       setSelected({ ...selected, ...patch });
       setDraft((d) => (d ? { ...d, ...patch } : d));
+      setDetail(updated);   // carries the new employment event, so the timeline redraws
       setPendingTerminate(false);
       refresh();
     } finally {
@@ -528,12 +541,37 @@ const DriversPage: React.FC = () => {
                 )}
                 <ReadOnlyField label="Hire date" value={isoToUs(selected.hire_date)} copyable={false} />
                 {selected.termination_date && (
-                  <ReadOnlyField label="Termination date" value={isoToUs(selected.termination_date)} copyable={false} />
+                  /* The date survives a reactivation now, so say which one it is. */
+                  <ReadOnlyField
+                    label={selected.status === 'Terminated' ? 'Termination date' : 'Last termination'}
+                    value={isoToUs(selected.termination_date)}
+                    copyable={false}
+                  />
                 )}
                 <div className="col-span-2 flex flex-col gap-0.5">
                   <span className="text-xs font-medium uppercase tracking-wide text-mfleet-gray">Onboarding checklist</span>
                   <div><ChecklistCell checked={selected.checklist_checked} date={selected.checklist_date} /></div>
                 </div>
+              </div>
+            )}
+
+            {!!detail?.employment_events?.length && (
+              <div>
+                <h3 className="mb-2 mt-2 text-sm font-semibold text-mfleet-gray-dark">
+                  Employment history
+                </h3>
+                <ol className="flex flex-col gap-1.5">
+                  {detail.employment_events.map((e) => (
+                    <li key={e.id} className="flex items-center gap-2 text-sm">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${EVENT_DOT[e.kind]}`} />
+                      <span className="w-24 shrink-0 tabular-nums text-mfleet-gray">
+                        {isoToUs(e.date)}
+                      </span>
+                      <span className="text-mfleet-gray-dark">{EVENT_LABEL[e.kind]}</span>
+                      {e.note && <span className="text-xs text-mfleet-gray">— {e.note}</span>}
+                    </li>
+                  ))}
+                </ol>
               </div>
             )}
 

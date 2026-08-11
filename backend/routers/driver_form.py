@@ -28,12 +28,14 @@ import uploads
 from database import get_engine, get_session
 from mailer import send_mail
 from models import (
+    EV_HIRED,
     ApplicationPayload,
     Company,
     ComplianceDocument,
     Driver,
     DriverAnswers,
     DriverApplication,
+    DriverEmploymentEvent,
     Truck,
 )
 from pdf_service import employment_gaps, generate_application_pdf, generate_preview_pdf
@@ -372,6 +374,10 @@ def submit_form(
         session.add(driver)
         session.commit()
         session.refresh(driver)
+        # Open the employment record here too, not just for hand-added drivers.
+        session.add(DriverEmploymentEvent(
+            driver_id=driver.id, kind=EV_HIRED, date=driver.hire_date,
+        ))
         app.driver_id = driver.id
     else:
         driver = session.get(Driver, app.driver_id)

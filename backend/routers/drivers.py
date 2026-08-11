@@ -15,10 +15,14 @@ from database import get_session
 from dependencies import get_current_user
 from models import (
     DRIVER_TERMINATED,
+    EV_HIRED,
+    EV_REACTIVATED,
+    EV_TERMINATED,
     Company,
     ComplianceDocument,
     Driver,
     DriverApplication,
+    DriverEmploymentEvent,
     User,
 )
 from routers.compliance import DRIVER_DOC_TYPES, doc_flags, doc_response, owners_with_file
@@ -91,6 +95,10 @@ def create_driver(
     # passing None explicitly would hit the NOT NULL column.
     driver = Driver(**body.model_dump(exclude_none=True))
     session.add(driver)
+    session.flush()          # need the id to open the employment record
+    session.add(DriverEmploymentEvent(
+        driver_id=driver.id, kind=EV_HIRED, date=driver.hire_date,
+    ))
     session.commit()
     session.refresh(driver)
     return DriverDetail.model_validate(driver)
@@ -108,9 +116,23 @@ def get_driver(
     apps = session.exec(
         select(DriverApplication).where(DriverApplication.driver_id == driver_id)
     ).all()
+    # employment_events comes off the ordered relationship — see the Driver model.
     detail = DriverDetail.model_validate(driver)
     detail.applications = [DriverApplicationBrief.model_validate(a) for a in apps]
     return detail
+
+
+def _move_event(session: Session, driver_id: int, kind: str, new_date: date) -> None:
+    """Re-date the most recent event of this kind. Used when a manager fixes a date
+    that was entered wrong — that is not a new hire or a second termination."""
+    ev = session.exec(
+        select(DriverEmploymentEvent)
+        .where(DriverEmploymentEvent.driver_id == driver_id, DriverEmploymentEvent.kind == kind)
+        .order_by(DriverEmploymentEvent.date.desc(), DriverEmploymentEvent.id.desc())
+    ).first()
+    if ev is not None and ev.date != new_date:
+        ev.date = new_date
+        session.add(ev)
 
 
 @router.patch("/{driver_id}", response_model=DriverDetail)
@@ -123,16 +145,34 @@ def update_driver(
     driver = session.get(Driver, driver_id)
     if not driver:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Driver not found")
+    was_terminated = driver.status == DRIVER_TERMINATED
     data = body.model_dump(exclude_unset=True)
     for field, value in data.items():
         setattr(driver, field, value)
-    # Terminating stamps the leaving date, coming back clears it — unless the manager
-    # sent a date of their own in the same request (correcting an old record).
-    if "status" in data and "termination_date" not in data:
-        if data["status"] == DRIVER_TERMINATED:
-            driver.termination_date = driver.termination_date or date.today()
-        else:
-            driver.termination_date = None
+    # Terminating stamps the leaving date — unless the manager sent one of their own
+    # in the same request (correcting an old record). Coming back no longer clears it:
+    # the column keeps the LAST termination and the event log keeps every round.
+    logged_termination = False
+    if "status" in data:
+        now_terminated = data["status"] == DRIVER_TERMINATED
+        if now_terminated and not was_terminated:
+            if "termination_date" not in data:
+                driver.termination_date = date.today()
+            session.add(DriverEmploymentEvent(
+                driver_id=driver.id, kind=EV_TERMINATED,
+                date=driver.termination_date or date.today(),
+            ))
+            logged_termination = True
+        elif was_terminated and not now_terminated:
+            session.add(DriverEmploymentEvent(
+                driver_id=driver.id, kind=EV_REACTIVATED, date=date.today(),
+            ))
+    # Editing a date is a correction, not a new event: move the existing entry so the
+    # timeline keeps agreeing with the columns.
+    if data.get("hire_date"):
+        _move_event(session, driver.id, EV_HIRED, driver.hire_date)
+    if data.get("termination_date") and not logged_termination:
+        _move_event(session, driver.id, EV_TERMINATED, driver.termination_date)
     session.add(driver)
     session.commit()
     session.refresh(driver)

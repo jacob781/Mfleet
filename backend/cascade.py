@@ -12,6 +12,7 @@ from models import (
     ComplianceDocument,
     DriverAnswers,
     DriverApplication,
+    DriverEmploymentEvent,
     EmployerVerification,
     Truck,
 )
@@ -63,5 +64,9 @@ def delete_driver(session: Session, driver) -> None:
         select(ComplianceDocument).where(ComplianceDocument.driver_id == driver.id)
     ).all():
         session.delete(doc)
+    for ev in session.exec(
+        select(DriverEmploymentEvent).where(DriverEmploymentEvent.driver_id == driver.id)
+    ).all():
+        session.delete(ev)
     uploads.remove_dir(f"drivers/driver_{driver.id}")
     session.delete(driver)

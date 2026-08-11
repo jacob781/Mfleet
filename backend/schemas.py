@@ -314,10 +314,21 @@ class DriverUpdate(BaseModel):
     _check_email = field_validator("email")(_blank_or_email)
 
 
+class EmploymentEvent(BaseModel):
+    """One entry of a driver's employment timeline."""
+    id: int
+    kind: str            # hired | terminated | reactivated
+    date: date
+    note: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class DriverDetail(DriverSummary):
     dob: Optional[date] = None
     notes: Optional[str] = None
     applications: List[DriverApplicationBrief] = []
+    employment_events: List[EmploymentEvent] = []
 
 
 # --- Applications ------------------------------------------------------------

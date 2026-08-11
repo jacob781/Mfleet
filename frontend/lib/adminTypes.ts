@@ -207,10 +207,20 @@ export interface DriverApplicationBrief {
   created_at: string | null;
 }
 
+export type EmploymentEventKind = 'hired' | 'terminated' | 'reactivated';
+
+export interface EmploymentEvent {
+  id: number;
+  kind: EmploymentEventKind;
+  date: string;
+  note?: string | null;
+}
+
 export interface DriverDetail extends DriverSummary {
   dob?: string | null;
   notes?: string | null;
   applications: DriverApplicationBrief[];
+  employment_events: EmploymentEvent[];
 }
 
 export interface DriverCreate {

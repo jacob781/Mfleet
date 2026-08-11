@@ -245,7 +245,8 @@ class Driver(SQLModel, table=True):
     dob: Optional[date] = None
     hire_date: date = Field(default_factory=date.today)
     status: str = Field(default="Pending")  # Pending, Active, Terminated
-    # Stamped when the status goes to Terminated, cleared when the driver comes back.
+    # Date of the LAST termination. Kept when the driver is reactivated — the full
+    # record lives in DriverEmploymentEvent, this is the denormalised latest value.
     termination_date: Optional[date] = None
 
     # Onboarding checklist (docs/tools the driver must have). Set manually by a manager.
@@ -268,6 +269,39 @@ class Driver(SQLModel, table=True):
     company: Company = Relationship(back_populates="drivers")
     documents: List["ComplianceDocument"] = Relationship(back_populates="driver")
     applications: List["DriverApplication"] = Relationship(back_populates="driver")
+    # Declared so the ORM knows the dependency and deletes events before the driver.
+    # Ordered here rather than at each call site, so every response — GET, PATCH,
+    # POST — hands back the same chronological timeline.
+    employment_events: List["DriverEmploymentEvent"] = Relationship(
+        back_populates="driver",
+        sa_relationship_kwargs={"order_by": "DriverEmploymentEvent.date, DriverEmploymentEvent.id"},
+    )
+
+
+# DriverEmploymentEvent.kind
+EV_HIRED = "hired"
+EV_TERMINATED = "terminated"
+EV_REACTIVATED = "reactivated"
+
+class DriverEmploymentEvent(SQLModel, table=True):
+    """Every hire / termination / reactivation, kept forever.
+
+    Driver.hire_date and Driver.termination_date only ever hold the latest value, so
+    a driver who left and came back twice would otherwise lose the earlier rounds.
+    This table is the record; those columns stay as the denormalised current state
+    the lists and filters already read."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    driver_id: int = Field(foreign_key="driver.id", index=True)
+    kind: str                              # hired | terminated | reactivated
+    date: date
+    note: Optional[str] = None
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),
+    )
+
+    driver: Driver = Relationship(back_populates="employment_events")
+
 
 class Truck(SQLModel, table=True):
     """Assets owned/leased by the company or driver"""
