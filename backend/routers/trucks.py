@@ -164,7 +164,9 @@ def truck_document_history(
             ComplianceDocument.document_type == uploads.DOC_TYPES[doc_type],
         )
     ).all()
-    rows = sorted(rows, key=lambda d: (d.issue_date or date.min, d.id), reverse=True)
+    # The version in force always leads — see the driver-side history for why.
+    rows = sorted(rows, key=lambda d: (d.superseded_at is None, d.issue_date or date.min, d.id),
+                  reverse=True)
     return [doc_response(d) for d in rows]
 
 

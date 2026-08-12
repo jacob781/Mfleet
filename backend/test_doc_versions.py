@@ -2,6 +2,7 @@
 Run: python test_doc_versions.py   (needs DATABASE_URL; cleans up after itself)
 """
 
+from datetime import date
 from io import BytesIO
 
 from dotenv import load_dotenv
@@ -17,6 +18,7 @@ import uploads  # noqa: E402
 from database import get_engine  # noqa: E402
 from dependencies import get_current_user, get_current_user_file  # noqa: E402
 from main import app  # noqa: E402
+from routers.driver_form import _upsert_compliance  # noqa: E402
 from models import Company, ComplianceDocument, Driver, User  # noqa: E402
 
 CO = "DocVersion Test Co"
@@ -107,6 +109,41 @@ def main():
         r = post({"expiry": "2035-01-01"}, _photo("green"))
         assert r.json()["document_number"] == "TX-222", "unstated details must carry over"
         assert r.json()["address"] == "1 Old St"
+
+        # --- what the driver's own application submits -----------------------
+        # Same code path as the manager's card: a renewed licence must not overwrite
+        # the one on record, and a re-submit of the same application must not fork it.
+        with Session(engine) as s:
+            def submit(path, expiry, state):
+                _upsert_compliance(s, "CDL", date.fromisoformat(expiry), path,
+                                   driver_id=did, number="TX-333", issuing_state=state)
+                s.commit()
+
+            def history():
+                return client.get(f"/api/drivers/{did}/documents/cdl/history").json()
+
+            before = history()
+            submit("company_1/app_1/cdl.jpg", "2036-01-01", "TX")
+            after_new = history()
+            assert len(after_new) == len(before) + 1, "a licence from an application is a new version"
+            # The one in force leads the list even without an issue date printed on it.
+            assert after_new[0]["superseded_at"] is None and after_new[0]["issuing_state"] == "TX"
+            assert any(h["id"] == before[0]["id"] and h["superseded_at"] for h in after_new[1:]), \
+                "the manager's copy is kept, marked superseded"
+
+            # Re-submitting the same application resends the same path: a correction.
+            submit("company_1/app_1/cdl.jpg", "2036-02-02", "TN")
+            again = history()
+            assert len(again) == len(after_new), "a re-submit must not fork a version"
+            assert again[0]["expiry_date"] == "2036-02-02" and again[0]["issuing_state"] == "TN"
+
+            # A driver who renews mid-hire sends a different file → another version.
+            submit("company_1/app_2/cdl.jpg", "2040-03-03", "TN")
+            renewed = history()
+            assert len(renewed) == len(again) + 1, renewed
+            assert renewed[0]["expiry_date"] == "2040-03-03"
+            assert any(h["expiry_date"] == "2036-02-02" for h in renewed[1:]), \
+                "the older licence stays readable"
 
         # Deleting the driver removes every version.
         assert client.delete(f"/api/drivers/{did}").status_code == 204

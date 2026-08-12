@@ -165,23 +165,23 @@ def save_driver(driver_id: int, doc_type: str, data: bytes) -> str:
 def move_to_truck(rel_path: str, truck_id: int, doc_type: str) -> str:
     """Relocate a driver-uploaded truck doc (stored per app) into the truck's own
     folder, so every truck document lives under trucks/truck_{id}/ regardless of who
-    uploaded it. Returns the new relative path (or the original if the file is gone)."""
+    uploaded it. Returns the new relative path (or the original if the file is gone).
+
+    Versioned like save_truck: a renewed cab card lands beside the previous one
+    instead of on top of it, so the older version stays readable in the history."""
     try:
         src = resolve(rel_path)
     except ValueError:
         return rel_path
     if not src.exists():
         return rel_path
+    dest_dir = _root() / "trucks" / f"truck_{int(truck_id)}"
+    if src.parent == dest_dir:
+        return rel_path            # already in place (re-submit of the same file)
     ext = src.suffix.lstrip(".") or "bin"
-    new_rel = Path("trucks") / f"truck_{int(truck_id)}" / f"{doc_type}.{ext}"
-    dest = _root() / new_rel
-    if src == dest:
-        return str(new_rel).replace("\\", "/")   # already in place (re-submit)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    for old in dest.parent.glob(f"{doc_type}.*"):
-        if old != dest:
-            old.unlink()
-    src.replace(dest)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    new_rel = Path("trucks") / f"truck_{int(truck_id)}" / f"{doc_type}_{_stamp()}.{ext}"
+    src.replace(_root() / new_rel)
     return str(new_rel).replace("\\", "/")
 
 

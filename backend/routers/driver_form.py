@@ -39,7 +39,7 @@ from models import (
     Truck,
 )
 from pdf_service import employment_gaps, generate_application_pdf, generate_preview_pdf
-from routers.compliance import current_docs
+from routers.compliance import current_docs, upsert_version
 from rate_limit import limiter
 
 router = APIRouter(prefix="/api/form", tags=["Driver Form"])
@@ -75,36 +75,35 @@ def _upsert_compliance(
     *,
     driver_id: int | None = None,
     truck_id: int | None = None,
+    number: str | None = None,
+    issuing_state: str | None = None,
 ) -> None:
-    """Create or update the single compliance doc of this type for a driver OR truck,
-    so re-submitting a corrected form updates the row instead of duplicating it.
-    file_path (when uploaded) is attached here — the same row drives both the expiry
-    alert and the stored file reference."""
+    """Fold a driver-submitted document into the SAME versioned record the manager
+    edits — there is one document per type per driver, whoever uploaded it.
+
+    A DIFFERENT file means the driver sent a renewed document: the copy on record is
+    kept as a previous version instead of being overwritten (see upsert_version).
+    Re-submitting the same application resends the same path, which is a correction
+    and edits the record in place. No issue date: the form never asks for the one
+    printed on the document, and stamping today's would date the history wrongly.
+
+    ponytail: within a single application the driver's own re-upload overwrites the
+    draft file on disk, so that swap cannot be versioned — only a submit can.
+    """
     owner = (
         ComplianceDocument.driver_id == driver_id
         if driver_id is not None
         else ComplianceDocument.truck_id == truck_id
     )
-    existing = session.exec(
+    current = session.exec(
         current_docs().where(owner, ComplianceDocument.document_type == doc_type)
     ).first()
-    if existing is not None:
-        existing.expiry_date = expiry
-        if file_path:
-            existing.file_path = file_path
-        session.add(existing)
-    else:
-        session.add(
-            ComplianceDocument(
-                driver_id=driver_id,
-                truck_id=truck_id,
-                document_type=doc_type,
-                # No issue date: the form never asks for the one printed on the
-                # document, and stamping today's would date the history wrongly.
-                expiry_date=expiry,
-                file_path=file_path,
-            )
-        )
+    if current is not None and file_path == current.file_path:
+        file_path = None
+    upsert_version(
+        session, owner, driver_id=driver_id, truck_id=truck_id, label=doc_type,
+        file_path=file_path, expiry=expiry, number=number, issuing_state=issuing_state,
+    )
 
 
 def _upsert_trucks(session: Session, company_id: int, equipment: list,
@@ -397,7 +396,8 @@ def submit_form(
     # type per driver, updated (not duplicated) on re-submit. Attach any file the
     # driver uploaded (stored in the draft under "documents") to the same row.
     docs = answers.get("documents") or {}
-    _upsert_compliance(session, "CDL", validated.cdl.expiration, docs.get("cdl"), driver_id=app.driver_id)
+    _upsert_compliance(session, "CDL", validated.cdl.expiration, docs.get("cdl"), driver_id=app.driver_id,
+                       number=validated.cdl.number, issuing_state=validated.cdl.state.strip().upper())
     _upsert_compliance(session, "Medical Cert", validated.medical.expiration_date, docs.get("medical_cert"), driver_id=app.driver_id)
 
     # Owner-operators: their equipment becomes real Truck rows, and the truck-side
