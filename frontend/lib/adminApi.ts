@@ -290,8 +290,8 @@ export function listAlerts(days?: number): Promise<AlertItem[]> {
 
 // Files (compliance docs, application uploads) are JWT-protected — fetch with the
 // auth header and hand back a blob/object URL the browser can show or save.
-async function fetchFileBlob(path: string): Promise<Blob> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() });
+async function fetchFileBlob(path: string, init: RequestInit = {}): Promise<Blob> {
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...authHeaders(), ...(init.headers as any) } });
   if (!res.ok) await parse(res); // throws ApiError with the server detail
   return res.blob();
 }
@@ -366,6 +366,7 @@ export interface DocFields {
   issue?: string;
   number?: string;
   address?: string;
+  issuing_state?: string;
 }
 
 function uploadForm(path: string, file: File | null, values: DocFields | string): Promise<any> {
@@ -415,6 +416,28 @@ export function openOwnerLicenseInTab(companyId: number): void {
 
 export async function downloadOwnerLicense(companyId: number, baseName: string): Promise<void> {
   saveBlob(await fetchFileBlob(`/api/companies/${companyId}/owner-license/file`), baseName);
+}
+
+// --- Excel export ----------------------------------------------------------
+
+/** Download a list as .xlsx. `ids` are the rows the page is showing, in its order —
+ *  that is how the sheet inherits every filter, the search box and the sort. */
+export async function exportXlsx(
+  kind: 'drivers' | 'trucks' | 'companies', ids: number[],
+): Promise<void> {
+  const blob = await fetchFileBlob(`/api/export/${kind}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${kind}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 // --- Trucks ----------------------------------------------------------------

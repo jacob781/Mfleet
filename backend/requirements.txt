@@ -31,6 +31,9 @@ slowapi==0.1.9
 # ─── PDF generation (Typst compiler must be on PATH) ──────
 PyMuPDF==1.27.2.3
 
+# ─── Excel exports ────────────────────────────────────────
+openpyxl==3.1.5
+
 # ─── Image processing (signatures + HEIC uploads) ─────────
 Pillow==12.2.0
 pillow-heif==1.4.0

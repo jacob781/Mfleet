@@ -6,6 +6,7 @@ import {
   createTruck,
   deleteTruck,
   downloadDocument,
+  exportXlsx,
   listCompanies,
   listDrivers,
   listTruckDocumentHistory,
@@ -332,9 +333,18 @@ const TrucksPage: React.FC = () => {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-mfleet-gray-dark">Vehicles</h1>
-        <Button onClick={openCreate} disabled={companies.length === 0}>
-          Add vehicle
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            disabled={visible.length === 0}
+            onClick={() => exportXlsx('trucks', visible.map((t) => t.id))}
+          >
+            Export to Excel
+          </Button>
+          <Button onClick={openCreate} disabled={companies.length === 0}>
+            Add vehicle
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-3">

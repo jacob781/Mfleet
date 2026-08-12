@@ -10,7 +10,7 @@ import mailer
 from rate_limit import limiter
 from routers import (
     auth, applications, companies, drivers, driver_form, trucks, compliance,
-    integrations, employers,
+    export, integrations, employers,
 )
 
 load_dotenv()
@@ -29,6 +29,7 @@ app.include_router(integrations.router)
 app.include_router(employers.router)
 app.include_router(applications.router)
 app.include_router(driver_form.router)
+app.include_router(export.router)
 
 # Configure CORS
 origins = [
