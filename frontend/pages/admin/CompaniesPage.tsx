@@ -4,6 +4,7 @@ import {
   createCompany,
   deleteCompany,
   downloadOwnerLicense,
+  exportXlsx,
   openOwnerLicenseInTab,
   listCompanies,
   listDrivers,
@@ -25,6 +26,7 @@ import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
 import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
 import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, SelectInput, Spinner, TextInput } from '../../components/admin/ui';
 import { ListCount, SortHeader, byText, useListView } from '../../components/admin/listView';
+import { isoToUs } from '../../lib/masks';
 
 const CompaniesPage: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
@@ -195,9 +197,18 @@ const CompaniesPage: React.FC = () => {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-mfleet-gray-dark">Companies</h1>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? 'Cancel' : 'Add company'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            disabled={visible.length === 0}
+            onClick={() => exportXlsx('companies', visible.map((c) => c.id))}
+          >
+            Export to Excel
+          </Button>
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? 'Cancel' : 'Add company'}
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -422,7 +433,27 @@ const CompaniesPage: React.FC = () => {
                 <ReadOnlyField label="Phone" value={viewing.phone} />
                 <ReadOnlyField label="Email" value={viewing.email} />
               </div>
-              <ReadOnlyField label="Fax" value={viewing.fax} />
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="Fax" value={viewing.fax} />
+                <ReadOnlyField label="EIN" value={viewing.ein} />
+              </div>
+
+              {/* Same fields the edit form carries — view mode used to drop them. */}
+              <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-mfleet-gray">
+                Owner / principal
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="Owner name" value={viewing.owner_name} />
+                <ReadOnlyField label="Owner date of birth" value={isoToUs(viewing.owner_dob)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="Owner SSN" value={viewing.owner_ssn} />
+                <ReadOnlyField label="Owner address" value={viewing.owner_address} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="Owner license #" value={viewing.owner_license_no} />
+                <ReadOnlyField label="License state" value={viewing.owner_license_state} />
+              </div>
             </div>
           )
         )}
