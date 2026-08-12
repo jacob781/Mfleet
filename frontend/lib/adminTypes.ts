@@ -101,6 +101,8 @@ export interface ComplianceDocument {
   expiry_date: string;
   document_number?: string | null;
   address?: string | null;
+  /** State that issued it — the licence's "license state". */
+  issuing_state?: string | null;
   /** Set on an older version that a newer upload replaced; null = the one in force. */
   superseded_at?: string | null;
   status: string;      // Valid | Expiring Soon | Expired
@@ -223,6 +225,8 @@ export interface EmploymentEvent {
 
 export interface DriverDetail extends DriverSummary {
   dob?: string | null;
+  /** Single-driver reads only — the list never carries it. */
+  ssn?: string | null;
   notes?: string | null;
   applications: DriverApplicationBrief[];
   employment_events: EmploymentEvent[];
@@ -236,6 +240,7 @@ export interface DriverCreate {
   email: string;
   phone: string;
   dob?: string | null;
+  ssn?: string | null;
   hire_date?: string | null;
   status: string;
   notes?: string | null;
@@ -252,6 +257,7 @@ export function emptyDriver(companyId: number): DriverCreate {
     email: '',
     phone: '',
     dob: '',
+    ssn: '',
     hire_date: '',
     status: 'Pending',
     notes: '',
@@ -267,6 +273,8 @@ export interface DriverUpdate {
   email?: string;
   phone?: string;
   status?: string;
+  dob?: string | null;
+  ssn?: string | null;
   hire_date?: string | null;
   termination_date?: string | null;
   notes?: string | null;

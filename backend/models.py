@@ -346,6 +346,7 @@ class ComplianceDocument(SQLModel, table=True):
     # Optional details read off the document; free text, never used for matching.
     document_number: Optional[str] = None
     address: Optional[str] = None
+    issuing_state: Optional[str] = None   # state that issued it (licences)
 
     file_path: Optional[str] = None # Path to the stored PDF
     # Versioning: every upload keeps the previous copy. NULL = the version in force —

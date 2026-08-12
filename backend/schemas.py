@@ -191,6 +191,7 @@ class ComplianceDocumentResponse(BaseModel):
     expiry_date: date
     document_number: Optional[str] = None
     address: Optional[str] = None
+    issuing_state: Optional[str] = None
     superseded_at: Optional[datetime] = None   # set = an old version, kept for the record
     status: str          # live status (Valid / Expiring Soon / Expired)
     has_file: bool       # whether a file is attached to download
@@ -290,6 +291,7 @@ class DriverCreate(BaseModel):
     email: str = ""
     phone: str = ""
     dob: Optional[date] = None
+    ssn: Optional[SsnStr] = None
     hire_date: Optional[date] = None     # defaults to today in the model
     status: str = "Pending"
     notes: Optional[str] = None
@@ -307,6 +309,8 @@ class DriverUpdate(BaseModel):
     email: Optional[str] = None       # "" clears it; contacts stay optional here
     phone: Optional[str] = None
     status: Optional[str] = None
+    dob: Optional[date] = None
+    ssn: Optional[SsnStr] = None
     hire_date: Optional[date] = None
     # Sent explicitly only to correct it; otherwise the router stamps it from status.
     termination_date: Optional[date] = None
@@ -329,6 +333,8 @@ class EmploymentEvent(BaseModel):
 
 class DriverDetail(DriverSummary):
     dob: Optional[date] = None
+    # Single-driver reads only: the list DTO must never carry an SSN.
+    ssn: Optional[str] = None
     notes: Optional[str] = None
     applications: List[DriverApplicationBrief] = []
     employment_events: List[EmploymentEvent] = []

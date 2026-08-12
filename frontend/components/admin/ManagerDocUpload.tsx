@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Field, Spinner, StatusBadge, cn, inputBase } from './ui';
 import { DateInput } from '../DateInput';
 import { useFileDrop } from '../../lib/useFileDrop';
+import { MASKS } from '../../lib/masks';
 import { documentBlob, rotateDocument } from '../../lib/adminApi';
 import ImageEditor from './ImageEditor';
 import { toast } from '../Toast';
@@ -11,13 +12,14 @@ import { toast } from '../Toast';
 // documents and the company owner's license.
 /** Optional details printed on the document itself. Cards that only track a file and
  *  an expiry (the company owner's licence) leave this out and look unchanged. */
-export type DocDetail = 'issue' | 'number' | 'address';
+export type DocDetail = 'issue' | 'number' | 'address' | 'issuing_state';
 
 export interface DocValues {
   expiry: string;
   issue?: string;
   number?: string;
   address?: string;
+  issuing_state?: string;
 }
 
 const ManagerDocUpload: React.FC<{
@@ -33,6 +35,7 @@ const ManagerDocUpload: React.FC<{
   currentIssue?: string | null;
   currentNumber?: string | null;
   currentAddress?: string | null;
+  currentIssuingState?: string | null;
   /** Opens the version history for this document; hidden when not provided. */
   onHistory?: () => void;
   onView?: () => void;
@@ -40,7 +43,7 @@ const ManagerDocUpload: React.FC<{
   onSave: (file: File | null, values: DocValues) => Promise<void>;
 }> = ({
   label, currentExpiry, hasFile, status, requireExpiry, docId, isImage,
-  detailFields = [], currentIssue, currentNumber, currentAddress,
+  detailFields = [], currentIssue, currentNumber, currentAddress, currentIssuingState,
   onHistory, onView, onDownload, onSave,
 }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -48,6 +51,7 @@ const ManagerDocUpload: React.FC<{
   const [issue, setIssue] = useState(currentIssue ?? '');
   const [number, setNumber] = useState(currentNumber ?? '');
   const [address, setAddress] = useState(currentAddress ?? '');
+  const [issuingState, setIssuingState] = useState(currentIssuingState ?? '');
   const [busy, setBusy] = useState(false);
   const [cropping, setCropping] = useState(false);
 
@@ -59,6 +63,7 @@ const ManagerDocUpload: React.FC<{
   React.useEffect(() => { setIssue(currentIssue ?? ''); }, [currentIssue]);
   React.useEffect(() => { setNumber(currentNumber ?? ''); }, [currentNumber]);
   React.useEffect(() => { setAddress(currentAddress ?? ''); }, [currentAddress]);
+  React.useEffect(() => { setIssuingState(currentIssuingState ?? ''); }, [currentIssuingState]);
   const drop = useFileDrop(setFile);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -142,7 +147,8 @@ const ManagerDocUpload: React.FC<{
     || expiry !== (currentExpiry ?? '')
     || issue !== (currentIssue ?? '')
     || number !== (currentNumber ?? '')
-    || address !== (currentAddress ?? '');
+    || address !== (currentAddress ?? '')
+    || issuingState !== (currentIssuingState ?? '');
   const willHaveFile = !!file || !!hasFile;
   const missingExpiry = requireExpiry && !expiry;
   const canSave = dirty && !missingExpiry && willHaveFile;
@@ -156,7 +162,7 @@ const ManagerDocUpload: React.FC<{
   const save = async () => {
     setBusy(true);
     try {
-      await onSave(file, { expiry, issue, number, address });
+      await onSave(file, { expiry, issue, number, address, issuing_state: issuingState });
       clearFile();
     } catch {
       // The API layer already toasted the reason; keep the picked file so the
@@ -249,6 +255,16 @@ const ManagerDocUpload: React.FC<{
           {detailFields.includes('issue') && (
             <Field label="Issued">
               <DateInput value={issue} onChange={setIssue} className={inputBase} />
+            </Field>
+          )}
+          {detailFields.includes('issuing_state') && (
+            <Field label="State">
+              <input
+                value={issuingState}
+                onChange={(e) => setIssuingState(MASKS.state.mask(e.target.value))}
+                placeholder={MASKS.state.placeholder}
+                className={inputBase}
+              />
             </Field>
           )}
           {detailFields.includes('number') && (

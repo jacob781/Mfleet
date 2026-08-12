@@ -224,6 +224,7 @@ def upsert_driver_document(
     issue: Annotated[Optional[str], Form()] = None,
     number: Annotated[Optional[str], Form()] = None,
     address: Annotated[Optional[str], Form()] = None,
+    issuing_state: Annotated[Optional[str], Form()] = None,
 ) -> ComplianceDocumentResponse:
     """Manager attaches/updates a driver document (CDL or medical cert). A new file
     starts a new version and keeps the old one; without a file this edits the current
@@ -247,6 +248,7 @@ def upsert_driver_document(
         driver_id=driver_id, label=uploads.DOC_TYPES[doc_type],
         file_path=file_path, expiry=exp, issue=iss,
         number=(number or None), address=(address or None),
+        issuing_state=(issuing_state.strip().upper() if issuing_state else None),
     )
     session.commit()
     session.refresh(row)
@@ -272,5 +274,8 @@ def driver_document_history(
             ComplianceDocument.document_type == uploads.DOC_TYPES[doc_type],
         )
     ).all()
-    rows = sorted(rows, key=lambda d: (d.issue_date or date.min, d.id), reverse=True)
+    # The version in force always leads: a driver-submitted licence carries no issue
+    # date, and dating it 0001-01-01 would bury the current one under the old ones.
+    rows = sorted(rows, key=lambda d: (d.superseded_at is None, d.issue_date or date.min, d.id),
+                  reverse=True)
     return [doc_response(d) for d in rows]

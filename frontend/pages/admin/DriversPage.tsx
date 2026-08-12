@@ -4,6 +4,7 @@ import {
   createDriver,
   deleteDriver,
   downloadDocument,
+  exportXlsx,
   getDriver,
   listCompanies,
   listDriverDocumentHistory,
@@ -16,7 +17,7 @@ import {
 } from '../../lib/adminApi';
 import type { ComplianceDocument, CompanyResponse, DriverCreate, DriverDetail, DriverSummary, EmploymentEventKind, TruckResponse } from '../../lib/adminTypes';
 import { emptyDriver } from '../../lib/adminTypes';
-import { isoToUs, maskPhone } from '../../lib/masks';
+import { MASKS, isoToUs, maskPhone } from '../../lib/masks';
 import {
   Button,
   Card,
@@ -59,7 +60,7 @@ const DRIVER_DOCS = [
   // `details` are the fields printed on that document — a licence carries a number
   // and the holder's address, a medical certificate does not.
   { key: 'cdl', label: 'Driver license (CDL)', typeLabel: 'CDL',
-    details: ['issue', 'number', 'address'] as const },
+    details: ['issue', 'issuing_state', 'number', 'address'] as const },
   { key: 'medical_cert', label: "Medical examiner's certificate", typeLabel: 'Medical Cert',
     details: ['issue', 'number'] as const },
 ] as const;
@@ -80,6 +81,8 @@ const DriversPage: React.FC = () => {
   const [editing, setEditing] = useState(false);
   /** Snapshot of the driver row used for editing; `selected` stays immutable in view mode. */
   const [draft, setDraft] = useState<DriverSummary | null>(null);
+  /** DOB and SSN ride on DriverDetail, not on the list row `draft` holds. */
+  const [priv, setPriv] = useState({ dob: '', ssn: '' });
   const [driverDocs, setDriverDocs] = useState<ComplianceDocument[]>([]);
   const [driverTrucks, setDriverTrucks] = useState<TruckResponse[]>([]);
   const [docsReload, setDocsReload] = useState(0);
@@ -131,7 +134,10 @@ const DriversPage: React.FC = () => {
     setDraft({ ...d });
     setEditing(false);
     setDetail(null);
-    getDriver(d.id).then(setDetail).catch(() => setDetail(null));
+    setPriv({ dob: '', ssn: '' });
+    getDriver(d.id)
+      .then((full) => { setDetail(full); setPriv({ dob: full.dob ?? '', ssn: full.ssn ?? '' }); })
+      .catch(() => setDetail(null));
     setDriverTrucks([]);
     listTrucks(d.company_id)
       .then((ts) => setDriverTrucks(ts.filter((t) => t.owner_driver_id === d.id)))
@@ -147,6 +153,7 @@ const DriversPage: React.FC = () => {
     if (editing) {
       // Cancel editing — restore draft from selected
       setDraft(selected ? { ...selected } : null);
+      setPriv({ dob: detail?.dob ?? '', ssn: detail?.ssn ?? '' });
     }
     setEditing((v) => !v);
   };
@@ -175,6 +182,8 @@ const DriversPage: React.FC = () => {
         email: draft.email,
         phone: draft.phone,
         status: draft.status,
+        dob: priv.dob || null,
+        ssn: priv.ssn || null,
         hire_date: draft.hire_date || null,
         // Only sent to correct an existing date — otherwise the backend stamps or
         // clears it from the status itself.
@@ -243,6 +252,7 @@ const DriversPage: React.FC = () => {
         company_id: Number(creating.company_id),
         middle_name: creating.middle_name || null,
         dob: creating.dob || null,
+        ssn: creating.ssn || null,
         hire_date: creating.hire_date || null,   // null = the server dates it today
       });
       setCreating(null);
@@ -259,7 +269,16 @@ const DriversPage: React.FC = () => {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-mfleet-gray-dark">Drivers</h1>
-        <Button onClick={openCreate} disabled={companies.length === 0}>Add driver</Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            disabled={visible.length === 0}
+            onClick={() => exportXlsx('drivers', visible.map((d) => d.id))}
+          >
+            Export to Excel
+          </Button>
+          <Button onClick={openCreate} disabled={companies.length === 0}>Add driver</Button>
+        </div>
       </div>
 
       {creating && (
@@ -314,6 +333,13 @@ const DriversPage: React.FC = () => {
                 value={creating.hire_date}
                 onChange={(iso) => setCreating({ ...creating, hire_date: iso })}
                 className={inputBase}
+              />
+            </Field>
+            <Field label="SSN">
+              <TextInput
+                value={creating.ssn ?? ''}
+                onChange={(e) => setCreating({ ...creating, ssn: MASKS.ssn.mask(e.target.value) })}
+                placeholder={MASKS.ssn.placeholder}
               />
             </Field>
             <Field label="Email">
@@ -505,6 +531,22 @@ const DriversPage: React.FC = () => {
                   </SelectInput>
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
+                  <Field label="Date of birth">
+                    <DateInput
+                      value={priv.dob}
+                      onChange={(iso) => setPriv({ ...priv, dob: iso })}
+                      className={inputBase}
+                    />
+                  </Field>
+                  <Field label="SSN">
+                    <TextInput
+                      value={priv.ssn}
+                      onChange={(e) => setPriv({ ...priv, ssn: MASKS.ssn.mask(e.target.value) })}
+                      placeholder={MASKS.ssn.placeholder}
+                    />
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <Field label="Hire date">
                     <DateInput
                       value={draft.hire_date}
@@ -543,8 +585,11 @@ const DriversPage: React.FC = () => {
                 <ReadOnlyField label="Status" value={selected.status} copyable={false} />
                 <ReadOnlyField label="Email" value={selected.email} className="col-span-2" />
                 <ReadOnlyField label="Phone" value={selected.phone} />
-                {detail?.dob && (
-                  <ReadOnlyField label="Date of birth" value={isoToUs(detail.dob)} />
+                {detail && (
+                  <>
+                    <ReadOnlyField label="Date of birth" value={isoToUs(detail.dob)} />
+                    <ReadOnlyField label="SSN" value={detail.ssn} />
+                  </>
                 )}
                 <ReadOnlyField label="Hire date" value={isoToUs(selected.hire_date)} copyable={false} />
                 {selected.termination_date && (
@@ -601,6 +646,7 @@ const DriversPage: React.FC = () => {
                       currentIssue={doc?.issue_date}
                       currentNumber={doc?.document_number}
                       currentAddress={doc?.address}
+                      currentIssuingState={doc?.issuing_state}
                       onHistory={() => setHistoryFor({ docType: key, label })}
                       onView={doc?.has_file ? () => openDocumentInTab(doc.id) : undefined}
                       onDownload={doc?.has_file ? () => downloadDocument(doc.id, doc.document_type) : undefined}

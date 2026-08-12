@@ -102,6 +102,7 @@ def upsert_version(
     issue: Optional[date] = None,
     number: Optional[str] = None,
     address: Optional[str] = None,
+    issuing_state: Optional[str] = None,
 ) -> ComplianceDocument:
     """Attach a document, keeping what was there before.
 
@@ -116,11 +117,15 @@ def upsert_version(
         current_docs().where(owner_filter, ComplianceDocument.document_type == label)
     ).first()
 
-    if current is not None and not file_path:
+    # No new file, or nothing to preserve because the current row never had one:
+    # edit in place rather than starting a version over an empty record.
+    if current is not None and (not file_path or not current.file_path):
+        if file_path:
+            current.file_path = file_path
         if expiry is not None:
             current.expiry_date = expiry
         for field, value in (("issue_date", issue), ("document_number", number),
-                             ("address", address)):
+                             ("address", address), ("issuing_state", issuing_state)):
             if value is not None:
                 setattr(current, field, value)
         session.add(current)
@@ -134,13 +139,14 @@ def upsert_version(
         expiry = expiry if expiry is not None else current.expiry_date
         number = number if number is not None else current.document_number
         address = address if address is not None else current.address
+        issuing_state = issuing_state if issuing_state is not None else current.issuing_state
     if expiry is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Expiry date is required")
 
     row = ComplianceDocument(
         driver_id=driver_id, truck_id=truck_id, document_type=label,
         issue_date=issue, expiry_date=expiry, document_number=number,
-        address=address, file_path=file_path,
+        address=address, issuing_state=issuing_state, file_path=file_path,
     )
     session.add(row)
     return row
@@ -157,6 +163,7 @@ def doc_response(doc: ComplianceDocument) -> ComplianceDocumentResponse:
         expiry_date=doc.expiry_date,
         document_number=doc.document_number,
         address=doc.address,
+        issuing_state=doc.issuing_state,
         superseded_at=doc.superseded_at,
         status=doc_status(doc.expiry_date),
         has_file=bool(doc.file_path),
