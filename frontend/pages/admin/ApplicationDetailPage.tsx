@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
   counterSign,
+  deleteApplication,
   downloadApplicationDocument,
   downloadPdf,
   getApplication,
@@ -26,6 +27,7 @@ import type {
 import type { SignatureData } from '../../lib/driverTypes';
 import { useAuth } from '../../lib/auth';
 import SignatureInput from '../../components/driver/SignatureInput';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import {
   Button,
   Card,
@@ -308,9 +310,12 @@ const EmployerVerifications: React.FC<{ appId: number }> = ({ appId }) => {
 
 const ApplicationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [app, setApp] = useState<ApplicationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [regenError, setRegenError] = useState<string | null>(null);
@@ -467,6 +472,17 @@ const ApplicationDetailPage: React.FC = () => {
     }
   };
 
+  const onDelete = async () => {
+    if (!app) return;
+    setDeleting(true);
+    try {
+      await deleteApplication(app.id);
+      navigate('/admin/applications');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -507,9 +523,17 @@ const ApplicationDetailPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-mfleet-gray-dark">Application #{app.id}</h1>
           <StatusBadge value={app.status} />
         </div>
-        <Link to="/admin/applications">
-          <Button variant="ghost">Back to list</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to={`/admin/applications/${app.id}/edit`}>
+            <Button variant="secondary">Edit</Button>
+          </Link>
+          <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+            Delete
+          </Button>
+          <Link to="/admin/applications">
+            <Button variant="ghost">Back to list</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Notes/flags derived from the driver's answers — things the manager should act on. */}
@@ -766,6 +790,15 @@ const ApplicationDetailPage: React.FC = () => {
             ))}
         </dl>
       </Card>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete application?"
+        message={`Application #${app.id} for ${companyName} will be permanently removed, along with the driver's answers, employer verifications, generated PDF, and uploaded documents.`}
+        busy={deleting}
+        onConfirm={onDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 };

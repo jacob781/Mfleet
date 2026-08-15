@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
+import cascade
 import uploads
 from database import get_session
 from dependencies import get_current_user, get_current_user_file
@@ -27,6 +28,7 @@ from schemas import (
     ApplicationListItem,
     ApplicationResponse,
     ApplicationStatusUpdate,
+    ApplicationUpdate,
     CounterSignRequest,
     DriverSummary,
 )
@@ -210,6 +212,81 @@ def update_link_expiry(
     session.refresh(application)
     driver = session.get(Driver, application.driver_id) if application.driver_id else None
     return _to_response(application, driver)
+
+
+@router.patch("/{application_id}", response_model=ApplicationResponse)
+def update_application(
+    application_id: int,
+    body: ApplicationUpdate,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> ApplicationResponse:
+    """Edit an application's driver, owner type, link expiry, and contract settings.
+
+    The company + frozen contract snapshot are immutable. Settings re-merge over the
+    existing snapshot (a None fine/fees schedule keeps whatever the contract has).
+    """
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+
+    data = body.model_dump(exclude_unset=True)
+
+    if "driver_id" in data:
+        new_driver_id = data["driver_id"]
+        if new_driver_id is not None:
+            driver = session.get(Driver, new_driver_id)
+            if not driver:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Driver not found")
+            if driver.company_id != application.company_id:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Driver does not belong to this application's company",
+                )
+        application.driver_id = new_driver_id
+
+    if "driver_is_owner" in data:
+        application.driver_is_owner = data["driver_is_owner"]
+
+    if "expires_at" in data:
+        application.expires_at = data["expires_at"]
+
+    if body.settings is not None:
+        # Merge the provided settings over the existing snapshot. A None fine/fees
+        # schedule means "keep the current value" — same semantics as create.
+        settings_dict = body.settings.model_dump()
+        for key in ("fine_schedule", "fees_schedule"):
+            if settings_dict.get(key) is None:
+                settings_dict.pop(key, None)
+        merged = {**application.manager_config, **settings_dict}
+        try:
+            config = ManagerConfig(**merged)
+        except ValidationError as exc:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{"loc": e["loc"], "msg": e["msg"]} for e in exc.errors()],
+            )
+        application.manager_config = config.model_dump()
+
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    driver = session.get(Driver, application.driver_id) if application.driver_id else None
+    return _to_response(application, driver)
+
+
+@router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_application(
+    application_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Delete an application and its answers, employer verifications, PDF, and uploads."""
+    application = session.get(DriverApplication, application_id)
+    if not application:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Application not found")
+    cascade.delete_application(session, application)
+    session.commit()
 
 
 @router.post("/{application_id}/countersign", response_model=ApplicationResponse)

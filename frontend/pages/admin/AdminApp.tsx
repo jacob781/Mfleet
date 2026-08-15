@@ -7,6 +7,7 @@ import LoginPage from './LoginPage';
 import ApplicationsListPage from './ApplicationsListPage';
 import ApplicationCreatePage from './ApplicationCreatePage';
 import ApplicationDetailPage from './ApplicationDetailPage';
+import ApplicationEditPage from './ApplicationEditPage';
 import CompaniesPage from './CompaniesPage';
 import DriversPage from './DriversPage';
 import TrucksPage from './TrucksPage';
@@ -30,6 +31,7 @@ const AdminApp: React.FC = () => {
             <Route path="applications" element={<ApplicationsListPage />} />
             <Route path="applications/new" element={<ApplicationCreatePage />} />
             <Route path="applications/:id" element={<ApplicationDetailPage />} />
+            <Route path="applications/:id/edit" element={<ApplicationEditPage />} />
             <Route path="companies" element={<CompaniesPage />} />
             <Route path="drivers" element={<DriversPage />} />
             <Route path="trucks" element={<TrucksPage />} />

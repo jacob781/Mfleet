@@ -317,6 +317,15 @@ export interface ApplicationCreate {
   settings: ApplicationSettings;
 }
 
+// Editable fields of an existing application; company is immutable. Omitted
+// fields are left unchanged server-side (PATCH with exclude_unset).
+export interface ApplicationUpdate {
+  driver_id?: number | null;
+  driver_is_owner?: boolean;
+  expires_at?: string | null;
+  settings?: ApplicationSettings;
+}
+
 export interface ApplicationListItem {
   id: number;
   access_token: string;

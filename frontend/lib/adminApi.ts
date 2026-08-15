@@ -3,6 +3,7 @@ import type {
   ApplicationListItem,
   ApplicationResponse,
   ApplicationStatus,
+  ApplicationUpdate,
   CompanyCreate,
   CompanyResponse,
   DriverCreate,
@@ -535,6 +536,19 @@ export async function getPdfObjectUrl(id: number): Promise<string> {
 
 export function createApplication(body: ApplicationCreate): Promise<ApplicationResponse> {
   return jsonRequest('/api/applications', 'POST', body);
+}
+
+// Edit an existing application's driver, owner type, link expiry, and contract
+// settings. Omitted fields are left unchanged server-side.
+export function updateApplication(
+  id: number,
+  body: ApplicationUpdate,
+): Promise<ApplicationResponse> {
+  return jsonRequest(`/api/applications/${id}`, 'PATCH', body);
+}
+
+export function deleteApplication(id: number): Promise<void> {
+  return request(`/api/applications/${id}`, { method: 'DELETE' }).then(() => undefined);
 }
 
 // Re-run PDF generation from the driver's saved answers (no driver action needed).

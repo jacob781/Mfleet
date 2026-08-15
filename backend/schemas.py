@@ -381,6 +381,15 @@ class ApplicationCreate(BaseModel):
     settings: ApplicationSettings = Field(default_factory=ApplicationSettings)
 
 
+class ApplicationUpdate(BaseModel):
+    """Editable fields for an existing application. Company + the frozen contract
+    snapshot are immutable; settings re-merge over the existing snapshot."""
+    driver_id: Optional[int] = None          # existing driver, or None for "new driver"
+    driver_is_owner: Optional[bool] = None
+    expires_at: Optional[datetime] = None
+    settings: Optional[ApplicationSettings] = None
+
+
 class ApplicationListItem(BaseModel):
     id: int
     access_token: str

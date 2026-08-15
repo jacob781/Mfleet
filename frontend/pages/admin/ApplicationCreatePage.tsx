@@ -20,9 +20,8 @@ import {
   type FeesSchedule,
 } from '../../lib/adminTypes';
 import CompanyFields from '../../components/admin/CompanyFields';
-import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
-import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
-import { Button, Card, Field, SelectInput, Spinner, TextInput, Toggle, inputBase } from '../../components/admin/ui';
+import ContractSettingsFields from '../../components/admin/ContractSettingsFields';
+import { Button, Card, Field, SelectInput, Spinner, Toggle, inputBase } from '../../components/admin/ui';
 import { DateField } from '../../components/DateInput';
 
 interface CreateForm {
@@ -35,13 +34,6 @@ interface CreateForm {
   expires_at: string;
   settings: ApplicationSettings;
 }
-
-const COMPENSATION_OPTIONS = [
-  { value: 'percentage', label: 'Percentage of gross' },
-  { value: 'weekly_flat', label: 'Weekly flat' },
-  { value: 'per_mile', label: 'Per mile' },
-  { value: 'hourly', label: 'Hourly' },
-] as const;
 
 // Keys of ApplicationSettings that are numeric (coerced + mapped from 422).
 const SETTINGS_KEYS = Object.keys(defaultSettings()) as Array<keyof ApplicationSettings>;
@@ -110,7 +102,6 @@ const ApplicationCreatePage: React.FC = () => {
     setCustomizeFees(on);
   };
   const driverMode = watch('driver_mode');
-  const compType = watch('settings.compensation_type');
 
   useEffect(() => {
     listCompanies().then(setCompanies).catch(() => setCompanies([]));
@@ -260,16 +251,6 @@ const ApplicationCreatePage: React.FC = () => {
   }
 
   // --- Form -----------------------------------------------------------------
-  const num = (name: keyof ApplicationSettings, label: string, step?: string) => (
-    <Field label={label} error={(errors.settings as any)?.[name]?.message}>
-      <TextInput
-        type="number"
-        step={step}
-        {...register(`settings.${name}` as const, { valueAsNumber: true })}
-      />
-    </Field>
-  );
-
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -372,115 +353,21 @@ const ApplicationCreatePage: React.FC = () => {
         </Card>
 
         {/* Settings ---------------------------------------------------------*/}
-        <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold text-mfleet-gray-dark">Contract settings</h2>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {num('min_age', 'Minimum age')}
-            {num('min_years_history', 'Min. years experience')}
-            {num('deposit_amount', 'Deposit amount ($)')}
-            {num('deposit_weeks', 'Deposit weeks')}
-            {num('trailer_maintenance_monthly', 'Trailer maintenance / month ($)')}
-          </div>
-
-          <h3 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
-            Compensation
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Pay type">
-              <SelectInput {...register('settings.compensation_type')}>
-                {COMPENSATION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            {compType === 'percentage' && (
-              <>
-                {num('percentage_rate_non_amazon', 'Non-Amazon loads (%)')}
-                {num('percentage_rate_amazon', 'Amazon loads (%) — if different')}
-              </>
-            )}
-            {compType === 'weekly_flat' && num('weekly_amount', 'Weekly amount ($)', '0.01')}
-            {compType === 'per_mile' && (
-              <>
-                {num('loaded_rate', 'Loaded rate ($/mi)', '0.01')}
-                {num('empty_rate', 'Empty rate ($/mi)', '0.01')}
-              </>
-            )}
-            {compType === 'hourly' && num('hourly_rate', 'Hourly rate ($)', '0.01')}
-          </div>
-
-          <h3 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
-            Insurance
-          </h3>
-          <div className="flex flex-col gap-3">
-            <Toggle label="Include Auto Liability" {...register('settings.include_auto_liability')} />
-            <Toggle label="Include Cargo" {...register('settings.include_cargo')} />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {num('insurance_cargo_liability', 'Auto liability and cargo ($)')}
-            </div>
-          </div>
-
-          <h3 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
-            Weekly / monthly fees
-          </h3>
-          {/* Labels relabeled per company request; field keys unchanged
-              (eld_device_weekly→Service, tablet_weekly→Tablet/month, prepass_monthly→IFTA). */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {num('eld_device_weekly', 'Service / week ($)')}
-            {num('tablet_weekly', 'Tablet / month ($)')}
-            {num('prepass_monthly', 'IFTA / week ($)')}
-            {num('administration_fee_weekly', 'Administration fee / week ($)')}
-          </div>
-          <p className="mt-2 text-xs text-mfleet-gray">
-            Prepass is billed monthly according to toll-road usage.
-          </p>
-
-          <h3 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-mfleet-gray">
-            Penalties
-          </h3>
-          <div className="flex flex-col gap-3">
-            <Toggle
-              label="Include Schedule A penalties page"
-              {...register('settings.include_penalties')}
-            />
-            <p className="text-xs text-mfleet-gray">
-              Uses this company&apos;s fine schedule. Edit the amounts on the company&apos;s page,
-              or customize them just for this driver below.
-            </p>
-            {companyMode === 'existing' && selectedCompany?.fine_schedule && (
-              <Toggle
-                label="Customize fine schedule for this application"
-                checked={customizeFines}
-                onChange={(e) => toggleCustomizeFines(e.target.checked)}
-              />
-            )}
-            {customizeFines && fineOverride.current && (
-              <div className="mt-2 rounded-lg border border-gray-200 p-3">
-                <FineScheduleEditor key={companyId} draft={fineOverride.current} />
-              </div>
-            )}
-
-            <Toggle
-              label="Include compact FINES & FEES schedule page"
-              {...register('settings.include_fees')}
-            />
-            {companyMode === 'existing' && selectedCompany?.fees_schedule && (
-              <Toggle
-                label="Customize fines & fees for this application"
-                checked={customizeFees}
-                onChange={(e) => toggleCustomizeFees(e.target.checked)}
-              />
-            )}
-            {customizeFees && feesOverride.current && (
-              <div className="mt-2 rounded-lg border border-gray-200 p-3">
-                <FeesScheduleEditor key={companyId} draft={feesOverride.current} />
-              </div>
-            )}
-          </div>
-        </Card>
+        <ContractSettingsFields
+          register={register}
+          watch={watch}
+          errors={errors}
+          customizeFines={customizeFines}
+          fineDraft={fineOverride.current}
+          canCustomizeFines={companyMode === 'existing' && !!selectedCompany?.fine_schedule}
+          onCustomizeFinesChange={toggleCustomizeFines}
+          fineEditorKey={companyId}
+          customizeFees={customizeFees}
+          feesDraft={feesOverride.current}
+          canCustomizeFees={companyMode === 'existing' && !!selectedCompany?.fees_schedule}
+          onCustomizeFeesChange={toggleCustomizeFees}
+          feesEditorKey={companyId}
+        />
 
         {formError && (
           <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>
