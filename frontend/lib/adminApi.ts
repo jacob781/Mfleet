@@ -108,21 +108,21 @@ function renewSession(): Promise<boolean> {
     const run = !refresh
       ? Promise.resolve(false)
       : fetch(`${API_BASE}/api/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refresh }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            setTokens(await res.json());
+            return true;
+          }
+          // Rotation is single-use, so a second tab that raced us gets refused
+          // here — but it already wrote a fresh pair to localStorage, and that
+          // one is good. Only a token nobody replaced means the session is over.
+          return getRefresh() !== refresh;
         })
-          .then(async (res) => {
-            if (res.ok) {
-              setTokens(await res.json());
-              return true;
-            }
-            // Rotation is single-use, so a second tab that raced us gets refused
-            // here — but it already wrote a fresh pair to localStorage, and that
-            // one is good. Only a token nobody replaced means the session is over.
-            return getRefresh() !== refresh;
-          })
-          .catch(() => false);
+        .catch(() => false);
     renewal = run.finally(() => { renewal = null; });
   }
   return renewal;
@@ -320,9 +320,9 @@ function openFileInTab(path: string): void {
 function saveBlob(blob: Blob, baseName: string): void {
   const ext =
     blob.type === 'application/pdf' ? 'pdf'
-    : blob.type === 'image/png' ? 'png'
-    : blob.type.startsWith('image/') ? 'jpg'
-    : 'bin';
+      : blob.type === 'image/png' ? 'png'
+        : blob.type.startsWith('image/') ? 'jpg'
+          : 'bin';
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

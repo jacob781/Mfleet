@@ -216,7 +216,7 @@ const EmployerVerifications: React.FC<{ appId: number }> = ({ appId }) => {
     if (email === (row.email ?? null)) return;
     updateEmployerEmail(appId, row.id, email)
       .then((updated) => setRows((rs) => rs.map((r) => (r.id === row.id ? updated : r))))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const view = (row: EmployerVerification) => openEmployerPacketInTab(appId, row.id);
@@ -341,7 +341,7 @@ const ApplicationDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id || app?.pdf_status !== 'generating') return;
     const t = setTimeout(() => {
-      getApplication(Number(id)).then(setApp).catch(() => {});
+      getApplication(Number(id)).then(setApp).catch(() => { });
     }, 3000);
     return () => clearTimeout(t);
   }, [id, app?.pdf_status, app]);
