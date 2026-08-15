@@ -1,6 +1,6 @@
 """Companies router: managers list, create, and edit carrier companies."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -30,6 +30,8 @@ def create_company(
         fine_schedule=default_fine_schedule(),
         fees_schedule=default_fees_schedule(),
     )
+    if body.insurance_status is not None:
+        company.insurance_checked_at = datetime.now(timezone.utc)
     session.add(company)
     session.commit()
     session.refresh(company)
@@ -74,8 +76,20 @@ def update_company(
     company = session.get(Company, company_id)
     if not company:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Company not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    insurance_keys = (
+        "insurance_status", "insurance_policy_number",
+        "insurance_effective_date", "insurance_max_coverage",
+    )
+    old_insurance = {k: getattr(company, k) for k in insurance_keys}
+    for field, value in data.items():
         setattr(company, field, value)
+    # Re-stamp the insurance snapshot only when its values actually change, so the
+    # future "scan stale companies" job isn't fooled by an unrelated edit.
+    if any(k in data for k in insurance_keys) and any(
+        k in data and old_insurance[k] != data[k] for k in insurance_keys
+    ):
+        company.insurance_checked_at = datetime.now(timezone.utc)
     session.add(company)
     session.commit()
     session.refresh(company)

@@ -73,6 +73,14 @@ class CompanyCreate(BaseModel):
     owner_license_no: Optional[str] = None
     owner_license_state: Optional[str] = None
     ein: Optional[TinStr] = None
+    # Owner contact + insurance snapshot, filled by the MOTUS lookup.
+    owner_title: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_email: Optional[EmailStr] = None
+    insurance_status: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    insurance_effective_date: Optional[date] = None
+    insurance_max_coverage: Optional[float] = None
 
 
 class CompanyResponse(BaseModel):
@@ -96,6 +104,14 @@ class CompanyResponse(BaseModel):
     owner_license_path: Optional[str] = None
     owner_license_expiry: Optional[date] = None
     ein: Optional[str] = None
+    owner_title: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_email: Optional[str] = None
+    insurance_status: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    insurance_effective_date: Optional[date] = None
+    insurance_max_coverage: Optional[float] = None
+    insurance_checked_at: Optional[datetime] = None
     fine_schedule: Optional[dict] = None
     fees_schedule: Optional[dict] = None
 
@@ -131,8 +147,50 @@ class CompanyUpdate(BaseModel):
     owner_license_state: Optional[str] = None
     owner_license_expiry: Optional[date] = None
     ein: Optional[TinStr] = None
+    owner_title: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_email: Optional[EmailStr] = None
+    insurance_status: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    insurance_effective_date: Optional[date] = None
+    insurance_max_coverage: Optional[float] = None
     fine_schedule: Optional[dict] = None
     fees_schedule: Optional[dict] = None
+
+
+# --- MOTUS (FMCSA) carrier lookup -------------------------------------------
+
+class MotusAddress(BaseModel):
+    street: str = ""
+    city: str = ""
+    state: str = ""
+    zip: str = ""
+
+
+class MotusOwner(BaseModel):
+    first_name: str = ""
+    last_name: str = ""
+    title: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
+class MotusInsurance(BaseModel):
+    status: str = "none"                 # "active" | "none"
+    policy_number: Optional[str] = None
+    effective_date: Optional[str] = None  # yyyy-mm-dd
+    max_coverage: Optional[float] = None
+
+
+class MotusLookupResponse(BaseModel):
+    legal_name: str
+    usdot_number: str
+    mc_number: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    owner: Optional[MotusOwner] = None
+    physical_address: Optional[MotusAddress] = None
+    insurance: Optional[MotusInsurance] = None
 
 
 # --- Trucks ------------------------------------------------------------------

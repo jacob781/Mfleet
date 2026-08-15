@@ -215,6 +215,23 @@ class Company(SQLModel, table=True):
     owner_license_expiry: Optional[date] = None   # drives an expiry alert
     ein: Optional[str] = Field(default=None, sa_column=Column(EncryptedString, nullable=True))
 
+    # Owner contact captured from the MOTUS lookup (title/phone/email).
+    owner_title: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_email: Optional[str] = None
+
+    # Carrier insurance snapshot from the MOTUS lookup (active policy with >= $300k
+    # coverage). insurance_checked_at lets a future job re-scan stale companies and
+    # notify the manager when coverage is cancelled.
+    insurance_status: Optional[str] = None            # "active" | "none" | null
+    insurance_policy_number: Optional[str] = None
+    insurance_effective_date: Optional[date] = None
+    insurance_max_coverage: Optional[float] = None
+    insurance_checked_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+
     # Per-company penalty schedule (Schedule A). Seeded with the standard table on
     # creation; managers may edit it. A snapshot is copied into manager_config at
     # application-creation time so each contract freezes the schedule it was made with.
@@ -586,6 +603,8 @@ class EmploymentItem(BaseModel):
     employer_zip: ZipStr
     employer_phone: PhoneStr
     employer_fax: Optional[str] = None
+    usdot_number: Optional[str] = None     # carrier USDOT, used for the MOTUS auto-fill
+    employer_email: Optional[str] = None   # captured from MOTUS; manager can still edit
     start_date: str
     end_date: str
     position: str

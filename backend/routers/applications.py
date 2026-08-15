@@ -399,7 +399,7 @@ def get_application_answers(
 def download_pdf(
     application_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _user: Annotated[User, Depends(get_current_user)],
+    _user: Annotated[User, Depends(get_current_user_file)],
 ) -> FileResponse:
     application = session.get(DriverApplication, application_id)
     if not application:
@@ -413,6 +413,7 @@ def download_pdf(
         application.pdf_path,
         media_type="application/pdf",
         filename=f"application_{application_id}.pdf",
+        content_disposition_type="inline",
     )
 
 

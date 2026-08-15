@@ -15,11 +15,14 @@ from fastapi.responses import RedirectResponse
 from sqlmodel import Session
 
 import google_oauth
+import motus
 from database import get_session
-from dependencies import get_current_admin
+from dependencies import get_current_admin, get_current_user
 from models import GoogleAccount, User
+from schemas import MotusLookupResponse
 
 router = APIRouter(prefix="/api/integrations/google", tags=["Integrations"])
+motus_router = APIRouter(prefix="/api/integrations/motus", tags=["Integrations"])
 
 
 def _singleton(session: Session) -> GoogleAccount:
@@ -123,3 +126,18 @@ def google_disconnect(
         session.add(row)
         session.commit()
     return {"connected": False}
+
+
+@motus_router.get("/lookup", response_model=MotusLookupResponse)
+def motus_lookup(
+    usdot: str,
+    _user: Annotated[User, Depends(get_current_user)],
+) -> MotusLookupResponse:
+    """Look up a carrier by USDOT number (MOTUS). Used to auto-fill the company form."""
+    try:
+        data = motus.lookup(usdot)
+    except motus.MotusNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except motus.MotusError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    return MotusLookupResponse(**data)

@@ -27,6 +27,7 @@ from starlette.background import BackgroundTask
 import uploads
 from database import get_engine, get_session
 from mailer import send_mail
+import motus
 from models import (
     EV_HIRED,
     ApplicationPayload,
@@ -41,6 +42,7 @@ from models import (
 from pdf_service import employment_gaps, generate_application_pdf, generate_preview_pdf
 from routers.compliance import current_docs, upsert_version
 from rate_limit import limiter
+from schemas import MotusLookupResponse
 
 router = APIRouter(prefix="/api/form", tags=["Driver Form"])
 
@@ -215,6 +217,26 @@ def detect_employment_gaps(
     return {"gaps": gaps}
 
 
+@router.get("/{token}/motus/lookup", response_model=MotusLookupResponse)
+@limiter.limit("30/minute")
+def motus_lookup(
+    request: Request,
+    token: str,
+    usdot: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> MotusLookupResponse:
+    """Driver-side MOTUS lookup (token-gated): auto-fill a prior employer's details
+    from just the USDOT number. The driver reviews the result before saving."""
+    _load_fillable(token, session)
+    try:
+        data = motus.lookup(usdot)
+    except motus.MotusNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except motus.MotusError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    return MotusLookupResponse(**data)
+
+
 @router.post("/{token}/documents/{doc_type}")
 @limiter.limit("30/minute")
 async def upload_document(
@@ -351,6 +373,49 @@ def submit_form(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=[{"loc": e["loc"], "msg": e["msg"]} for e in exc.errors()],
         )
+
+    # Owner-operators must pick who files their quarterly fuel-tax (IFTA) returns.
+    if app.driver_is_owner and not validated.ifta_choice:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["ifta_choice"], "msg": "Fuel tax filing choice is required"}],
+        )
+
+    # Every prior employer needs a USDOT number (used for the MOTUS auto-fill).
+    for idx, emp in enumerate(validated.employment_history or []):
+        if not (emp.usdot_number or "").strip():
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{"loc": ["employment_history", idx, "usdot_number"],
+                         "msg": "USDOT number is required"}],
+            )
+
+    # Owner-operators: each truck must have its annual inspection + registration
+    # uploaded (file) and an expiry set.
+    if app.driver_is_owner and validated.equipment:
+        truck_docs = validated.truck_documents or {}
+        truck_exp = validated.truck_document_expiries or {}
+        for idx, item in enumerate(validated.equipment):
+            if not (item.vin or "").strip():
+                continue
+            per = truck_docs.get(str(idx)) or {}
+            exp = truck_exp.get(str(idx)) or {}
+            for doc_type, label in (
+                ("annual_inspection", "Annual inspection"),
+                ("registration", "Registration"),
+            ):
+                if not per.get(doc_type):
+                    raise HTTPException(
+                        status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=[{"loc": ["truck_documents", idx, doc_type],
+                                 "msg": f"{label} upload is required"}],
+                    )
+                if not exp.get(doc_type):
+                    raise HTTPException(
+                        status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=[{"loc": ["truck_document_expiries", idx, doc_type],
+                                 "msg": f"{label} expiry is required"}],
+                    )
 
     # Persist final answers (encrypted at rest).
     if row is None:
@@ -495,6 +560,7 @@ def form_preview(
         str(path),
         media_type="application/pdf",
         filename="preview.pdf",
+        content_disposition_type="inline",
         background=BackgroundTask(path.unlink, missing_ok=True),
     )
 
