@@ -347,6 +347,7 @@ class ComplianceDocument(SQLModel, table=True):
     document_number: Optional[str] = None
     address: Optional[str] = None
     issuing_state: Optional[str] = None   # state that issued it (licences)
+    back_file_path: Optional[str] = None  # reverse side — where a licence keeps its barcode
 
     file_path: Optional[str] = None # Path to the stored PDF
     # Versioning: every upload keeps the previous copy. NULL = the version in force —
@@ -711,9 +712,17 @@ class ApplicationPayload(BaseModel):
             data["document_expiries"] = {
                 k: v for k, v in data["document_expiries"].items() if v
             }
-        if isinstance(data, dict) and isinstance(data.get("truck_document_expiries"), dict):
-            data["truck_document_expiries"] = {
-                idx: {k: v for k, v in (per or {}).items() if v}
-                for idx, per in data["truck_document_expiries"].items()
-            }
+        
+        if isinstance(data, dict):
+            tde = data.get("truck_document_expiries")
+            if isinstance(tde, list):
+                # react-hook-form submits sequential numeric keys as an array
+                data["truck_document_expiries"] = {str(i): per for i, per in enumerate(tde) if per}
+                tde = data["truck_document_expiries"]
+                
+            if isinstance(tde, dict):
+                data["truck_document_expiries"] = {
+                    str(idx): {k: v for k, v in (per or {}).items() if v}
+                    for idx, per in tde.items()
+                }
         return data
