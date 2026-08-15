@@ -347,7 +347,6 @@ class ComplianceDocument(SQLModel, table=True):
     document_number: Optional[str] = None
     address: Optional[str] = None
     issuing_state: Optional[str] = None   # state that issued it (licences)
-    back_file_path: Optional[str] = None  # reverse side — where a licence keeps its barcode
 
     file_path: Optional[str] = None # Path to the stored PDF
     # Versioning: every upload keeps the previous copy. NULL = the version in force —
