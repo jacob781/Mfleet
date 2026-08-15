@@ -87,6 +87,8 @@ const CompaniesPage: React.FC = () => {
     control,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CompanyCreate>({ defaultValues: emptyCompany() });
 
@@ -237,7 +239,7 @@ const CompaniesPage: React.FC = () => {
         <Card className="p-6">
           <h2 className="mb-4 text-lg font-semibold text-mfleet-gray-dark">New company</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <CompanyFields register={register} control={control} errors={errors} />
+            <CompanyFields register={register} control={control} errors={errors} setValue={setValue} watch={watch} lookupFirst />
             {formError && (
               <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
             )}
@@ -402,7 +404,7 @@ const CompaniesPage: React.FC = () => {
           drawerEditing ? (
             /* ── Edit mode ─────────────────────────────────────── */
             <form onSubmit={onEditSubmit} className="flex flex-col gap-4">
-              <CompanyFields register={editForm.register} control={editForm.control} errors={editForm.formState.errors} />
+              <CompanyFields register={editForm.register} control={editForm.control} errors={editForm.formState.errors} setValue={editForm.setValue} watch={editForm.watch} />
               {editError && (
                 <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</div>
               )}
@@ -454,6 +456,27 @@ const CompaniesPage: React.FC = () => {
                 <ReadOnlyField label="Owner license #" value={viewing.owner_license_no} />
                 <ReadOnlyField label="License state" value={viewing.owner_license_state} />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="Owner title" value={viewing.owner_title} />
+                <ReadOnlyField label="Owner phone" value={viewing.owner_phone} />
+              </div>
+              <ReadOnlyField label="Owner email" value={viewing.owner_email} />
+
+              <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-mfleet-gray">
+                Insurance (MOTUS)
+              </div>
+              {viewing.insurance_status === 'active' ? (
+                <div className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
+                  Active: ${Number(viewing.insurance_max_coverage || 0).toLocaleString()} · effective{' '}
+                  {viewing.insurance_effective_date || '—'} · policy {viewing.insurance_policy_number || '—'}
+                </div>
+              ) : viewing.insurance_status === 'none' ? (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                  No active insurance ≥ $300,000.
+                </div>
+              ) : (
+                <ReadOnlyField label="Insurance" value="Not looked up" />
+              )}
             </div>
           )
         )}

@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import SignatureInput from '../SignatureInput';
-import { CheckboxField } from '../fields';
-import { FormError, getPreviewObjectUrl } from '../../../lib/driverApi';
+import { CheckboxField, FieldGroup } from '../fields';
+import { FormError, checkPreview, previewUrl as formPreviewUrl } from '../../../lib/driverApi';
 
 // Single-signature step: the driver first reviews the full assembled contract
-// (preview), then signs once — that signature, name and timestamp are applied
-// to every agreement in the package (stored under signatures.applicant).
+// (preview), agrees to the policies, then signs once — that signature, name and
+// timestamp are applied to every agreement in the package (signatures.applicant).
+//
+// The preview is loaded from the DIRECT server URL (not a blob: URL) so the inline
+// iframe AND "open in new tab" both work on iOS Safari, where blob: URLs don't.
 const Step6Signatures: React.FC<{ isOwner: boolean; token: string }> = ({ token }) => {
   const { control, watch } = useFormContext();
   const firstName = (watch('first_name') as string) || '';
@@ -16,15 +19,15 @@ const Step6Signatures: React.FC<{ isOwner: boolean; token: string }> = ({ token 
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewIssues, setPreviewIssues] = useState<string[]>([]);
 
-  // Release the blob URL when it changes / on unmount.
-  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
-
   const loadPreview = async () => {
     setPreviewError(null);
     setPreviewIssues([]);
     setLoadingPreview(true);
     try {
-      setPreviewUrl(await getPreviewObjectUrl(token));
+      // Validate first so incomplete fields surface as a list (not a broken iframe),
+      // then show the document from its direct URL.
+      await checkPreview(token);
+      setPreviewUrl(formPreviewUrl(token));
     } catch (e) {
       if (e instanceof FormError && e.status === 422 && Array.isArray(e.detail)) {
         // Surface exactly which fields are incomplete/invalid so the driver can fix them.
@@ -84,6 +87,20 @@ const Step6Signatures: React.FC<{ isOwner: boolean; token: string }> = ({ token 
           </ul>
         )}
       </div>
+
+      {/* Company policies — placed under the full document review, as the final gate
+          before signing. */}
+      <FieldGroup title="Company policies">
+        <p className="text-sm text-gray-500 mb-3">
+          The full company policies, agreements and acknowledgements are included in your final document.
+          Please confirm you have read and agree to them.
+        </p>
+        <CheckboxField
+          name="_policies_ack"
+          requiredTrue="You must accept the policies to continue"
+          label="I have read and agree to all company policies and agreements."
+        />
+      </FieldGroup>
 
       <p className="mb-4 text-sm text-gray-500">
         Sign once below. Your signature, name and a timestamp will be applied to every

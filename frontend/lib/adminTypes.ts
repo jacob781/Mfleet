@@ -58,6 +58,14 @@ export interface CompanyCreate {
   owner_license_no?: string | null;
   owner_license_state?: string | null;
   ein?: string | null;
+  // Owner contact + insurance snapshot, filled by the MOTUS lookup.
+  owner_title?: string | null;
+  owner_phone?: string | null;
+  owner_email?: string | null;
+  insurance_status?: string | null;          // "active" | "none" | null
+  insurance_policy_number?: string | null;
+  insurance_effective_date?: string | null;  // yyyy-mm-dd
+  insurance_max_coverage?: number | null;
 }
 
 // Fine/penalty schedule (Schedule A). All amounts/points/text are free-form strings.
@@ -79,8 +87,44 @@ export interface CompanyResponse extends CompanyCreate {
   owner_license_path?: string | null;
   owner_license_expiry?: string | null;
   owner_license_status?: string | null;   // Valid | Expiring Soon | Expired (null if no file)
+  insurance_checked_at?: string | null;
   fine_schedule: FineSchedule | null;
   fees_schedule: FeesSchedule | null;
+}
+
+// --- MOTUS (FMCSA) carrier lookup ------------------------------------------
+
+export interface MotusAddress {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export interface MotusOwner {
+  first_name: string;
+  last_name: string;
+  title?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+export interface MotusInsurance {
+  status: 'active' | 'none';
+  policy_number?: string | null;
+  effective_date?: string | null;   // yyyy-mm-dd
+  max_coverage?: number | null;
+}
+
+export interface MotusLookupResponse {
+  legal_name: string;
+  usdot_number: string;
+  mc_number?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  owner?: MotusOwner | null;
+  physical_address?: MotusAddress | null;
+  insurance?: MotusInsurance | null;
 }
 
 /** One thing wrong with a required document, for the list badges. */
@@ -392,6 +436,12 @@ export function normalizeCompany(c: CompanyCreate): CompanyCreate {
     'owner_license_no',
     'owner_license_state',
     'ein',
+    'owner_title',
+    'owner_phone',
+    'owner_email',
+    'insurance_status',
+    'insurance_policy_number',
+    'insurance_effective_date',
   ];
   const out: CompanyCreate = { ...c };
   optional.forEach((k) => {
@@ -421,5 +471,12 @@ export function emptyCompany(): CompanyCreate {
     owner_license_no: '',
     owner_license_state: '',
     ein: '',
+    owner_title: '',
+    owner_phone: '',
+    owner_email: '',
+    insurance_status: null,
+    insurance_policy_number: '',
+    insurance_effective_date: '',
+    insurance_max_coverage: null,
   };
 }

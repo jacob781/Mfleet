@@ -294,7 +294,7 @@ const ApplicationCreatePage: React.FC = () => {
               )}
             </Field>
           ) : (
-            <CompanyFields register={register} control={control} errors={errors.new_company} prefix="new_company" />
+            <CompanyFields register={register} control={control} errors={errors.new_company} prefix="new_company" setValue={setValue} watch={watch} lookupFirst />
           )}
         </Card>
 

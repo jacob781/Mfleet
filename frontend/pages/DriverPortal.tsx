@@ -27,9 +27,9 @@ const STEP_FIELDS: string[][] = [
   ['first_name', 'last_name', 'ssn', 'dob', 'phone', 'email', 'address', 'emergency'],
   ['cdl', 'medical', 'experience', 'license_history'],
   [],
-  [],
+  ['employment_history'],
   [], // Employment gaps (explanations + attestations are optional)
-  ['w9', 'banking', '_policies_ack'],
+  ['w9', 'banking'],
   [], // Review (read-only)
   ['_fines_ack'], // Fines: acceptance gates Next
   [], // Documents (uploads are soft-required)
@@ -123,7 +123,11 @@ const DriverPortal: React.FC = () => {
   const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const goNext = async () => {
-    const fields = STEP_FIELDS[step];
+    const fields = [...STEP_FIELDS[step]];
+    // Owner-operators must pick an IFTA filing choice on the Agreements step.
+    if (step === 5 && isOwner) fields.push('ifta_choice');
+    // Owner-operators: require each truck's inspection/registration expiry before leaving Documents.
+    if (step === 8 && isOwner) fields.push('truck_document_expiries');
     const ok = fields.length ? await methods.trigger(fields as any) : true;
     if (!ok) return;
     void saveNow();
@@ -144,7 +148,7 @@ const DriverPortal: React.FC = () => {
 
   const onSubmit = async () => {
     setSubmitError(null);
-    const ok = await methods.trigger(['signatures', '_signature_consent'] as any);
+    const ok = await methods.trigger(['signatures', '_signature_consent', '_policies_ack'] as any);
     if (!ok) return;
     setSubmitting(true);
     try {
@@ -179,7 +183,7 @@ const DriverPortal: React.FC = () => {
       case 0: return <Step1Personal />;
       case 1: return <Step2Cdl />;
       case 2: return <Step3History />;
-      case 3: return <Step4Work />;
+      case 3: return <Step4Work token={token} />;
       case 4: return <StepEmploymentGaps token={token} />;
       case 5: return <Step5Finance isOwner={isOwner} compensation={compensation} />;
       case 6: return <StepReview goToStep={goToStep} isOwner={isOwner} />;

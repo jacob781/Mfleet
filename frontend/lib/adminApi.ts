@@ -14,6 +14,7 @@ import type {
   DriverUpdate,
   EmployerVerification,
   GoogleStatus,
+  MotusLookupResponse,
   Token,
   TruckCreate,
   TruckResponse,
@@ -224,6 +225,11 @@ export function createCompany(body: CompanyCreate): Promise<CompanyResponse> {
 
 export function updateCompany(id: number, body: Partial<CompanyResponse>): Promise<CompanyResponse> {
   return jsonRequest(`/api/companies/${id}`, 'PATCH', body);
+}
+
+// MOTUS (FMCSA) carrier lookup by USDOT number — used to auto-fill the company form.
+export function lookupCarrier(usdot: string): Promise<MotusLookupResponse> {
+  return request(`/api/integrations/motus/lookup?usdot=${encodeURIComponent(usdot)}`);
 }
 
 // --- Drivers ---------------------------------------------------------------
@@ -599,4 +605,9 @@ export async function downloadPdf(id: number): Promise<void> {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+// Open the application PDF in a new tab (JWT-protected → file-token in the URL).
+export function openApplicationPdfInTab(id: number): void {
+  openFileInTab(`/api/applications/${id}/pdf`);
 }

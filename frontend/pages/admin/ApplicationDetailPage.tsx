@@ -11,6 +11,7 @@ import {
   openApplicationDocumentInTab,
   openEmployerPacketInTab,
   getPdfObjectUrl,
+  openApplicationPdfInTab,
   listEmployers,
   markEmployerReceived,
   regeneratePdf,
@@ -675,6 +676,11 @@ const ApplicationDetailPage: React.FC = () => {
       {/* Inline PDF preview (no download) */}
       {previewUrl && (
         <Card className="overflow-hidden p-2">
+          <div className="flex justify-end p-2">
+            <Button variant="secondary" onClick={() => openApplicationPdfInTab(app.id)}>
+              Open in new tab
+            </Button>
+          </div>
           <iframe title="PDF preview" src={previewUrl} className="h-[80vh] w-full rounded" />
         </Card>
       )}

@@ -1,5 +1,6 @@
 import type { DriverFormValues, FormMeta, EmploymentItem } from './driverTypes';
 import type { Gap } from './employmentGaps';
+import type { MotusLookupResponse } from './adminTypes';
 import { errorText, toast } from '../components/Toast';
 
 const API_BASE =
@@ -33,7 +34,9 @@ async function parse(res: Response): Promise<any> {
 }
 
 export function getForm(token: string): Promise<FormMeta> {
-  return fetch(`${API_BASE}/api/form/${token}`).then(parse);
+  // no-store: the token's status (expired/reopened) can change server-side, and a
+  // cached 410 "link expired" must not survive the manager extending the link.
+  return fetch(`${API_BASE}/api/form/${token}`, { cache: 'no-store' }).then(parse);
 }
 
 export function saveDraft(token: string, partial: Record<string, unknown>): Promise<any> {
@@ -68,8 +71,13 @@ export function getEmploymentGaps(
     .then((r) => r.gaps as Gap[]);
 }
 
+// MOTUS carrier lookup by USDOT number (token-gated) — auto-fills a prior employer.
+export function lookupEmployer(token: string, usdot: string): Promise<MotusLookupResponse> {
+  return fetch(`${API_BASE}/api/form/${token}/motus/lookup?usdot=${encodeURIComponent(usdot)}`).then(parse);
+}
+
 export function getStatus(token: string): Promise<{ status: string; pdf_status: string | null }> {
-  return fetch(`${API_BASE}/api/form/${token}/status`).then(parse);
+  return fetch(`${API_BASE}/api/form/${token}/status`, { cache: 'no-store' }).then(parse);
 }
 
 export function pdfUrl(token: string): string {
@@ -100,10 +108,16 @@ export function truckDocumentUrl(token: string, truckIndex: number, docType: str
   return `${API_BASE}/api/form/${token}/trucks/${truckIndex}/documents/${docType}`;
 }
 
-// Fetch the full assembled contract preview as a blob object URL (token access).
-// Throws FormError (422 when fields are still incomplete).
-export async function getPreviewObjectUrl(token: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/form/${token}/preview`);
+// Direct URL of the full assembled contract preview (token access). Used for both the
+// inline iframe and "open in new tab" — a real URL, not a blob:, so iOS Safari works.
+export function previewUrl(token: string): string {
+  return `${API_BASE}/api/form/${token}/preview`;
+}
+
+// Validate that the preview is ready (throws FormError with 422 detail when fields are
+// incomplete) without keeping a blob: URL around.
+export async function checkPreview(token: string): Promise<void> {
+  const res = await fetch(previewUrl(token));
   if (!res.ok) {
     const text = await res.text();
     let detail: any = text;
@@ -114,8 +128,6 @@ export async function getPreviewObjectUrl(token: string): Promise<string> {
     }
     throw new FormError(res.status, detail);
   }
-  const blob = await res.blob();
-  return URL.createObjectURL(blob);
 }
 
 const emptyAddress = () => ({ street: '', city: '', state: '', zip: '', years: '' });
@@ -166,5 +178,6 @@ export function emptyDriverForm(): DriverFormValues {
     policies: [],
     signatures: {},
     document_expiries: { annual_inspection: '', registration: '' },
+    truck_document_expiries: {},
   };
 }

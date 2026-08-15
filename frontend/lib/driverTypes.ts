@@ -79,6 +79,8 @@ export interface EmploymentItem {
   employer_zip: string;
   employer_phone: string;
   employer_fax?: string;
+  usdot_number?: string;    // carrier USDOT, used for the MOTUS auto-fill
+  employer_email?: string;  // captured from MOTUS; manager can still edit
   start_date: string;
   end_date: string;
   position: string;

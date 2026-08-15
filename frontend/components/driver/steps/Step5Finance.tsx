@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { CheckboxField, FieldGroup, SelectField, TextField, inputCls } from '../fields';
+import { FieldGroup, SelectField, TextField, inputCls } from '../fields';
 import FieldArrayList from '../FieldArrayList';
 import type { Compensation } from '../../../lib/driverTypes';
 import { TRUCK_MAKES, TRUCK_TYPES } from '../../../lib/truckMakes';
@@ -53,8 +53,11 @@ function compensationRows(c: Compensation): [string, string][] {
   const money = (n: number | null | undefined) => (n != null ? `$${n}` : '—');
   let rate = '—';
   if (c.compensation_type === 'percentage') {
-    rate = `${c.percentage_rate_non_amazon ?? 0}% of gross`;
-    if (c.percentage_rate_amazon) rate += `, ${c.percentage_rate_amazon}% on Amazon loads`;
+    const nonAmazon = c.percentage_rate_non_amazon ?? 0;
+    const amazon = c.percentage_rate_amazon ?? 0;
+    rate = amazon && amazon !== nonAmazon
+      ? `${nonAmazon}% of gross on non Amazon loads, ${amazon}% on Amazon loads`
+      : `${nonAmazon}% of gross`;
   } else if (c.compensation_type === 'weekly_flat') {
     rate = `${money(c.weekly_amount)} / week`;
   } else if (c.compensation_type === 'per_mile') {
@@ -127,6 +130,7 @@ const Step5Finance: React.FC<{ isOwner: boolean; compensation?: Compensation | n
         <SelectField
           name="ifta_choice"
           label="Fuel tax filing"
+          required
           options={[
             { value: 'own', label: 'I will file my own quarterly fuel tax returns' },
             { value: 'carrier', label: "Use the carrier's fuel tax reporting service" },
@@ -208,18 +212,6 @@ const Step5Finance: React.FC<{ isOwner: boolean; compensation?: Compensation | n
           { value: 'Checking', label: 'Checking' },
           { value: 'Savings', label: 'Savings' },
         ]}
-      />
-    </FieldGroup>
-
-    <FieldGroup title="Company policies">
-      <p className="text-sm text-gray-500 mb-3">
-        The full company policies, agreements and acknowledgements are included in your final document.
-        Please confirm you have read and agree to them.
-      </p>
-      <CheckboxField
-        name="_policies_ack"
-        requiredTrue="You must accept the policies to continue"
-        label="I have read and agree to all company policies and agreements."
       />
     </FieldGroup>
   </div>
