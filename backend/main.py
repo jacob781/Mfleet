@@ -1,12 +1,20 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from sqlalchemy import text
+from sqlmodel import Session
 import os
+import time
+from typing import Annotated
 from dotenv import load_dotenv
 
+import logs
 import mailer
+from database import get_session
 from rate_limit import limiter
 from routers import (
     auth, applications, companies, drivers, driver_form, trucks, compliance,
@@ -14,6 +22,10 @@ from routers import (
 )
 
 load_dotenv()
+log = logs.setup()
+
+# A request this slow is worth looking at even when it succeeded.
+SLOW_REQUEST_MS = float(os.getenv("SLOW_REQUEST_MS", "1500"))
 
 app = FastAPI()
 
@@ -48,6 +60,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# JSON lists and the contract PDFs compress well; photos and the already-zipped
+# .xlsx do not, and gzip skips them on content type.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+@app.middleware("http")
+async def observe(request: Request, call_next):
+    """Time every request, shout about the slow and the broken ones, and keep the
+    API out of shared caches — everything behind /api/ is somebody's personal data."""
+    started = time.monotonic()
+    try:
+        response = await call_next(request)
+    except Exception:
+        log.exception("%s %s raised", request.method, request.url.path)
+        raise
+    took_ms = (time.monotonic() - started) * 1000
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    if response.status_code >= 500 or took_ms > SLOW_REQUEST_MS:
+        log.warning("%s %s -> %d in %.0f ms",
+                    request.method, request.url.path, response.status_code, took_ms)
+    return response
+
+
+@app.get("/api/health")
+def health(session: Annotated[Session, Depends(get_session)]) -> JSONResponse:
+    """Liveness for the host's monitoring: the process answers AND the database does.
+    Unauthenticated on purpose, and it says nothing beyond up or down."""
+    try:
+        session.execute(text("SELECT 1"))
+    except Exception:
+        log.exception("health check failed")
+        return JSONResponse({"status": "error"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return JSONResponse({"status": "ok"})
+
 class ContactForm(BaseModel):
     name: str = Field(..., max_length=150)
     email: EmailStr
@@ -74,19 +121,10 @@ def read_root():
 @app.post("/api/contact")
 @limiter.limit("10/minute")
 async def send_contact_email(request: Request, form_data: ContactForm):
-    print(f"--- New Contact Request ---")
-    print(f"Name: {form_data.name}")
-    print(f"Email: {form_data.email}")
-    print(f"Message: {form_data.message}")
-    print(f"---------------------------")
-    
-    success = send_email(form_data)
-    
-    if not success:
-        # In production you might want to log this but still return success to user 
-        # or return a specific error if appropriate.
-        print("Failed to send email via SMTP.")
-
+    # The visitor's name, address and message are NOT logged — the mail carries them.
+    log.info("contact form received")
+    if not send_email(form_data):
+        log.error("contact form: SMTP send failed")
     return {"message": "Message received successfully", "data": form_data}
 
 if __name__ == "__main__":

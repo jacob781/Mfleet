@@ -7,11 +7,14 @@ from pathlib import Path
 
 from sqlmodel import Session
 
+import logs
 import uploads
 from database import get_engine
 from fine_schedule import default_fine_schedule, default_fees_schedule
 from models import ApplicationPayload, DriverApplication
 from pdf_generator.pdf_generator import PDFGenerator
+
+log = logs.setup("mfleet.pdf")
 
 
 def _output_dir() -> Path:
@@ -184,4 +187,4 @@ def generate_application_pdf(application_id: int) -> None:
                 import google_drive
                 google_drive.upload_application(app.id)
             except Exception as exc:  # noqa: BLE001
-                print(f"Drive upload skipped for app {app.id}: {exc}")
+                log.warning("Drive upload skipped for app %s: %s", app.id, exc)

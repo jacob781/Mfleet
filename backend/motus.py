@@ -15,6 +15,10 @@ from typing import Optional
 
 import requests
 
+import logs
+
+log = logs.setup("mfleet.motus")
+
 BASE = "https://motus.dot.gov"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -169,8 +173,10 @@ def lookup(usdot: str) -> dict:
 
     cached = _from_cache(usdot)
     if cached is not None:
+        log.debug("motus %s: cache hit", usdot)
         return cached
 
+    started = time.monotonic()
     try:
         resp = requests.get(
             f"{BASE}/api/carriers/{usdot}",
@@ -178,8 +184,13 @@ def lookup(usdot: str) -> dict:
             timeout=TIMEOUT,
         )
     except requests.RequestException as exc:
+        # This one is worth shouting about: the endpoint answers from US/Canada egress
+        # only, so a server that moves house can lose the lookup without any code change.
+        log.warning("motus %s: unreachable after %.1fs (%s)", usdot, time.monotonic() - started, exc)
         raise MotusError("Could not reach MOTUS. Try again shortly.") from exc
 
+    log.info("motus %s -> %d in %.0f ms", usdot, resp.status_code,
+             (time.monotonic() - started) * 1000)
     if resp.status_code == 404:
         raise MotusNotFound(f"No carrier found for USDOT {usdot}.")
     if resp.status_code != 200:

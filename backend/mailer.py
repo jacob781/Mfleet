@@ -6,6 +6,10 @@ import smtplib
 from email.message import EmailMessage
 from pathlib import Path
 
+import logs
+
+log = logs.setup("mfleet.mail")
+
 
 def send_mail(to_addr: str | None, subject: str, body: str,
               attachments: list[str] | None = None, message_id: str | None = None,
@@ -44,5 +48,5 @@ def send_mail(to_addr: str | None, subject: str, body: str,
             s.send_message(msg)
         return True
     except Exception as exc:  # noqa: BLE001 - best-effort, never fatal
-        print(f"send_mail failed: {exc}")
+        log.warning("send_mail failed: %s", exc)
         return False

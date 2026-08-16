@@ -18,9 +18,12 @@ from dotenv import load_dotenv
 from sqlmodel import Session, select
 
 import google_oauth
+import logs
 from database import get_engine
 from models import DriverApplication, EmployerVerification, GoogleAccount
 from routers.employers import send_packet
+
+log = logs.setup("mfleet.followups")
 
 RESEND_AFTER_DAYS = 7
 MAX_ATTEMPTS = 3
@@ -66,7 +69,7 @@ def _poll_replies(session: Session) -> int:
     try:
         token = google_oauth.get_access_token(acct.refresh_token)
     except Exception as exc:  # noqa: BLE001
-        print(f"gmail: token refresh failed: {exc}")
+        log.warning("gmail: token refresh failed: %s", exc)
         return 0
     hdr = {"Authorization": f"Bearer {token}"}
     our_email = (acct.account_email or os.getenv("MAIL_USERNAME") or "").lower()
@@ -110,7 +113,7 @@ def _auto_resend(session: Session) -> int:
             if send_packet(app, ev, session, by="System"):
                 sent += 1
         except Exception as exc:  # noqa: BLE001
-            print(f"resend EV {ev.id} failed: {exc}")
+            log.warning("resend EV %s failed: %s", ev.id, exc)
     return sent
 
 
@@ -119,7 +122,7 @@ def main() -> int:
     with Session(get_engine()) as session:
         marked = _poll_replies(session)
         resent = _auto_resend(session)
-    print(f"replies marked received: {marked}; packets resent: {resent}")
+    log.info("replies marked received: %s; packets resent: %s", marked, resent)
     return 0
 
 
