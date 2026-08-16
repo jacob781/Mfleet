@@ -62,17 +62,28 @@ def list_employers(
         ).all()
     }
     rows = []
+    changed = False
     for i, item in enumerate(history):
         ev = existing.get(i)
+        # The driver's MOTUS lookup already resolved this carrier's registered email;
+        # carry it over so nobody retypes it. Only ever fills a blank — a manager who
+        # corrected the address (MOTUS often holds a general inbox, not HR) keeps it.
+        from_answers = ((item or {}).get("employer_email") or "").strip() or None
         if ev is None:
             ev = EmployerVerification(
                 application_id=application_id,
                 employer_index=i,
                 employer_name=(item or {}).get("employer_name"),
+                email=from_answers,
             )
             session.add(ev)
+            changed = True
+        elif not ev.email and from_answers:
+            ev.email = from_answers
+            session.add(ev)
+            changed = True
         rows.append(ev)
-    if any(i not in existing for i in range(len(history))):
+    if changed:
         session.commit()
         for ev in rows:
             session.refresh(ev)
