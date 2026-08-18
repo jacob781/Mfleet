@@ -228,14 +228,34 @@ class TruckUpdate(BaseModel):
     owner_driver_id: Optional[int] = None
     checklist_checked: Optional[bool] = None
     checklist_date: Optional[date] = None
+    # Retiring a truck / putting it back in service, same shape as the driver edit.
+    status: Optional[Literal["Active", "Terminated"]] = None
+    termination_date: Optional[date] = None
 
 
 class TruckResponse(TruckCreate):
     id: int
+    status: str = "Active"
+    termination_date: Optional[date] = None
     # Problem documents for the list badges; filled by the router (see doc_flags).
     doc_flags: List[DocFlag] = []
 
     model_config = {"from_attributes": True}
+
+
+class TruckEventDTO(BaseModel):
+    """One entry of a truck's in-service timeline."""
+    id: int
+    kind: str            # added | terminated | reactivated
+    date: date
+    note: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class TruckDetail(TruckResponse):
+    """Single-truck read: adds the timeline the list does not need."""
+    events: List[TruckEventDTO] = []
 
 
 # --- Compliance documents ----------------------------------------------------
@@ -271,6 +291,17 @@ class AlertItem(BaseModel):
     driver_id: Optional[int] = None
     truck_id: Optional[int] = None
     company_id: Optional[int] = None
+    # Stable identity of this alert (see models.AlertRead) and when someone marked it
+    # seen. Filled by the router; null read_at means it is still new.
+    key: str = ""
+    read_at: Optional[datetime] = None
+
+
+class AlertReadRequest(BaseModel):
+    """Keys to mark seen (or to put back). `all` ignores the list and takes every
+    alert currently on the board — what the "Mark all read" button sends."""
+    keys: List[str] = []
+    all: bool = False
 
 
 # --- Employer verification ---------------------------------------------------

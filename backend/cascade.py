@@ -15,6 +15,7 @@ from models import (
     DriverEmploymentEvent,
     EmployerVerification,
     Truck,
+    TruckEvent,
 )
 
 
@@ -24,6 +25,10 @@ def delete_truck(session: Session, truck: Truck) -> None:
         select(ComplianceDocument).where(ComplianceDocument.truck_id == truck.id)
     ).all():
         session.delete(doc)
+    for ev in session.exec(
+        select(TruckEvent).where(TruckEvent.truck_id == truck.id)
+    ).all():
+        session.delete(ev)
     uploads.remove_dir(f"trucks/truck_{truck.id}")
     session.delete(truck)
 

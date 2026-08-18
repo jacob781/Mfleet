@@ -166,7 +166,14 @@ export interface AlertItem {
   driver_id: number | null;
   truck_id: number | null;
   company_id: number | null;
+  /** Stable identity of this alert — what "mark read" is recorded against. */
+  key: string;
+  /** When somebody ticked it off; null means it is still new. Shared by the team. */
+  read_at: string | null;
 }
+
+/** Fired after alerts are marked read/unread, so the navbar badge can recount. */
+export const ALERTS_CHANGED_EVENT = 'mfleet:alerts-changed';
 
 export interface EmployerAttempt {
   date: string;
@@ -227,9 +234,32 @@ export interface TruckCreate {
 }
 
 export interface TruckResponse extends TruckCreate {
+  /** Active | Terminated — a retired truck stays listed but stops raising alerts. */
+  status: string;
+  termination_date: string | null;
   id: number;
   /** Problem documents for the list badges; empty means everything is valid. */
   doc_flags?: DocFlag[];
+}
+
+/** Partial truck edit — same fields as create, plus the lifecycle pair. */
+export interface TruckUpdate extends Partial<TruckCreate> {
+  status?: string;
+  termination_date?: string | null;
+}
+
+export type TruckEventKind = 'added' | 'terminated' | 'reactivated';
+
+export interface TruckEvent {
+  id: number;
+  kind: TruckEventKind;
+  date: string;
+  note: string | null;
+}
+
+/** Single-truck read: adds the service timeline the list does not carry. */
+export interface TruckDetail extends TruckResponse {
+  events: TruckEvent[];
 }
 
 export function emptyTruck(companyId: number): TruckCreate {

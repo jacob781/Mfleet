@@ -10,17 +10,33 @@ type EmployerUi = { mode: 'lookup' | 'details'; collapsed: boolean };
 
 const newEmployer = () => ({
   employer_name: '', employer_address: '', employer_city: '', employer_state: '',
-  employer_zip: '', employer_phone: '', employer_fax: '', usdot_number: '', employer_email: '',
+  employer_zip: '', employer_phone: '', employer_fax: '', usdot_number: '', no_usdot: false,
+  employer_email: '',
   start_date: '', end_date: '',
   position: '', salary: '', reason_for_leaving: '', subject_to_fmcsr: false,
   safety_sensitive: false, was_driver_subject_to_testing: false,
 });
 
+// Verifying prior employment is the point of this step (49 CFR 391.23), and one
+// entry is never enough to establish a record.
+const MIN_EMPLOYERS = 2;
+
 const Step4Work: React.FC<{ token: string }> = ({ token }) => {
-  const { watch, getValues, setValue, control } = useFormContext();
+  const { watch, getValues, setValue, control, formState: { errors } } = useFormContext();
   const log = watch('seven_day_log') || [];
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'employment_history' });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'employment_history',
+    // Two employers minimum. The list is not built from FieldArrayList, so the rule
+    // lives here and its message is rendered above the entries.
+    rules: {
+      validate: (v: any[]) =>
+        (v?.length ?? 0) >= MIN_EMPLOYERS
+        || `List at least ${MIN_EMPLOYERS} previous employers.`,
+    },
+  });
+  const employersError = (errors as any)?.employment_history?.root?.message as string | undefined;
 
   const [employerUi, setEmployerUi] = useState<Record<string, EmployerUi>>({});
   const [lookingUp, setLookingUp] = useState<string | null>(null);   // field id
@@ -81,12 +97,14 @@ const Step4Work: React.FC<{ token: string }> = ({ token }) => {
   return (
     <div>
       <FieldGroup title="Employment history (last 10 years)">
+        {employersError && <p className="mb-3 text-sm text-red-600">{employersError}</p>}
         {fields.length === 0 && (
           <p className="text-sm text-gray-400 mb-3">Add your previous employers (most recent first).</p>
         )}
         {fields.map((f, index) => {
           const ui = employerUi[f.id] ?? { mode: 'lookup', collapsed: false };
           const employerName = (watch(`employment_history.${index}.employer_name`) as string) || '';
+          const noUsdot = !!watch(`employment_history.${index}.no_usdot`);
           return (
             <div key={f.id} className="rounded-lg border border-gray-200 p-3 mb-3">
               <div className="flex items-center justify-between">
@@ -105,14 +123,23 @@ const Step4Work: React.FC<{ token: string }> = ({ token }) => {
 
               {!ui.collapsed && (
                 <>
-                  <TextField
-                    name={`employment_history.${index}.usdot_number`}
-                    label="USDOT number"
-                    required
-                    inputMode="numeric"
+                  {!noUsdot && (
+                    <TextField
+                      name={`employment_history.${index}.usdot_number`}
+                      label="USDOT number"
+                      required
+                      inputMode="numeric"
+                    />
+                  )}
+                  {/* Intrastate and regional carriers often have no DOT number, and a
+                      previous job need not be trucking at all. Ticking this drops the
+                      number and the lookup, and the details are filled in by hand. */}
+                  <CheckboxField
+                    name={`employment_history.${index}.no_usdot`}
+                    label="This employer has no USDOT number"
                   />
 
-                  {ui.mode === 'lookup' && (
+                  {ui.mode === 'lookup' && !noUsdot && (
                     <>
                       <button
                         type="button"
@@ -135,15 +162,17 @@ const Step4Work: React.FC<{ token: string }> = ({ token }) => {
                     </>
                   )}
 
-                  {ui.mode === 'details' && (
+                  {(ui.mode === 'details' || noUsdot) && (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => setUi(f.id, { mode: 'lookup' })}
-                        className="mb-4 text-sm font-medium text-mfleet-blue underline"
-                      >
-                        Look up by USDOT
-                      </button>
+                      {!noUsdot && (
+                        <button
+                          type="button"
+                          onClick={() => setUi(f.id, { mode: 'lookup' })}
+                          className="mb-4 text-sm font-medium text-mfleet-blue underline"
+                        >
+                          Look up by USDOT
+                        </button>
+                      )}
                       <TextField name={`employment_history.${index}.employer_name`} label="Employer name" />
                       <TextField name={`employment_history.${index}.employer_address`} label="Address" />
                       <TextField name={`employment_history.${index}.employer_city`} label="City" />

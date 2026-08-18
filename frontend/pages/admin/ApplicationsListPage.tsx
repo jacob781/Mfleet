@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { deleteApplication, listApplications, listCompanies, listDrivers } from '../../lib/adminApi';
+import { listApplications, listCompanies, listDrivers } from '../../lib/adminApi';
 import type { ApplicationListItem, CompanyResponse, DriverSummary } from '../../lib/adminTypes';
-import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { Button, Card, SelectInput, Spinner, StatusBadge } from '../../components/admin/ui';
 
 const STATUS_OPTIONS = [
@@ -28,8 +27,6 @@ const ApplicationsListPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<ApplicationListItem | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   // Companies + drivers once (for name resolution + the company filter).
@@ -72,17 +69,6 @@ const ApplicationsListPage: React.FC = () => {
     }
   };
 
-  const onDelete = async () => {
-    if (!pendingDelete) return;
-    setDeleting(true);
-    try {
-      await deleteApplication(pendingDelete.id);
-      setPendingDelete(null);
-      setReloadKey((k) => k + 1);
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -177,16 +163,6 @@ const ApplicationsListPage: React.FC = () => {
                     >
                       Edit
                     </Button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPendingDelete(a);
-                      }}
-                      className="ml-2 inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -195,18 +171,6 @@ const ApplicationsListPage: React.FC = () => {
         )}
       </Card>
 
-      <ConfirmDialog
-        open={!!pendingDelete}
-        title="Delete application?"
-        message={
-          pendingDelete
-            ? `Application #${pendingDelete.id} for ${companyName(pendingDelete.company_id)} will be permanently removed, along with the driver's answers, employer verifications, generated PDF, and uploaded documents.`
-            : ''
-        }
-        busy={deleting}
-        onConfirm={onDelete}
-        onCancel={() => setPendingDelete(null)}
-      />
     </div>
   );
 };

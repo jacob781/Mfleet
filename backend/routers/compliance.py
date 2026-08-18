@@ -14,6 +14,8 @@ from dependencies import get_current_user, get_current_user_file
 from models import (
     DRIVER_TERMINATED,
     EXPIRY_SOON_DAYS,
+    TRUCK_TERMINATED,
+    AlertRead,
     Company,
     ComplianceDocument,
     Driver,
@@ -21,7 +23,7 @@ from models import (
     User,
     doc_status,
 )
-from schemas import AlertItem, ComplianceDocumentResponse, DocFlag
+from schemas import AlertItem, AlertReadRequest, ComplianceDocumentResponse, DocFlag
 
 router = APIRouter(prefix="/api/compliance", tags=["Compliance"])
 
@@ -234,6 +236,8 @@ def collect_alerts(
             trk = session.get(Truck, d.truck_id)
             if trk is None:
                 continue
+            if trk.status == TRUCK_TERMINATED:
+                continue   # off the road; renewing its inspection is nobody's problem
             subject = f"{trk.make} {trk.year} ({trk.plate_number})".strip()
             kind, company_id = "truck", trk.company_id
         else:
@@ -274,9 +278,37 @@ def collect_alerts(
         )
     if include_missing:
         alerts += _missing_alerts(session)
-    # Missing documents first (no date at all), then by how soon the rest expire.
-    alerts.sort(key=lambda a: (a.expiry_date is not None, a.expiry_date or today))
+    _apply_read_state(session, alerts)
+    # Anything already seen sinks to the bottom; above it, missing documents first
+    # (they have no date at all), then by how soon the rest expire.
+    alerts.sort(key=lambda a: (a.read_at is not None, a.expiry_date is not None,
+                               a.expiry_date or today))
     return alerts
+
+
+def alert_key(a: AlertItem) -> str:
+    """Identity of a computed alert, stable across reloads.
+
+    The date it is about is part of the key on purpose: renewing a licence produces an
+    alert about a NEW date, which must come back unread rather than inheriting the
+    dismissal of the one it replaced."""
+    subject_id = a.driver_id or a.truck_id or a.company_id or 0
+    return f"{a.subject_kind}:{subject_id}:{a.document_type}:{a.expiry_date or ''}"
+
+
+def _apply_read_state(session: Session, alerts: List[AlertItem]) -> None:
+    """Stamp each alert with its key and, if someone has ticked it off, when."""
+    for a in alerts:
+        a.key = alert_key(a)
+    keys = {a.key for a in alerts}
+    if not keys:
+        return
+    seen = {
+        r.key: r.read_at
+        for r in session.exec(select(AlertRead).where(AlertRead.key.in_(keys))).all()
+    }
+    for a in alerts:
+        a.read_at = seen.get(a.key)
 
 
 def _missing_alerts(session: Session) -> List[AlertItem]:
@@ -304,7 +336,9 @@ def _missing_alerts(session: Session) -> List[AlertItem]:
                 company_id=drv.company_id,
             ))
 
-    trucks = list(session.exec(select(Truck)).all())
+    trucks = list(session.exec(
+        select(Truck).where(Truck.status != TRUCK_TERMINATED)
+    ).all())
     flags = doc_flags(
         session, ComplianceDocument.truck_id, [t.id for t in trucks],
         {k: uploads.DOC_TYPES[k] for k in TRUCK_DOC_TYPES},
@@ -331,6 +365,43 @@ def _missing_alerts(session: Session) -> List[AlertItem]:
             company_id=c.id,
         ))
     return out
+
+
+@router.post("/alerts/read", status_code=status.HTTP_204_NO_CONTENT)
+def mark_alerts_read(
+    body: AlertReadRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Tick alerts off the board. Shared: what one manager marks seen is seen by all.
+    `all: true` takes everything currently listed, so the button never marks something
+    the manager could not see."""
+    keys = (
+        [a.key for a in collect_alerts(session, include_missing=True)]
+        if body.all else list(body.keys)
+    )
+    if not keys:
+        return
+    already = {
+        r.key for r in session.exec(select(AlertRead).where(AlertRead.key.in_(keys))).all()
+    }
+    for key in set(keys) - already:
+        session.add(AlertRead(key=key, read_by_id=user.id))
+    session.commit()
+
+
+@router.delete("/alerts/read", status_code=status.HTTP_204_NO_CONTENT)
+def mark_alerts_unread(
+    body: AlertReadRequest,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Put alerts back on the board — the undo for a mistaken tick."""
+    if not body.keys:
+        return
+    for row in session.exec(select(AlertRead).where(AlertRead.key.in_(body.keys))).all():
+        session.delete(row)
+    session.commit()
 
 
 @router.get("/alerts", response_model=List[AlertItem])

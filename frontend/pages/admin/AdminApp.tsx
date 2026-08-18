@@ -12,6 +12,7 @@ import CompaniesPage from './CompaniesPage';
 import DriversPage from './DriversPage';
 import TrucksPage from './TrucksPage';
 import AlertsPage from './AlertsPage';
+import CompanySchedulePage from './CompanySchedulePage';
 import SettingsPage from './SettingsPage';
 import UsersPage from './UsersPage';
 import AccountPage from './AccountPage';
@@ -33,6 +34,7 @@ const AdminApp: React.FC = () => {
             <Route path="applications/:id" element={<ApplicationDetailPage />} />
             <Route path="applications/:id/edit" element={<ApplicationEditPage />} />
             <Route path="companies" element={<CompaniesPage />} />
+            <Route path="companies/:id/schedule/:kind" element={<CompanySchedulePage />} />
             <Route path="drivers" element={<DriversPage />} />
             <Route path="trucks" element={<TrucksPage />} />
             <Route path="alerts" element={<AlertsPage />} />

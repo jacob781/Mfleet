@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { googleStatus, listAlerts } from '../../lib/adminApi';
-import type { GoogleStatus } from '../../lib/adminTypes';
+import { ALERTS_CHANGED_EVENT, type GoogleStatus } from '../../lib/adminTypes';
 import { Button, cn } from './ui';
 
 // Google connection chip in the navbar: logo + status dot (green ✓ / red ✕),
@@ -86,9 +86,16 @@ const AdminLayout: React.FC = () => {
     localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
   }, [dark]);
 
-  // Live count for the alerts badge; refreshed on mount (cheap query).
+  // Live count for the alerts badge. Only what is still new counts, or "Mark all
+  // read" would leave the badge unchanged; and it recounts on the event the alerts
+  // page fires, instead of keeping the number it happened to load with.
   useEffect(() => {
-    listAlerts().then((a) => setAlertCount(a.length)).catch(() => setAlertCount(0));
+    const count = () => listAlerts()
+      .then((a) => setAlertCount(a.filter((x) => !x.read_at).length))
+      .catch(() => setAlertCount(0));
+    count();
+    window.addEventListener(ALERTS_CHANGED_EVENT, count);
+    return () => window.removeEventListener(ALERTS_CHANGED_EVENT, count);
   }, []);
 
   const navItems = [

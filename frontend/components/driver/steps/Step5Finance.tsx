@@ -110,6 +110,9 @@ const Step5Finance: React.FC<{ isOwner: boolean; compensation?: Compensation | n
           name="equipment"
           addLabel="Add equipment"
           emptyHint="Add the truck(s) you own and operate."
+          // An owner-operator without a truck is not an owner-operator: the lease
+          // agreement and the per-truck document uploads both hang off this list.
+          minItems={{ count: 1, message: 'Add at least one truck — the contract is written around it.' }}
           newItem={() => ({ make: '', year: new Date().getFullYear(), type: '', vin: '', state: '', plate: '' })}
           renderItem={(i) => (
             <>

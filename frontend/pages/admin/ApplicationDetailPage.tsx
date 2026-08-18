@@ -528,9 +528,6 @@ const ApplicationDetailPage: React.FC = () => {
           <Link to={`/admin/applications/${app.id}/edit`}>
             <Button variant="secondary">Edit</Button>
           </Link>
-          <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-            Delete
-          </Button>
           <Link to="/admin/applications">
             <Button variant="ghost">Back to list</Button>
           </Link>
@@ -797,10 +794,26 @@ const ApplicationDetailPage: React.FC = () => {
         </dl>
       </Card>
 
+      {/* Erasing an application is nothing like the actions above it, so it sits at
+          the foot of the page rather than beside Edit in the header. */}
+      <div className="flex items-center justify-between gap-2 border-t border-gray-200 pt-4">
+        <p className="text-sm text-mfleet-gray">
+          Deleting removes the driver's answers, employer verifications, the generated
+          PDF and every uploaded document. To stop a driver filling it in, set the
+          status back instead.
+        </p>
+        <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+          Delete application
+        </Button>
+      </div>
+
       <ConfirmDialog
         open={confirmDelete}
         title="Delete application?"
-        message={`Application #${app.id} for ${companyName} will be permanently removed, along with the driver's answers, employer verifications, generated PDF, and uploaded documents.`}
+        message={`Application #${app.id} for ${companyName} will be erased for good, along with the driver's answers, employer verifications, generated PDF, and uploaded documents.`}
+        // Typing the driver's surname is the same gate the driver record uses; without
+        // a driver attached yet, the application number does the job.
+        confirmPhrase={app.driver?.last_name || String(app.id)}
         busy={deleting}
         onConfirm={onDelete}
         onCancel={() => setConfirmDelete(false)}

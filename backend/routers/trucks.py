@@ -10,7 +10,16 @@ import cascade
 import uploads
 from database import get_session
 from dependencies import get_current_user
-from models import ComplianceDocument, Truck, User
+from models import (
+    TEV_ADDED,
+    TEV_REACTIVATED,
+    TEV_TERMINATED,
+    TRUCK_TERMINATED,
+    ComplianceDocument,
+    Truck,
+    TruckEvent,
+    User,
+)
 from routers.compliance import (
     TRUCK_DOC_TYPES,
     current_docs,
@@ -21,7 +30,13 @@ from routers.compliance import (
     upsert_version,
 )
 
-from schemas import ComplianceDocumentResponse, TruckCreate, TruckResponse, TruckUpdate
+from schemas import (
+    ComplianceDocumentResponse,
+    TruckCreate,
+    TruckDetail,
+    TruckResponse,
+    TruckUpdate,
+)
 
 router = APIRouter(prefix="/api/trucks", tags=["Trucks"])
 
@@ -34,6 +49,8 @@ def create_truck(
 ) -> Truck:
     truck = Truck(**body.model_dump())
     session.add(truck)
+    session.flush()          # need the id to open the timeline
+    session.add(TruckEvent(truck_id=truck.id, kind=TEV_ADDED, date=date.today()))
     session.commit()
     session.refresh(truck)
     return truck
@@ -47,6 +64,7 @@ def list_trucks(
     checklist: Optional[bool] = None,
     doc: Optional[str] = None,
     has_doc: Optional[bool] = None,
+    truck_status: Optional[str] = None,
 ) -> List[TruckResponse]:
     """`doc` + `has_doc` filter by document on file, e.g. doc=registration&has_doc=false
     lists vehicles missing their cab card. doc=any is the catch-all: has_doc=false lists
@@ -57,6 +75,8 @@ def list_trucks(
         stmt = stmt.where(Truck.company_id == company_id)
     if checklist is not None:
         stmt = stmt.where(Truck.checklist_checked == checklist)
+    if truck_status:
+        stmt = stmt.where(Truck.status == truck_status)
     if doc is not None and has_doc is not None and doc != "any":
         if doc not in TRUCK_DOC_TYPES:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported document type")
@@ -89,12 +109,56 @@ def update_truck(
     truck = session.get(Truck, truck_id)
     if not truck:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Truck not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    was_terminated = truck.status == TRUCK_TERMINATED
+    data = body.model_dump(exclude_unset=True)
+    for field, value in data.items():
         setattr(truck, field, value)
+    # Same lifecycle as a driver: taking a truck off the road stamps the date unless
+    # the manager sent one (correcting an old record), putting it back keeps it, and
+    # the full history lives in TruckEvent.
+    logged_termination = False
+    if "status" in data:
+        now_terminated = data["status"] == TRUCK_TERMINATED
+        if now_terminated and not was_terminated:
+            if "termination_date" not in data:
+                truck.termination_date = date.today()
+            session.add(TruckEvent(
+                truck_id=truck.id, kind=TEV_TERMINATED,
+                date=truck.termination_date or date.today(),
+            ))
+            logged_termination = True
+        elif was_terminated and not now_terminated:
+            session.add(TruckEvent(
+                truck_id=truck.id, kind=TEV_REACTIVATED, date=date.today(),
+            ))
+    # Editing the date is a correction, not a second termination: move the entry so
+    # the timeline keeps agreeing with the column.
+    if data.get("termination_date") and not logged_termination:
+        ev = session.exec(
+            select(TruckEvent)
+            .where(TruckEvent.truck_id == truck.id, TruckEvent.kind == TEV_TERMINATED)
+            .order_by(TruckEvent.date.desc(), TruckEvent.id.desc())
+        ).first()
+        if ev is not None and ev.date != truck.termination_date:
+            ev.date = truck.termination_date
+            session.add(ev)
     session.add(truck)
     session.commit()
     session.refresh(truck)
     return truck
+
+
+@router.get("/{truck_id}", response_model=TruckDetail)
+def get_truck(
+    truck_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[User, Depends(get_current_user)],
+) -> TruckDetail:
+    """One truck with its in-service timeline (the list does not carry events)."""
+    truck = session.get(Truck, truck_id)
+    if not truck:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Truck not found")
+    return TruckDetail.model_validate(truck)
 
 
 @router.get("/{truck_id}/documents", response_model=List[ComplianceDocumentResponse])

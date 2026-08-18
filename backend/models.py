@@ -338,9 +338,48 @@ class Truck(SQLModel, table=True):
     checklist_checked: bool = Field(default=False)
     checklist_date: Optional[date] = None
 
+    # A truck leaves the fleet the way a driver leaves the company: it is retired,
+    # not deleted. Terminated trucks stay in the lists and keep their documents, but
+    # stop raising alerts — nobody needs to renew the inspection on a sold tractor.
+    status: str = Field(default="Active")   # Active | Terminated
+    # Date of the LAST termination; kept when the truck is put back in service, with
+    # the full record in TruckEvent.
+    termination_date: Optional[date] = None
+
     # Relationships
     company: Company = Relationship(back_populates="trucks")
     documents: List["ComplianceDocument"] = Relationship(back_populates="truck")
+    events: List["TruckEvent"] = Relationship(
+        back_populates="truck",
+        sa_relationship_kwargs={"order_by": "TruckEvent.date, TruckEvent.id"},
+    )
+
+
+# Truck.status values, mirroring the driver lifecycle.
+TRUCK_STATUSES = ("Active", "Terminated")
+TRUCK_TERMINATED = "Terminated"
+
+# TruckEvent.kind
+TEV_ADDED = "added"
+TEV_TERMINATED = "terminated"
+TEV_REACTIVATED = "reactivated"
+
+
+class TruckEvent(SQLModel, table=True):
+    """Every time a truck entered or left service, kept forever — the same record the
+    drivers keep. status/termination_date only ever hold the latest value, so a truck
+    taken off the road twice would otherwise lose the first round."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    truck_id: int = Field(foreign_key="truck.id", index=True)
+    kind: str                              # added | terminated | reactivated
+    date: date
+    note: Optional[str] = None
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),
+    )
+
+    truck: Truck = Relationship(back_populates="events")
 
 class ComplianceDocument(SQLModel, table=True):
     """
@@ -438,6 +477,30 @@ class EmployerVerification(SQLModel, table=True):
     )
     received_from: Optional[str] = None  # email address the reply came from (Gmail detect)
     file_path: Optional[str] = None      # generated packet PDF (absolute path)
+
+
+class AlertRead(SQLModel, table=True):
+    """An alert someone has ticked off as seen.
+
+    Alerts are not rows — they are computed from documents and licences every time the
+    list is asked for — so "read" is recorded against a key that describes the alert
+    instead: subject, record, document type and the date it is about. The date
+    matters: when a licence is renewed the alert is about a new date, so it comes back
+    unread rather than staying silently dismissed from a year ago.
+
+    Shared, not per-user: this is a compliance board for one team, and an item someone
+    has already looked at should not go red again for the next person.
+
+    ponytail: rows for alerts that no longer exist are left behind. There are a few
+    hundred at most, and pruning them by "not in the current list" would resurrect
+    everything that merely fell outside the 30-day window."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(sa_column=Column(String, unique=True, index=True, nullable=False))
+    read_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=_utcnow, nullable=False),
+    )
+    read_by_id: Optional[int] = Field(default=None, foreign_key="users.id")
 
 
 class GoogleAccount(SQLModel, table=True):
@@ -604,6 +667,10 @@ class EmploymentItem(BaseModel):
     employer_phone: PhoneStr
     employer_fax: Optional[str] = None
     usdot_number: Optional[str] = None     # carrier USDOT, used for the MOTUS auto-fill
+    # Set when the employer has no USDOT at all — an intrastate or regional carrier,
+    # or a job outside trucking. The number is then not asked for, and the employer
+    # cannot be looked up: the manager fills the verification address by hand.
+    no_usdot: bool = False
     employer_email: Optional[str] = None   # captured from MOTUS; manager can still edit
     start_date: str
     end_date: str

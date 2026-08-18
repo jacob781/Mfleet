@@ -26,6 +26,9 @@ const FineScheduleEditor: React.FC<{ draft: FineSchedule }> = ({ draft }) => {
         <input
           type="number"
           defaultValue={draft.rate_per_point}
+          // Wheel over a focused number field edits it; this table is long enough to
+          // scroll through, so drop focus instead (see ui.tsx TextInput).
+          onWheel={(e) => e.currentTarget.blur()}
           onChange={(e) => { draft.rate_per_point = Number(e.target.value); }}
           className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
         />

@@ -12,6 +12,7 @@ import {
   listTruckDocumentHistory,
   listTruckDocuments,
   listTrucks,
+  getTruck,
   openDocumentInTab,
   updateTruck,
   uploadTruckDocument,
@@ -22,6 +23,7 @@ import {
   type ComplianceDocument,
   type DriverSummary,
   type TruckCreate,
+  type TruckDetail,
   type TruckResponse,
 } from '../../lib/adminTypes';
 import {
@@ -34,6 +36,7 @@ import {
   ReadOnlyField,
   SelectInput,
   Spinner,
+  StatusBadge,
   TextInput,
 } from '../../components/admin/ui';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
@@ -44,7 +47,19 @@ import { DocFilterSelect, parseDocFilter } from '../../components/admin/DocFilte
 import { DocIndicator } from '../../components/admin/DocIndicator';
 import { ListCount, SortHeader, byNumber, byText, useListView } from '../../components/admin/listView';
 import { TRUCK_MAKES } from '../../lib/truckMakes';
-import { maskedRegister } from '../../lib/masks';
+import { isoToUs, maskedRegister } from '../../lib/masks';
+
+const TRUCK_EVENT_LABEL: Record<string, string> = {
+  added: 'Added to fleet',
+  terminated: 'Out of service',
+  reactivated: 'Back in service',
+};
+
+const TRUCK_EVENT_DOT: Record<string, string> = {
+  added: 'bg-green-500',
+  terminated: 'bg-red-500',
+  reactivated: 'bg-blue-500',
+};
 
 // Manager-uploadable truck documents. `typeLabel` matches ComplianceDocument.document_type.
 const TRUCK_DOCS = [
@@ -77,6 +92,26 @@ const TrucksPage: React.FC = () => {
   const [pendingDelete, setPendingDelete] = useState<TruckResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [historyFor, setHistoryFor] = useState<{ docType: string; label: string } | null>(null);
+  const [pendingTerminate, setPendingTerminate] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
+  /** Full record for the open truck — carries the service timeline the list omits. */
+  const [detail, setDetail] = useState<TruckDetail | null>(null);
+
+  // Taking a vehicle off the road is a status flip, not an edit: it saves on its own
+  // and the backend stamps (or clears) the date and writes the timeline entry.
+  const changeStatus = async (next: string) => {
+    if (!viewing) return;
+    setStatusBusy(true);
+    try {
+      const updated = await updateTruck(viewing.id, { status: next });
+      setViewing({ ...viewing, status: updated.status, termination_date: updated.termination_date });
+      setPendingTerminate(false);
+      getTruck(updated.id).then(setDetail).catch(() => {});
+      refresh();
+    } finally {
+      setStatusBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!viewing) { setTruckDocs([]); return; }
@@ -90,7 +125,7 @@ const TrucksPage: React.FC = () => {
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<TruckCreate>({ defaultValues: emptyTruck(0) });
+  } = useForm<TruckCreate & { status?: string }>({ defaultValues: emptyTruck(0) });
 
   // Make: dropdown of common makes + "Other" free-text, mirroring the driver form.
   const make = watch('make') ?? '';
@@ -163,6 +198,8 @@ const TrucksPage: React.FC = () => {
     setShowForm(false);
     setViewing(t);
     setDrawerEditing(false);
+    setDetail(null);
+    getTruck(t.id).then(setDetail).catch(() => setDetail(null));
   };
 
   const toggleDrawerEdit = () => {
@@ -182,7 +219,7 @@ const TrucksPage: React.FC = () => {
     setShowForm(true);
   };
 
-  const onSubmit = async (data: TruckCreate) => {
+  const onSubmit = async (data: TruckCreate & { status?: string }) => {
     setFormError(null);
     const body = {
       ...data,
@@ -193,6 +230,8 @@ const TrucksPage: React.FC = () => {
       owner_driver_id: data.owner_driver_id ? Number(data.owner_driver_id) : null,
       checklist_checked: !!data.checklist_checked,
       checklist_date: data.checklist_date || null,
+      // Only meaningful on an edit; creating always starts Active.
+      ...(viewing && drawerEditing && data.status ? { status: data.status } : {}),
     };
     try {
       if (viewing && drawerEditing) {
@@ -296,6 +335,17 @@ const TrucksPage: React.FC = () => {
             <option value="leased">Leased</option>
           </SelectInput>
         </Field>
+
+        {/* Only shown when editing an existing vehicle: a new one is always Active,
+            and the backend stamps the date and the timeline entry on the change. */}
+        {viewing && drawerEditing && (
+          <Field label="Status">
+            <SelectInput {...register('status')}>
+              <option value="Active">Active</option>
+              <option value="Terminated">Terminated</option>
+            </SelectInput>
+          </Field>
+        )}
         <Field label="Owner" error={errors.owner_driver_id?.message}>
           <SelectInput {...register('owner_driver_id')}>
             <option value="">Company{watch('company_id') ? ` (${companyName(Number(watch('company_id')))})` : ''}</option>
@@ -414,7 +464,7 @@ const TrucksPage: React.FC = () => {
                 <SortHeader label="Company" col="company" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">Documents</th>
                 <th className="px-4 py-3">Checklist</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -448,20 +498,8 @@ const TrucksPage: React.FC = () => {
                   <td className="px-4 py-3">
                     <ChecklistCell checked={t.checklist_checked} date={t.checklist_date} />
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      title="Delete"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPendingDelete(t);
-                      }}
-                      className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-red-50 hover:text-red-600"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
-                      </svg>
-                    </button>
+                  <td className="px-4 py-3">
+                    <StatusBadge value={t.status || 'Active'} />
                   </td>
                 </tr>
               ))}
@@ -549,15 +587,62 @@ const TrucksPage: React.FC = () => {
                 })}
               </div>
             </div>
+
+            {!!detail?.events?.length && (
+              <div>
+                <h3 className="mb-2 mt-2 text-sm font-semibold text-mfleet-gray-dark">
+                  Service history
+                </h3>
+                <ol className="flex flex-col gap-1.5">
+                  {detail.events.map((e) => (
+                    <li key={e.id} className="flex items-center gap-2 text-sm">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${TRUCK_EVENT_DOT[e.kind] ?? 'bg-gray-400'}`} />
+                      <span className="w-24 shrink-0 tabular-nums text-mfleet-gray">{isoToUs(e.date)}</span>
+                      <span className="text-mfleet-gray-dark">{TRUCK_EVENT_LABEL[e.kind] ?? e.kind}</span>
+                      {e.note && <span className="text-xs text-mfleet-gray">— {e.note}</span>}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {/* Leaving the fleet and erasing the record are different things, so they
+                live apart from the form and away from the row click. */}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-4">
+              {viewing.status === 'Terminated' ? (
+                <Button variant="secondary" onClick={() => changeStatus('Active')} disabled={statusBusy}>
+                  {statusBusy ? <Spinner className="h-4 w-4" /> : 'Return to service'}
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => setPendingTerminate(true)} disabled={statusBusy}>
+                  Terminate vehicle
+                </Button>
+              )}
+              <Button variant="danger" onClick={() => setPendingDelete(viewing)} disabled={statusBusy}>
+                Delete permanently
+              </Button>
+            </div>
           </div>
         )}
       </Drawer>
 
       <ConfirmDialog
+        open={pendingTerminate}
+        title="Take this vehicle out of service?"
+        message={viewing
+          ? `${viewing.make} ${viewing.year} (${viewing.plate_number}) stays in the list with all its documents, but stops raising alerts. You can put it back at any time.`
+          : ''}
+        confirmLabel="Terminate"
+        busy={statusBusy}
+        onConfirm={() => changeStatus('Terminated')}
+        onCancel={() => setPendingTerminate(false)}
+      />
+
+      <ConfirmDialog
         open={!!pendingDelete}
         title="Delete vehicle?"
         message={pendingDelete
-          ? `${pendingDelete.make} ${pendingDelete.year} (${pendingDelete.plate_number}) will be permanently removed, along with its documents and their files.`
+          ? `${pendingDelete.make} ${pendingDelete.year} (${pendingDelete.plate_number}) will be erased for good, along with its documents and their files.\n\nTo keep the record, terminate it instead.`
           : ''}
         // The VIN, not the plate: plates get reassigned, the VIN identifies this
         // exact vehicle — and it is long enough that nobody deletes one by reflex.

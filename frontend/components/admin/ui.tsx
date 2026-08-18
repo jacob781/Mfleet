@@ -78,11 +78,24 @@ export const Field: React.FC<FieldProps> = ({
 export const inputBase =
   'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-mfleet-gray-dark placeholder-gray-400 focus:border-mfleet-blue focus:outline-none focus:ring-1 focus:ring-mfleet-blue';
 
+/** Scrolling over a focused <input type="number"> silently changes its value — a
+ *  trackpad makes that trivially easy, and a percentage or a fee is exactly the kind
+ *  of field nobody re-reads after scrolling past it. Dropping focus on wheel is the
+ *  standard cure: the page scrolls, the number does not. */
+const numberSafeWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+  if (e.currentTarget.type === 'number') e.currentTarget.blur();
+};
+
 export const TextInput = React.forwardRef<
   HTMLInputElement,
   React.InputHTMLAttributes<HTMLInputElement>
->(({ className, ...props }, ref) => (
-  <input ref={ref} className={cn(inputBase, className)} {...props} />
+>(({ className, onWheel, ...props }, ref) => (
+  <input
+    ref={ref}
+    className={cn(inputBase, className)}
+    onWheel={(e) => { numberSafeWheel(e); onWheel?.(e); }}
+    {...props}
+  />
 ));
 TextInput.displayName = 'TextInput';
 

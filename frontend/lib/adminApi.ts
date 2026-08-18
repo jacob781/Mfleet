@@ -17,7 +17,9 @@ import type {
   MotusLookupResponse,
   Token,
   TruckCreate,
+  TruckDetail,
   TruckResponse,
+  TruckUpdate,
   UserCreate,
   UserResponse,
   UserUpdate,
@@ -219,6 +221,10 @@ export function listCompanies(hasLicense?: boolean): Promise<CompanyResponse[]> 
   return request(`/api/companies${hasLicense == null ? '' : `?has_license=${hasLicense}`}`);
 }
 
+export function getCompany(id: number): Promise<CompanyResponse> {
+  return request(`/api/companies/${id}`);
+}
+
 export function createCompany(body: CompanyCreate): Promise<CompanyResponse> {
   return jsonRequest('/api/companies', 'POST', body);
 }
@@ -293,6 +299,24 @@ export function listTruckDocuments(id: number): Promise<ComplianceDocument[]> {
 export function listAlerts(days?: number): Promise<AlertItem[]> {
   const qs = days != null ? `?days=${days}` : '';
   return request(`/api/compliance/alerts${qs}`);
+}
+
+/** Tick alerts off the board — shared, so everyone sees them as read. */
+export function markAlertsRead(keys: string[]): Promise<void> {
+  return jsonRequest('/api/compliance/alerts/read', 'POST', { keys }).then(() => undefined);
+}
+
+export function markAllAlertsRead(): Promise<void> {
+  return jsonRequest('/api/compliance/alerts/read', 'POST', { all: true }).then(() => undefined);
+}
+
+/** Undo: put them back as new. */
+export function markAlertsUnread(keys: string[]): Promise<void> {
+  return request('/api/compliance/alerts/read', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keys }),
+  }).then(() => undefined);
 }
 
 // Files (compliance docs, application uploads) are JWT-protected — fetch with the
@@ -449,6 +473,10 @@ export async function exportXlsx(
 
 // --- Trucks ----------------------------------------------------------------
 
+export function getTruck(id: number): Promise<TruckDetail> {
+  return request(`/api/trucks/${id}`);
+}
+
 export function listTrucks(
   companyId?: number, checklist?: boolean, doc?: DocFilter,
 ): Promise<TruckResponse[]> {
@@ -475,7 +503,7 @@ export function createTruck(body: TruckCreate): Promise<TruckResponse> {
   return jsonRequest('/api/trucks', 'POST', body);
 }
 
-export function updateTruck(id: number, body: Partial<TruckCreate>): Promise<TruckResponse> {
+export function updateTruck(id: number, body: TruckUpdate): Promise<TruckResponse> {
   return jsonRequest(`/api/trucks/${id}`, 'PATCH', body);
 }
 

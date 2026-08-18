@@ -124,8 +124,9 @@ const DriverPortal: React.FC = () => {
 
   const goNext = async () => {
     const fields = [...STEP_FIELDS[step]];
-    // Owner-operators must pick an IFTA filing choice on the Agreements step.
-    if (step === 5 && isOwner) fields.push('ifta_choice');
+    // Owner-operators must pick an IFTA filing choice on the Agreements step, and
+    // must have listed the truck the contract is written around.
+    if (step === 5 && isOwner) fields.push('ifta_choice', 'equipment');
     // Owner-operators: require each truck's inspection/registration expiry before leaving Documents.
     if (step === 8 && isOwner) fields.push('truck_document_expiries');
     const ok = fields.length ? await methods.trigger(fields as any) : true;

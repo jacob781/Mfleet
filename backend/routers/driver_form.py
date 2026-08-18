@@ -44,6 +44,10 @@ from routers.compliance import current_docs, upsert_version
 from rate_limit import limiter
 from schemas import MotusLookupResponse
 
+# Fewest prior employers an application is accepted with — mirrored in the wizard
+# (see Step4Work); the form can be bypassed by calling this endpoint directly.
+MIN_EMPLOYERS = 2
+
 router = APIRouter(prefix="/api/form", tags=["Driver Form"])
 
 _FILLABLE_STATUSES = {"pending_driver", "draft"}
@@ -381,14 +385,35 @@ def submit_form(
             detail=[{"loc": ["ifta_choice"], "msg": "Fuel tax filing choice is required"}],
         )
 
-    # Every prior employer needs a USDOT number (used for the MOTUS auto-fill).
+    # At least two prior employers: one entry cannot establish an employment record,
+    # and the whole verification step (49 CFR 391.23) is built on this list.
+    if len(validated.employment_history or []) < MIN_EMPLOYERS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["employment_history"],
+                     "msg": f"List at least {MIN_EMPLOYERS} previous employers"}],
+        )
+
+    # A USDOT number unless the driver said there is none — plenty of intrastate and
+    # regional carriers have no DOT number, and a previous job need not be trucking at
+    # all. Without it the MOTUS auto-fill simply does not run for that employer.
     for idx, emp in enumerate(validated.employment_history or []):
+        if emp.no_usdot:
+            continue
         if not (emp.usdot_number or "").strip():
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=[{"loc": ["employment_history", idx, "usdot_number"],
-                         "msg": "USDOT number is required"}],
+                         "msg": "Enter a USDOT number, or tick 'No USDOT number'"}],
             )
+
+    # An owner-operator without a truck is not an owner-operator: the lease agreement
+    # and the per-truck uploads are both written around this list.
+    if app.driver_is_owner and not (validated.equipment or []):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["equipment"], "msg": "Add at least one truck"}],
+        )
 
     # Owner-operators: each truck must have its annual inspection + registration
     # uploaded (file) and an expiry set.

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import {
   createCompany,
@@ -17,18 +18,15 @@ import {
   normalizeCompany,
   type CompanyCreate,
   type CompanyResponse,
-  type FineSchedule,
-  type FeesSchedule,
 } from '../../lib/adminTypes';
 import CompanyFields from '../../components/admin/CompanyFields';
 import ManagerDocUpload from '../../components/admin/ManagerDocUpload';
-import FineScheduleEditor from '../../components/admin/FineScheduleEditor';
-import FeesScheduleEditor from '../../components/admin/FeesScheduleEditor';
 import { Button, Card, CopyButton, Drawer, EditButton, ReadOnlyField, SelectInput, Spinner, TextInput } from '../../components/admin/ui';
 import { ListCount, SortHeader, byText, useListView } from '../../components/admin/listView';
 import { isoToUs } from '../../lib/masks';
 
 const CompaniesPage: React.FC = () => {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -40,47 +38,7 @@ const CompaniesPage: React.FC = () => {
   /** What a cascade delete would take with it — loaded when the dialog opens. */
   const [collateral, setCollateral] = useState<{ drivers: string[]; trucks: string[] } | null>(null);
   const [typedName, setTypedName] = useState('');
-  const [editingFines, setEditingFines] = useState<CompanyResponse | null>(null);
-  const [savingFines, setSavingFines] = useState(false);
-  const fineDraft = useRef<FineSchedule | null>(null);
 
-  const openFines = (c: CompanyResponse) => {
-    fineDraft.current = c.fine_schedule ? JSON.parse(JSON.stringify(c.fine_schedule)) : null;
-    setEditingFines(c);
-  };
-
-  const saveFines = async () => {
-    if (!editingFines || !fineDraft.current) return;
-    setSavingFines(true);
-    try {
-      await updateCompany(editingFines.id, { fine_schedule: fineDraft.current });
-      setEditingFines(null);
-      refresh();
-    } finally {
-      setSavingFines(false);
-    }
-  };
-
-  const [editingFees, setEditingFees] = useState<CompanyResponse | null>(null);
-  const [savingFees, setSavingFees] = useState(false);
-  const feesDraft = useRef<FeesSchedule | null>(null);
-
-  const openFees = (c: CompanyResponse) => {
-    feesDraft.current = c.fees_schedule ? JSON.parse(JSON.stringify(c.fees_schedule)) : null;
-    setEditingFees(c);
-  };
-
-  const saveFees = async () => {
-    if (!editingFees || !feesDraft.current) return;
-    setSavingFees(true);
-    try {
-      await updateCompany(editingFees.id, { fees_schedule: feesDraft.current });
-      setEditingFees(null);
-      refresh();
-    } finally {
-      setSavingFees(false);
-    }
-  };
 
   const {
     register,
@@ -255,47 +213,7 @@ const CompaniesPage: React.FC = () => {
         </Card>
       )}
 
-      {editingFines && (
-        <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-mfleet-gray-dark">
-              Fine schedule — {editingFines.name}
-            </h2>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setEditingFines(null)}>Cancel</Button>
-              <Button onClick={saveFines} disabled={savingFines}>
-                {savingFines ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
-              </Button>
-            </div>
-          </div>
-          {fineDraft.current ? (
-            <FineScheduleEditor key={editingFines.id} draft={fineDraft.current} />
-          ) : (
-            <p className="text-sm text-mfleet-gray">This company has no fine schedule yet.</p>
-          )}
-        </Card>
-      )}
 
-      {editingFees && (
-        <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-mfleet-gray-dark">
-              Fines &amp; fees schedule — {editingFees.name}
-            </h2>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setEditingFees(null)}>Cancel</Button>
-              <Button onClick={saveFees} disabled={savingFees}>
-                {savingFees ? <Spinner className="h-4 w-4 text-white" /> : 'Save'}
-              </Button>
-            </div>
-          </div>
-          {feesDraft.current ? (
-            <FeesScheduleEditor key={editingFees.id} draft={feesDraft.current} />
-          ) : (
-            <p className="text-sm text-mfleet-gray">This company has no fees schedule yet.</p>
-          )}
-        </Card>
-      )}
 
       <Card className="overflow-x-auto">
         {loading ? (
@@ -318,9 +236,8 @@ const CompaniesPage: React.FC = () => {
                 <th className="px-4 py-3">MC</th>
                 <SortHeader label="Location" col="location" sort={sort} onSort={toggleSort} />
                 <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Fines</th>
-                <th className="px-4 py-3">Fees</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3">EIN</th>
+                <th className="px-4 py-3">Email</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -351,41 +268,13 @@ const CompaniesPage: React.FC = () => {
                     {c.phone || '—'}
                     {c.phone && <CopyButton text={c.phone} />}
                   </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openFines(c);
-                      }}
-                      className="text-sm font-medium text-mfleet-blue underline"
-                    >
-                      Edit fines
-                    </button>
+                  <td className="px-4 py-3 text-mfleet-gray">
+                    {c.ein || '—'}
+                    {c.ein && <CopyButton text={c.ein} />}
                   </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openFees(c);
-                      }}
-                      className="text-sm font-medium text-mfleet-blue underline"
-                    >
-                      Edit fees
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      title="Delete"
-                      onClick={(e) => { e.stopPropagation(); askDelete(c); }}
-                      className="rounded-lg p-1.5 text-mfleet-gray transition-colors hover:bg-red-50 hover:text-red-600"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
-                      </svg>
-                    </button>
+                  <td className="px-4 py-3 text-mfleet-gray">
+                    {c.email || '—'}
+                    {c.email && <CopyButton text={c.email} />}
                   </td>
                 </tr>
               ))}
@@ -497,6 +386,37 @@ const CompaniesPage: React.FC = () => {
                 refresh();
               }}
             />
+
+            {/* The two contract schedules are settings of this company, not columns of
+                a list, and each opens on a page of its own — the standard fine table
+                runs to ~100 rows, which no drawer or dialog holds comfortably. */}
+            <h3 className="mb-2 mt-6 text-sm font-semibold text-mfleet-gray-dark">
+              Contract schedules
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/admin/companies/${viewing.id}/schedule/fines`)}
+              >
+                Fine schedule (Schedule A)
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/admin/companies/${viewing.id}/schedule/fees`)}
+              >
+                Fines &amp; fees schedule
+              </Button>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between gap-2 border-t border-gray-200 pt-4">
+              <p className="text-sm text-mfleet-gray">
+                Deleting a company also decides what happens to its drivers, vehicles
+                and applications.
+              </p>
+              <Button variant="danger" onClick={() => askDelete(viewing)}>
+                Delete company
+              </Button>
+            </div>
           </div>
         )}
       </Drawer>
